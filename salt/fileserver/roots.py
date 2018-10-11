@@ -309,9 +309,9 @@ def _file_lists(load, form):
         salt.fileserver.check_file_list_cache(
             __opts__, form, list_cache, w_lock
         )
+    log.error("REFRESH CACHE IS TRUE %s %s", cache_match, refresh_cache)
     if cache_match is not None:
         return cache_match
-    log.error("REFRESH CACHE IS TRUE %s", refresh_cache)
     if refresh_cache:
         ret = {
             'files': set(),
