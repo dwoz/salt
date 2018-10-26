@@ -715,15 +715,21 @@ class SaltTestsuiteParser(SaltCoverageTestingParser):
                                                  suffix=os.path.basename(name),
                                                  load_from_name=False)
                         status.append(results)
+                        if self.options.failfast and False in status:
+                            break
                         continue
                     if name.startswith(('tests.unit.', 'unit.')):
                         continue
                     results = self.run_suite('', name, suffix='test_*.py', load_from_name=True)
                     status.append(results)
+                    if self.options.failfast and False in status:
+                        break
                 return status
             for suite in TEST_SUITES:
                 if suite != 'unit' and getattr(self.options, suite):
                     status.append(self.run_integration_suite(**TEST_SUITES[suite]))
+                    if self.options.failfast and False in status:
+                        break
         return status
 
     def run_unit_tests(self):
@@ -774,14 +780,20 @@ def main():
             tests_logfile=os.path.join(SYS_TMP_DIR, 'salt-runtests.log')
         )
         parser.parse_args()
+        def should_continue(parser, status):
+            if parser.options.failfast:
+                if False in status:
+                    return False
+            return True
 
         overall_status = []
         if parser.options.interactive:
             parser.start_daemons_only()
         status = parser.run_integration_tests()
         overall_status.extend(status)
-        status = parser.run_unit_tests()
-        overall_status.extend(status)
+        if should_continue(parser, overall_status):
+            status = parser.run_unit_tests()
+            overall_status.extend(status)
         false_count = overall_status.count(False)
 
         if false_count > 0:
