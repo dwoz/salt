@@ -241,25 +241,25 @@ class ThreadPool(object):
             return False
 
     def _thread_target(self):
-        while True:
-            # 1s timeout so that if the parent dies this thread will die within 1s
-            try:
+        try:
+            while True:
+                # 1s timeout so that if the parent dies this thread will die within 1s
                 try:
                     func, args, kwargs = self._job_queue.get(timeout=1)
                     self._job_queue.task_done()  # Mark the task as done once we get it
                 except queue.Empty:
                     continue
-            except AttributeError:
-                # During shutdown, `queue` may not have an `Empty` atttribute. Thusly,
-                # we have to catch a possible exception from our exception handler in
-                # order to avoid an unclean shutdown. Le sigh.
-                continue
-            try:
+                except AttributeError:
+                    # During shutdown, `queue` may not have an `Empty` atttribute. Thusly,
+                    # we have to catch a possible exception from our exception handler in
+                    # order to avoid an unclean shutdown. Le sigh.
+                    continue
                 log.debug('ThreadPool executing func: {0} with args:{1}'
                           ' kwargs{2}'.format(func, args, kwargs))
                 func(*args, **kwargs)
-            except Exception as err:
-                log.debug(err, exc_info=True)
+        except Exception as exc:
+            log.exception("unhandled exception in _thread_target")
+            raise
 
 
 class ProcessManager(object):
