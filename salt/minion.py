@@ -2386,7 +2386,7 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
-        log.debug("_handle_payload %s %s", start, repr(payload)[:100])
+        log.debug("_handle_payload %s", repr(payload)[:100])
         if payload is not None and payload['enc'] == 'aes':
             if self._target_load(payload['load']):
                 self._handle_decoded_payload(payload['load'])
