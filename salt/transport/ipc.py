@@ -170,6 +170,7 @@ class IPCServer(object):
             encoding = 'utf-8'
         unpacker = msgpack.Unpacker(encoding=encoding)
         while not stream.closed():
+            framed_message = None
             try:
                 wire_bytes = yield stream.read_bytes(4096, partial=True)
                 unpacker.feed(wire_bytes)
@@ -177,14 +178,18 @@ class IPCServer(object):
                     body = framed_msg['body']
                     self.io_loop.spawn_callback(self.payload_handler, body, write_callback(stream, framed_msg['head']))
             except tornado.iostream.StreamClosedError:
-                log.trace('Client disconnected '
-                          'from IPC {0}'.format(self.socket_path))
+                try:
+                    unpk = list(unpacker)
+                except:
+                    unpk = None
+                log.debug('Client disconnected '
+                          'from IPC %s %s', self.socket_path, unpk)
                 break
             except socket.error as exc:
                 # On occasion an exception will occur with
                 # an error code of 0, it's a spurious exception.
                 if exc.errno == 0:
-                    log.trace('Exception occured with error number 0, '
+                    log.debug('Exception occured with error number 0, '
                               'spurious exception: {0}'.format(exc))
                 else:
                     log.error('Exception occurred while '
@@ -523,7 +528,7 @@ class IPCMessagePublisher(object):
         try:
             yield stream.write(pack)
         except tornado.iostream.StreamClosedError:
-            log.trace('Client disconnected from IPC {0}'.format(self.socket_path))
+            log.debug('Client disconnected from IPC {0}'.format(self.socket_path))
             self.streams.discard(stream)
         except Exception as exc:
             log.error('Exception occurred while handling stream: {0}'.format(exc))
@@ -666,7 +671,7 @@ class IPCMessageSubscriber(IPCClient):
             # Keep 'self._read_stream_future' alive.
             ret = None
         except tornado.iostream.StreamClosedError as exc:
-            log.trace('Subscriber disconnected from IPC {0}'.format(self.socket_path))
+            log.debug('Subscriber disconnected from IPC {0}'.format(self.socket_path))
             self._read_stream_future = None
             exc_to_raise = exc
         except Exception as exc:
@@ -718,7 +723,7 @@ class IPCMessageSubscriber(IPCClient):
                     body = framed_msg['body']
                     self.io_loop.spawn_callback(callback, body)
             except tornado.iostream.StreamClosedError:
-                log.trace('Subscriber disconnected from IPC {0}'.format(self.socket_path))
+                log.debug('Subscriber disconnected from IPC {0}'.format(self.socket_path))
                 break
             except Exception as exc:
                 log.error('Exception occurred while Subscriber handling stream: {0}'.format(exc))
@@ -734,7 +739,7 @@ class IPCMessageSubscriber(IPCClient):
             try:
                 yield self.connect(timeout=5)
             except tornado.iostream.StreamClosedError:
-                log.trace('Subscriber closed stream on IPC {0} before connect'.format(self.socket_path))
+                log.debug('Subscriber closed stream on IPC {0} before connect'.format(self.socket_path))
                 yield tornado.gen.sleep(1)
             except Exception as exc:
                 log.error('Exception occurred while Subscriber connecting: {0}'.format(exc))
