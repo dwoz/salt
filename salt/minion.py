@@ -383,7 +383,7 @@ class MinionBase(object):
                 )
         except Exception as exc:
             log.error(
-                'Exception {0} occurred in scheduled job'.format(exc)
+                'Exception %s occurred in scheduled job', exc
             )
         return loop_interval
 
@@ -1411,7 +1411,7 @@ class Minion(MinionBase):
                 else:
                     Minion._thread_return(minion_instance, opts, data)
         except Exception as exc:
-            log.exception("Exception running _target method
+            log.exception("Exception running _target method")
 
     @classmethod
     def _thread_return(cls, minion_instance, opts, data):
