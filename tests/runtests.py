@@ -797,18 +797,11 @@ def main():
         false_count = overall_status.count(False)
         import zipfile
         zfp = zipfile.ZipFile('c:\\logs', 'w')
-        with zfp.open('minion', 'w') as dst:
-            with open('c:\\minion', 'r') as src:
-                dst.write(src.read())
-        with zfp.open('master', 'w') as dst:
-            with open('c:\\master', 'r') as src:
-                dst.write(src.read())
-        with zfp.open('sub_minion', 'w') as dst:
-            with open('c:\\sub_minion', 'r') as src:
-                dst.write(src.read())
-        with zfp.open('syndic', 'w') as dst:
-            with open('c:\\syndic', 'r') as src:
-                dst.write(src.read())
+        zfp.write('c:\\minion')
+        zfp.write('c:\\master')
+        zfp.write('c:\\sub_minion')
+        zfp.write('c:\\syndic')
+        zfp.close()
         os.remove('c:\\salt\\var\\log\\salt\\minion')
         os.move('c:\\logs', 'c:\\salt\\var\\log\\salt\\minion')
         if false_count > 0:
