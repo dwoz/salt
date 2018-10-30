@@ -7,6 +7,6 @@ syndic_log_file: syndic.log
 syndic_pidfile: syndic.pid
 tcp_pub_port: 64510
 tcp_pull_port: 64511
-log_file: c:\\syndic.log
+log_file: c:\\syndic
 log_fmt: '[%(asctime)s.%(msecs)s] %(colorlevel)s%(colorname)s%(colorprocess)s %(funcName)s() L%(lineno)s %(processName)s %(message)s'
 log_level_logfile: debug
