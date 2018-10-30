@@ -8,7 +8,7 @@ tcp_pull_port: 64521
 sock_dir: sub_minion_sock
 id: sub_minion
 open_mode: True
-log_file: sub_minion.log
+log_file: c:\\sub_minion.log
 log_level_logfile: debug
 pidfile: sub_minion.pid
 

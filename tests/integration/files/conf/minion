@@ -9,7 +9,7 @@ sock_dir: minion_sock
 id: minion
 open_mode: True
 # Overwrite local minion's log for now
-log_file: c:\\salt\\var\\log\\salt\\minion
+log_file: c:\\minion
 log_level_logfile: debug
 pidfile: minion.pid
 
