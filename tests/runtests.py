@@ -803,7 +803,7 @@ def main():
         zfp.write('c:\\syndic')
         zfp.close()
         os.remove('c:\\salt\\var\\log\\salt\\minion')
-        os.move('c:\\logs', 'c:\\salt\\var\\log\\salt\\minion')
+        os.rename('c:\\logs', 'c:\\salt\\var\\log\\salt\\minion')
         if false_count > 0:
             parser.finalize(1)
         parser.finalize(0)
