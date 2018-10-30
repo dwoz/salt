@@ -862,46 +862,49 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
 
         :param dict load: A load to be sent across the wire to minions
         '''
-        payload = {'enc': 'aes'}
+        try:
+            payload = {'enc': 'aes'}
 
-        crypticle = salt.crypt.Crypticle(self.opts, salt.master.SMaster.secrets['aes']['secret'].value)
-        payload['load'] = crypticle.dumps(load)
-        if self.opts['sign_pub_messages']:
-            master_pem_path = os.path.join(self.opts['pki_dir'], 'master.pem')
-            log.debug("Signing data packet")
-            payload['sig'] = salt.crypt.sign_message(master_pem_path, payload['load'])
-        # Send 0MQ to the publisher
-        context = zmq.Context(1)
-        pub_sock = context.socket(zmq.PUSH)
-        if self.opts.get('ipc_mode', '') == 'tcp':
-            pull_uri = 'tcp://127.0.0.1:{0}'.format(
-                self.opts.get('tcp_master_publish_pull', 4514)
-                )
-        else:
-            pull_uri = 'ipc://{0}'.format(
-                os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
-                )
-        pub_sock.connect(pull_uri)
-        int_payload = {'payload': self.serial.dumps(payload)}
+            crypticle = salt.crypt.Crypticle(self.opts, salt.master.SMaster.secrets['aes']['secret'].value)
+            payload['load'] = crypticle.dumps(load)
+            if self.opts['sign_pub_messages']:
+                master_pem_path = os.path.join(self.opts['pki_dir'], 'master.pem')
+                log.debug("Signing data packet")
+                payload['sig'] = salt.crypt.sign_message(master_pem_path, payload['load'])
+            # Send 0MQ to the publisher
+            context = zmq.Context(1)
+            pub_sock = context.socket(zmq.PUSH)
+            if self.opts.get('ipc_mode', '') == 'tcp':
+                pull_uri = 'tcp://127.0.0.1:{0}'.format(
+                    self.opts.get('tcp_master_publish_pull', 4514)
+                    )
+            else:
+                pull_uri = 'ipc://{0}'.format(
+                    os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
+                    )
+            pub_sock.connect(pull_uri)
+            int_payload = {'payload': self.serial.dumps(payload)}
 
-        # add some targeting stuff for lists only (for now)
-        if load['tgt_type'] == 'list':
-            int_payload['topic_lst'] = load['tgt']
+            # add some targeting stuff for lists only (for now)
+            if load['tgt_type'] == 'list':
+                int_payload['topic_lst'] = load['tgt']
 
-        # If zmq_filtering is enabled, target matching has to happen master side
-        match_targets = ["pcre", "glob", "list"]
-        if self.opts['zmq_filtering'] and load['tgt_type'] in match_targets:
-            # Fetch a list of minions that match
-            match_ids = self.ckminions.check_minions(load['tgt'],
-                                                     tgt_type=load['tgt_type'])
+            # If zmq_filtering is enabled, target matching has to happen master side
+            match_targets = ["pcre", "glob", "list"]
+            if self.opts['zmq_filtering'] and load['tgt_type'] in match_targets:
+                # Fetch a list of minions that match
+                match_ids = self.ckminions.check_minions(load['tgt'],
+                                                         tgt_type=load['tgt_type'])
 
-            log.debug("Publish Side Match: {0}".format(match_ids))
-            # Send list of miions thru so zmq can target them
-            int_payload['topic_lst'] = match_ids
+                log.debug("Publish Side Match: {0}".format(match_ids))
+                # Send list of miions thru so zmq can target them
+                int_payload['topic_lst'] = match_ids
 
-        pub_sock.send(self.serial.dumps(int_payload))
-        pub_sock.close()
-        context.term()
+            pub_sock.send(self.serial.dumps(int_payload))
+            pub_sock.close()
+            context.term()
+        except:
+            log.exception("Exception while publishing %s", repr(load)[:100])
 
 
 class AsyncReqMessageClientPool(salt.transport.MessageClientPool):

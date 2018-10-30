@@ -306,6 +306,7 @@ def get_load(jid):
             with salt.utils.fopen(minions_path, 'rb') as rfh:
                 all_minions.update(serial.load(rfh))
         except IOError as exc:
+            log.exception("Process read exc %s", str(exc))
             salt.utils.files.process_read_exception(exc, minions_path)
 
     if all_minions:
@@ -415,6 +416,7 @@ def clean_old_jobs():
                 f_path = os.path.join(t_path, final)
                 jid_file = os.path.join(f_path, 'jid')
                 if not os.path.isfile(jid_file) and os.path.exists(t_path):
+                    log.debug("CLEAN JOB %s %s", jid_file, t_path_dirs)
                     # No jid file means corrupted cache entry, scrub it
                     # by removing the entire t_path directory
                     shutil.rmtree(t_path)
