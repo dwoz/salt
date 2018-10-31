@@ -90,6 +90,7 @@ class StdTest(ModuleCase):
         cmd_batch = self.client.cmd_batch(
             'minion',
             'test.ping',
+            timeout=90,
         )
         for ret in cmd_batch:
             self.assertTrue(ret['minion'])
@@ -102,6 +103,7 @@ class StdTest(ModuleCase):
             'minion',
             'test.ping',
             raw=True,
+            timeout=90,
         )
         for ret in cmd_batch:
             self.assertTrue(ret['data']['success'])
@@ -113,6 +115,7 @@ class StdTest(ModuleCase):
         ret = self.client.cmd_full_return(
                 'minion',
                 'test.ping',
+                timeout=90,
                 )
         self.assertIn('minion', ret)
         self.assertEqual({'ret': True, 'success': True}, ret['minion'])
