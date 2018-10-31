@@ -762,89 +762,100 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         _set_tcp_keepalive(pub_sock, self.opts)
         # if 2.1 >= zmq < 3.0, we only have one HWM setting
         try:
-            pub_sock.setsockopt(zmq.HWM, self.opts.get('pub_hwm', 1000))
-        # in zmq >= 3.0, there are separate send and receive HWM settings
-        except AttributeError:
-            # Set the High Water Marks. For more information on HWM, see:
-            # http://api.zeromq.org/4-1:zmq-setsockopt
-            pub_sock.setsockopt(zmq.SNDHWM, self.opts.get('pub_hwm', 1000))
-            pub_sock.setsockopt(zmq.RCVHWM, self.opts.get('pub_hwm', 1000))
-        if self.opts['ipv6'] is True and hasattr(zmq, 'IPV4ONLY'):
-            # IPv6 sockets work for both IPv6 and IPv4 addresses
-            pub_sock.setsockopt(zmq.IPV4ONLY, 0)
-        pub_sock.setsockopt(zmq.BACKLOG, self.opts.get('zmq_backlog', 1000))
-        pub_uri = 'tcp://{interface}:{publish_port}'.format(**self.opts)
-        # Prepare minion pull socket
-        pull_sock = context.socket(zmq.PULL)
+            salt.utils.appendproctitle(self.__class__.__name__)
+            # Set up the context
+            context = zmq.Context(1)
+            # Prepare minion publish socket
+            pub_sock = context.socket(zmq.PUB)
+            _set_tcp_keepalive(pub_sock, self.opts)
+            # if 2.1 >= zmq < 3.0, we only have one HWM setting
+            try:
+                pub_sock.setsockopt(zmq.HWM, self.opts.get('pub_hwm', 1000))
+            # in zmq >= 3.0, there are separate send and receive HWM settings
+            except AttributeError:
+                # Set the High Water Marks. For more information on HWM, see:
+                # http://api.zeromq.org/4-1:zmq-setsockopt
+                pub_sock.setsockopt(zmq.SNDHWM, self.opts.get('pub_hwm', 1000))
+                pub_sock.setsockopt(zmq.RCVHWM, self.opts.get('pub_hwm', 1000))
+            if self.opts['ipv6'] is True and hasattr(zmq, 'IPV4ONLY'):
+                # IPv6 sockets work for both IPv6 and IPv4 addresses
+                pub_sock.setsockopt(zmq.IPV4ONLY, 0)
+            pub_sock.setsockopt(zmq.BACKLOG, self.opts.get('zmq_backlog', 1000))
+            pub_uri = 'tcp://{interface}:{publish_port}'.format(**self.opts)
+            # Prepare minion pull socket
+            pull_sock = context.socket(zmq.PULL)
 
-        if self.opts.get('ipc_mode', '') == 'tcp':
-            pull_uri = 'tcp://127.0.0.1:{0}'.format(
-                self.opts.get('tcp_master_publish_pull', 4514)
-                )
-        else:
-            pull_uri = 'ipc://{0}'.format(
-                os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
-                )
-        salt.utils.zeromq.check_ipc_path_max_len(pull_uri)
+            if self.opts.get('ipc_mode', '') == 'tcp':
+                pull_uri = 'tcp://127.0.0.1:{0}'.format(
+                    self.opts.get('tcp_master_publish_pull', 4514)
+                    )
+            else:
+                pull_uri = 'ipc://{0}'.format(
+                    os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
+                    )
+            salt.utils.zeromq.check_ipc_path_max_len(pull_uri)
 
-        # Start the minion command publisher
-        log.info('Starting the Salt Publisher on {0}'.format(pub_uri))
-        pub_sock.bind(pub_uri)
+            # Start the minion command publisher
+            log.info('Starting the Salt Publisher on {0}'.format(pub_uri))
+            pub_sock.bind(pub_uri)
 
-        # Securely create socket
-        log.info('Starting the Salt Puller on {0}'.format(pull_uri))
-        with salt.utils.files.set_umask(0o177):
-            pull_sock.bind(pull_uri)
+            # Securely create socket
+            log.info('Starting the Salt Puller on {0}'.format(pull_uri))
+            with salt.utils.files.set_umask(0o177):
+                pull_sock.bind(pull_uri)
 
-        try:
-            while True:
-                # Catch and handle EINTR from when this process is sent
-                # SIGUSR1 gracefully so we don't choke and die horribly
-                try:
-                    log.trace('Getting data from puller %s', pull_uri)
-                    package = pull_sock.recv()
-                    unpacked_package = salt.payload.unpackage(package)
-                    if six.PY3:
-                        unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
-                    payload = unpacked_package['payload']
-                    log.trace('Accepted unpacked package from puller')
-                    if self.opts['zmq_filtering']:
-                        # if you have a specific topic list, use that
-                        if 'topic_lst' in unpacked_package:
-                            for topic in unpacked_package['topic_lst']:
-                                log.trace('Sending filtered data over publisher %s', pub_uri)
-                                # zmq filters are substring match, hash the topic
-                                # to avoid collisions
-                                htopic = hashlib.sha1(topic).hexdigest()
-                                pub_sock.send(htopic, flags=zmq.SNDMORE)
+            try:
+                while True:
+                    # Catch and handle EINTR from when this process is sent
+                    # SIGUSR1 gracefully so we don't choke and die horribly
+                    try:
+                        log.trace('Getting data from puller %s', pull_uri)
+                        package = pull_sock.recv()
+                        unpacked_package = salt.payload.unpackage(package)
+                        if six.PY3:
+                            unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
+                        payload = unpacked_package['payload']
+                        log.trace('Accepted unpacked package from puller')
+                        if self.opts['zmq_filtering']:
+                            # if you have a specific topic list, use that
+                            if 'topic_lst' in unpacked_package:
+                                for topic in unpacked_package['topic_lst']:
+                                    log.trace('Sending filtered data over publisher %s', pub_uri)
+                                    # zmq filters are substring match, hash the topic
+                                    # to avoid collisions
+                                    htopic = hashlib.sha1(topic).hexdigest()
+                                    pub_sock.send(htopic, flags=zmq.SNDMORE)
+                                    pub_sock.send(payload)
+                                    log.trace('Filtered data has been sent')
+                                    # otherwise its a broadcast
+                            else:
+                                # TODO: constants file for "broadcast"
+                                log.trace('Sending broadcasted data over publisher %s', pub_uri)
+                                pub_sock.send('broadcast', flags=zmq.SNDMORE)
                                 pub_sock.send(payload)
-                                log.trace('Filtered data has been sent')
-                                # otherwise its a broadcast
+                                log.trace('Broadcasted data has been sent')
                         else:
-                            # TODO: constants file for "broadcast"
-                            log.trace('Sending broadcasted data over publisher %s', pub_uri)
-                            pub_sock.send('broadcast', flags=zmq.SNDMORE)
+                            log.trace('Sending ZMQ-unfiltered data over publisher %s', pub_uri)
                             pub_sock.send(payload)
-                            log.trace('Broadcasted data has been sent')
-                    else:
-                        log.trace('Sending ZMQ-unfiltered data over publisher %s', pub_uri)
-                        pub_sock.send(payload)
-                        log.trace('Unfiltered data has been sent')
-                except zmq.ZMQError as exc:
-                    if exc.errno == errno.EINTR:
-                        continue
-                    raise exc
+                            log.trace('Unfiltered data has been sent')
+                    except zmq.ZMQError as exc:
+                        if exc.errno == errno.EINTR:
+                            continue
+                        raise exc
 
-        except KeyboardInterrupt:
-            # Cleanly close the sockets if we're shutting down
-            if pub_sock.closed is False:
-                pub_sock.setsockopt(zmq.LINGER, 1)
-                pub_sock.close()
-            if pull_sock.closed is False:
-                pull_sock.setsockopt(zmq.LINGER, 1)
-                pull_sock.close()
-            if context.closed is False:
-                context.term()
+            except KeyboardInterrupt:
+                # Cleanly close the sockets if we're shutting down
+                if pub_sock.closed is False:
+                    pub_sock.setsockopt(zmq.LINGER, 1)
+                    pub_sock.close()
+                if pull_sock.closed is False:
+                    pull_sock.setsockopt(zmq.LINGER, 1)
+                    pull_sock.close()
+                if context.closed is False:
+                    context.term()
+        except Exception as exc:
+            log.exception("Pub deamon died")
+
 
     def pre_fork(self, process_manager, kwargs=None):
         '''
@@ -862,6 +873,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
 
         :param dict load: A load to be sent across the wire to minions
         '''
+        log.error("ZMQ PUB METH %s", repr(load))
         try:
             payload = {'enc': 'aes'}
 

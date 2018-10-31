@@ -2010,6 +2010,7 @@ class ClearFuncs(object):
         '''
         for transport, opts in iter_transport_opts(self.opts):
             chan = salt.transport.server.PubServerChannel.factory(opts)
+            log.debug("PUB to channel %s", repr(load))
             chan.publish(load)
 
     def _prep_pub(self, minions, jid, clear_load, extra):
