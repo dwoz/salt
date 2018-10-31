@@ -911,8 +911,9 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 log.debug("Publish Side Match: {0}".format(match_ids))
                 # Send list of miions thru so zmq can target them
                 int_payload['topic_lst'] = match_ids
-
+            log.warn("BEFORE REAL SEND: %s", repr(load))
             pub_sock.send(self.serial.dumps(int_payload))
+            log.warn("AFTER REAL SEND: %s", repr(load))
             pub_sock.close()
             context.term()
         except:
