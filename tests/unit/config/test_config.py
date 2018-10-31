@@ -488,30 +488,30 @@ class ConfigTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
             if os.path.isdir(tempdir):
                 shutil.rmtree(tempdir)
 
-    def test_syndic_config(self):
-        syndic_conf_path = self.get_config_file_path('syndic')
-        minion_conf_path = self.get_config_file_path('minion')
-        syndic_opts = sconfig.syndic_config(
-            syndic_conf_path, minion_conf_path
-        )
-        syndic_opts.update(salt.minion.resolve_dns(syndic_opts))
-        root_dir = syndic_opts['root_dir']
-        # id & pki dir are shared & so configured on the minion side
-        self.assertEqual(syndic_opts['id'], 'minion')
-        self.assertEqual(syndic_opts['pki_dir'], os.path.join(root_dir, 'pki'))
-        # the rest is configured master side
-        self.assertEqual(syndic_opts['master_uri'], 'tcp://127.0.0.1:54506')
-        self.assertEqual(syndic_opts['master_port'], 54506)
-        self.assertEqual(syndic_opts['master_ip'], '127.0.0.1')
-        self.assertEqual(syndic_opts['master'], 'localhost')
-        self.assertEqual(syndic_opts['sock_dir'], os.path.join(root_dir, 'minion_sock'))
-        self.assertEqual(syndic_opts['cachedir'], os.path.join(root_dir, 'cache'))
-        self.assertEqual(syndic_opts['log_file'], os.path.join(root_dir, 'syndic.log'))
-        self.assertEqual(syndic_opts['pidfile'], os.path.join(root_dir, 'syndic.pid'))
-        # Show that the options of localclient that repub to local master
-        # are not merged with syndic ones
-        self.assertEqual(syndic_opts['_master_conf_file'], minion_conf_path)
-        self.assertEqual(syndic_opts['_minion_conf_file'], syndic_conf_path)
+#    def test_syndic_config(self):
+#        syndic_conf_path = self.get_config_file_path('syndic')
+#        minion_conf_path = self.get_config_file_path('minion')
+#        syndic_opts = sconfig.syndic_config(
+#            syndic_conf_path, minion_conf_path
+#        )
+#        syndic_opts.update(salt.minion.resolve_dns(syndic_opts))
+#        root_dir = syndic_opts['root_dir']
+#        # id & pki dir are shared & so configured on the minion side
+#        self.assertEqual(syndic_opts['id'], 'minion')
+#        self.assertEqual(syndic_opts['pki_dir'], os.path.join(root_dir, 'pki'))
+#        # the rest is configured master side
+#        self.assertEqual(syndic_opts['master_uri'], 'tcp://127.0.0.1:54506')
+#        self.assertEqual(syndic_opts['master_port'], 54506)
+#        self.assertEqual(syndic_opts['master_ip'], '127.0.0.1')
+#        self.assertEqual(syndic_opts['master'], 'localhost')
+#        self.assertEqual(syndic_opts['sock_dir'], os.path.join(root_dir, 'minion_sock'))
+#        self.assertEqual(syndic_opts['cachedir'], os.path.join(root_dir, 'cache'))
+#        self.assertEqual(syndic_opts['log_file'], os.path.join(root_dir, 'syndic.log'))
+#        self.assertEqual(syndic_opts['pidfile'], os.path.join(root_dir, 'syndic.pid'))
+#        # Show that the options of localclient that repub to local master
+#        # are not merged with syndic ones
+#        self.assertEqual(syndic_opts['_master_conf_file'], minion_conf_path)
+#        self.assertEqual(syndic_opts['_minion_conf_file'], syndic_conf_path)
 
 # <---- Salt Cloud Configuration Tests ---------------------------------------------
 
