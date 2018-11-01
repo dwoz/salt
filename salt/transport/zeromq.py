@@ -809,13 +809,13 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                     # Catch and handle EINTR from when this process is sent
                     # SIGUSR1 gracefully so we don't choke and die horribly
                     try:
-                        log.trace('Getting data from puller %s', pull_uri)
+                        log.debug('Getting data from puller %s', pull_uri)
                         package = pull_sock.recv()
                         unpacked_package = salt.payload.unpackage(package)
                         if six.PY3:
                             unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
                         payload = unpacked_package['payload']
-                        log.trace('Accepted unpacked package from puller')
+                        log.debug('Accepted unpacked package from puller')
                         if self.opts['zmq_filtering']:
                             # if you have a specific topic list, use that
                             if 'topic_lst' in unpacked_package:
@@ -830,15 +830,16 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                                     # otherwise its a broadcast
                             else:
                                 # TODO: constants file for "broadcast"
-                                log.trace('Sending broadcasted data over publisher %s', pub_uri)
+                                log.debug('Sending broadcasted data over publisher %s', pub_uri)
                                 pub_sock.send('broadcast', flags=zmq.SNDMORE)
                                 pub_sock.send(payload)
                                 log.trace('Broadcasted data has been sent')
                         else:
                             log.trace('Sending ZMQ-unfiltered data over publisher %s', pub_uri)
                             pub_sock.send(payload)
-                            log.trace('Unfiltered data has been sent')
+                            log.debug('Unfiltered data has been sent')
                     except zmq.ZMQError as exc:
+                        log.exception("ZMQ SERV PUB Got exception")
                         if exc.errno == errno.EINTR:
                             continue
                         raise exc
