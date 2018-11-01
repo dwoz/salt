@@ -416,6 +416,7 @@ class AsyncZeroMQPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.t
         if not self.auth.authenticated:
             yield self.auth.authenticate()
         self.publish_port = self.auth.creds['publish_port']
+        log.debug("%s connect to %s", self.__class__, self.master_pub)
         self._socket.connect(self.master_pub)
 
     @property
@@ -511,7 +512,9 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
                 )
 
         log.info('Setting up the master communication server')
+        log.debug("%s bind to %s", self.__class__, self.uri)
         self.clients.bind(self.uri)
+        log.debug("%s bind to %s", self.__class__, self.w_uri)
         self.workers.bind(self.w_uri)
 
         while True:
@@ -602,6 +605,7 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
                 os.path.join(self.opts['sock_dir'], 'workers.ipc')
                 )
         log.info('Worker binding to socket {0}'.format(self.w_uri))
+        log.debug("%s connect to %s", self.__class__, self.w_uri)
         self._socket.connect(self.w_uri)
 
         salt.transport.mixins.auth.AESReqServerMixin.post_fork(self, payload_handler, io_loop)
@@ -797,11 +801,13 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
 
             # Start the minion command publisher
             log.info('Starting the Salt Publisher on {0}'.format(pub_uri))
+            log.debug("%s bind to %s", self.__class__, pub_uri)
             pub_sock.bind(pub_uri)
 
             # Securely create socket
             log.info('Starting the Salt Puller on {0}'.format(pull_uri))
             with salt.utils.files.set_umask(0o177):
+                log.debug("%s bind to %s", self.__class__, pull_uri)
                 pull_sock.bind(pull_uri)
 
             try:
@@ -1025,6 +1031,7 @@ class AsyncReqMessageClient(object):
             elif hasattr(zmq, 'IPV4ONLY'):
                 self.socket.setsockopt(zmq.IPV4ONLY, 0)
         self.socket.linger = self.linger
+        log.debug("%s connect to %s", self.__class__, self.addr)
         self.socket.connect(self.addr)
         self.stream = zmq.eventloop.zmqstream.ZMQStream(self.socket, io_loop=self.io_loop)
 
