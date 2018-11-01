@@ -742,10 +742,11 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
     '''
     Encapsulate synchronous operations for a publisher channel
     '''
-    def __init__(self, opts):
+    def __init__(self, opts, log_queue=None):
         self.opts = opts
         self.serial = salt.payload.Serial(self.opts)  # TODO: in init?
         self.ckminions = salt.utils.minions.CkMinions(self.opts)
+        self.log_queue = log_queue
 
     def connect(self):
         return tornado.gen.sleep(5)
@@ -766,6 +767,8 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         _set_tcp_keepalive(pub_sock, self.opts)
         # if 2.1 >= zmq < 3.0, we only have one HWM setting
         try:
+            if self.log_queue:
+                salt.log.setup.set_multiprocessing_logging_queue(self.log_queue)
             salt.utils.appendproctitle(self.__class__.__name__)
             # Set up the context
             context = zmq.Context(1)
@@ -918,9 +921,9 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 log.debug("Publish Side Match: {0}".format(match_ids))
                 # Send list of miions thru so zmq can target them
                 int_payload['topic_lst'] = match_ids
-            log.warn("BEFORE REAL SEND: %s", repr(load))
+            log.warn("BEFORE PUB SEND: %s", repr(load))
             pub_sock.send(self.serial.dumps(int_payload))
-            log.warn("AFTER REAL SEND: %s", repr(load))
+            log.warn("AFTER PUB SEND: %s", repr(load))
             pub_sock.close()
             context.term()
         except:
