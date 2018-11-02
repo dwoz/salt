@@ -769,6 +769,8 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         try:
             if self.log_queue:
                 salt.log.setup.set_multiprocessing_logging_queue(self.log_queue)
+            salt.log.setup.set_multiprocessing_logging_queue(self.log_queue)
+            log.error("****** PUB D *****")
             salt.utils.appendproctitle(self.__class__.__name__)
             # Set up the context
             context = zmq.Context(1)
