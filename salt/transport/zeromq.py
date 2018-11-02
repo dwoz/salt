@@ -768,7 +768,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         try:
             if log_queue:
                 salt.log.setup.set_multiprocessing_logging_queue(log_queue)
-                salt.log.setup.setup_multiprocessing_logging(log_queue)
+            salt.log.setup.setup_multiprocessing_logging(log_queue)
             log.error("****** PUB D *****")
             salt.utils.appendproctitle(self.__class__.__name__)
             # Set up the context
@@ -821,6 +821,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                     try:
                         log.debug('Getting data from puller %s', pull_uri)
                         package = pull_sock.recv()
+                        log.debug('got data from puller %s %s', pull_uri, repr(package)[:100])
                         unpacked_package = salt.payload.unpackage(package)
                         if six.PY3:
                             unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
@@ -830,7 +831,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                             # if you have a specific topic list, use that
                             if 'topic_lst' in unpacked_package:
                                 for topic in unpacked_package['topic_lst']:
-                                    log.trace('Sending filtered data over publisher %s', pub_uri)
+                                    log.trace('Sending filtered data over publisher %s %s', pub_uri, repr(payload)[:100])
                                     # zmq filters are substring match, hash the topic
                                     # to avoid collisions
                                     htopic = hashlib.sha1(topic).hexdigest()
@@ -840,12 +841,12 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                                     # otherwise its a broadcast
                             else:
                                 # TODO: constants file for "broadcast"
-                                log.debug('Sending broadcasted data over publisher %s', pub_uri)
+                                log.debug('Sending broadcasted data over publisher %s %s', pub_uri, repr(payload)[:100])
                                 pub_sock.send('broadcast', flags=zmq.SNDMORE)
                                 pub_sock.send(payload)
-                                log.trace('Broadcasted data has been sent')
+                                log.debug('Broadcasted data has been sent')
                         else:
-                            log.trace('Sending ZMQ-unfiltered data over publisher %s', pub_uri)
+                            log.debug('Sending ZMQ-unfiltered data over publisher %s %s', pub_uri, repr(payload)[:100])
                             pub_sock.send(payload)
                             log.debug('Unfiltered data has been sent')
                     except zmq.ZMQError as exc:
