@@ -742,11 +742,10 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
     '''
     Encapsulate synchronous operations for a publisher channel
     '''
-    def __init__(self, opts, log_queue=None):
+    def __init__(self, opts):
         self.opts = opts
         self.serial = salt.payload.Serial(self.opts)  # TODO: in init?
         self.ckminions = salt.utils.minions.CkMinions(self.opts)
-        self.log_queue = log_queue
 
     def connect(self):
         return tornado.gen.sleep(5)
@@ -767,9 +766,9 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         _set_tcp_keepalive(pub_sock, self.opts)
         # if 2.1 >= zmq < 3.0, we only have one HWM setting
         try:
-            if self.log_queue:
-                salt.log.setup.set_multiprocessing_logging_queue(self.log_queue)
-            salt.log.setup.set_multiprocessing_logging_queue(self.log_queue)
+            if log_queue:
+                salt.log.setup.set_multiprocessing_logging_queue(log_queue)
+                salt.log.setup.setup_multiprocessing_logging(log_queue)
             log.error("****** PUB D *****")
             salt.utils.appendproctitle(self.__class__.__name__)
             # Set up the context
