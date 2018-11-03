@@ -821,7 +821,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                     try:
                         log.debug('Getting data from puller %s', pull_uri)
                         package = pull_sock.recv()
-                        log.debug('got data from puller %s %s', pull_uri, repr(package)[:100])
+                        log.debug('got data from puller %s %s %s', pull_uri, len(package), repr(package)[:100])
                         unpacked_package = salt.payload.unpackage(package)
                         if six.PY3:
                             unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
@@ -923,8 +923,9 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 log.debug("Publish Side Match: {0}".format(match_ids))
                 # Send list of miions thru so zmq can target them
                 int_payload['topic_lst'] = match_ids
-            log.warn("BEFORE PUB SEND: %s", repr(load))
-            pub_sock.send(self.serial.dumps(int_payload))
+            m = self.serial.dumps(int_payload)
+            log.warn("BEFORE PUB SEND: %s %s", repr(load), len(m))
+            pub_sock.send(m)
             log.warn("AFTER PUB SEND: %s", repr(load))
             pub_sock.close()
             context.term()
