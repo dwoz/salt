@@ -755,7 +755,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
     def connect(self):
         return tornado.gen.sleep(5)
 
-    def _publish_daemon(self, log_queue=None):
+    def _publish_daemon(self, log_queue=None, msg_queue=None):
         '''
         Bind to the interface specified in the configuration file
         '''
@@ -825,7 +825,10 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                     # SIGUSR1 gracefully so we don't choke and die horribly
                     try:
                         log.debug('Getting data from puller %s', pull_uri)
-                        package = pull_sock.recv()
+                        if msg_queue:
+                            package = msg_queue.get()
+                        else:
+                            package = pull_sock.recv()
                         log.debug('got data from puller %s %s %s', pull_uri, len(package), repr(package)[:100])
                         unpacked_package = salt.payload.unpackage(package)
                         if six.PY3:
@@ -884,7 +887,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
         '''
         process_manager.add_process(self._publish_daemon, kwargs=kwargs)
 
-    def publish(self, load):
+    def publish(self, load, msg_queue=None):
         '''
         Publish "load" to minions
 
@@ -936,7 +939,10 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 int_payload['topic_lst'] = match_ids
             m = self.serial.dumps(int_payload)
             log.warn("BEFORE PUB SEND: %s %s", repr(load), len(m))
-            pub_sock.send(m)
+            if msg_queue:
+                msg_queue.put(m)
+            else:
+                pub_sock.send(m)
             log.warn("AFTER PUB SEND: %s", repr(load))
             #pub_sock.close()
             #context.term()
