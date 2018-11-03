@@ -13,6 +13,7 @@ import signal
 import hashlib
 import logging
 import weakref
+import threading
 from random import randint
 
 # Import Salt Libs
@@ -737,11 +738,15 @@ def _set_tcp_keepalive(zmq_socket, opts):
                 zmq.TCP_KEEPALIVE_INTVL, opts['tcp_keepalive_intvl']
             )
 
-
 class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
     '''
     Encapsulate synchronous operations for a publisher channel
     '''
+
+    pub_data = threading.local()
+    pub_data.ctx = None
+    pub_data.pub_sock = None
+
     def __init__(self, opts):
         self.opts = opts
         self.serial = salt.payload.Serial(self.opts)  # TODO: in init?
@@ -896,17 +901,23 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                 log.debug("Signing data packet")
                 payload['sig'] = salt.crypt.sign_message(master_pem_path, payload['load'])
             # Send 0MQ to the publisher
-            context = zmq.Context(1)
-            pub_sock = context.socket(zmq.PUSH)
-            if self.opts.get('ipc_mode', '') == 'tcp':
-                pull_uri = 'tcp://127.0.0.1:{0}'.format(
-                    self.opts.get('tcp_master_publish_pull', 4514)
-                    )
+            if self.pub_data.ctx:
+                context = self.pub_data.ctx
             else:
-                pull_uri = 'ipc://{0}'.format(
-                    os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
-                    )
-            pub_sock.connect(pull_uri)
+                context = self.pub_data.ctx = zmq.Context(1)
+            if self.pub_data.pub_sock:
+                pub_sock = self.pub_data.pub_sock
+            else:
+                pub_sock = context.socket(zmq.PUSH)
+                if self.opts.get('ipc_mode', '') == 'tcp':
+                    pull_uri = 'tcp://127.0.0.1:{0}'.format(
+                        self.opts.get('tcp_master_publish_pull', 4514)
+                        )
+                else:
+                    pull_uri = 'ipc://{0}'.format(
+                        os.path.join(self.opts['sock_dir'], 'publish_pull.ipc')
+                        )
+                pub_sock.connect(pull_uri)
             int_payload = {'payload': self.serial.dumps(payload)}
 
             # add some targeting stuff for lists only (for now)
@@ -927,10 +938,10 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             log.warn("BEFORE PUB SEND: %s %s", repr(load), len(m))
             pub_sock.send(m)
             log.warn("AFTER PUB SEND: %s", repr(load))
-            pub_sock.close()
-            context.term()
+            #pub_sock.close()
+            #context.term()
         except:
-            log.exception("Exception while publishing %s", repr(load)[:100])
+            log.exception("Exception while publishing")
 
 
 class AsyncReqMessageClientPool(salt.transport.MessageClientPool):

@@ -4,9 +4,13 @@
 '''
 # Import Python libs
 from __future__ import absolute_import
+import logging
 
 # Import Salt Testing Libs
 from tests.support.case import ShellCase
+
+
+log = logging.getLogger()
 
 
 class BatchTest(ShellCase):
@@ -54,4 +58,5 @@ class BatchTest(ShellCase):
         Test that a failed state returns a non-zero exit code in batch mode
         '''
         cmd = self.run_salt(' "*" state.single test.fail_without_changes name=test_me -b 25%', with_retcode=True)
+        log.error("RET = %s", cmd)
         self.assertEqual(cmd[-1], 2)
