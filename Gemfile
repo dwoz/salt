@@ -2,7 +2,7 @@
 
 source 'https://rubygems.org'
 
-gem 'test-kitchen', '~>1.21'
+gem 'test-kitchen', :git => 'https://github.com/dwoz/test-kitchen.git', :branch => 'winrm_opts_default_receive'
 gem 'kitchen-salt', '~>0.2'
 gem 'kitchen-sync'
 gem 'git'
