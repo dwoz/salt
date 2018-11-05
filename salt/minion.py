@@ -1384,34 +1384,30 @@ class Minion(MinionBase):
 
     @classmethod
     def _target(cls, minion_instance, opts, data, connected):
-        try:
-            log.debug("Minion._target %s %s", data['jid'], connected)
-            if not minion_instance:
-                minion_instance = cls(opts)
-                minion_instance.connected = connected
-                if not hasattr(minion_instance, 'functions'):
-                    functions, returners, function_errors, executors = (
-                        minion_instance._load_modules(grains=opts['grains'])
-                        )
-                    minion_instance.functions = functions
-                    minion_instance.returners = returners
-                    minion_instance.function_errors = function_errors
-                    minion_instance.executors = executors
-                if not hasattr(minion_instance, 'serial'):
-                    minion_instance.serial = salt.payload.Serial(opts)
-                if not hasattr(minion_instance, 'proc_dir'):
-                    uid = salt.utils.get_uid(user=opts.get('user', None))
-                    minion_instance.proc_dir = (
-                        get_proc_dir(opts['cachedir'], uid=uid)
-                        )
+        if not minion_instance:
+            minion_instance = cls(opts)
+            minion_instance.connected = connected
+            if not hasattr(minion_instance, 'functions'):
+                functions, returners, function_errors, executors = (
+                    minion_instance._load_modules(grains=opts['grains'])
+                    )
+                minion_instance.functions = functions
+                minion_instance.returners = returners
+                minion_instance.function_errors = function_errors
+                minion_instance.executors = executors
+            if not hasattr(minion_instance, 'serial'):
+                minion_instance.serial = salt.payload.Serial(opts)
+            if not hasattr(minion_instance, 'proc_dir'):
+                uid = salt.utils.get_uid(user=opts.get('user', None))
+                minion_instance.proc_dir = (
+                    get_proc_dir(opts['cachedir'], uid=uid)
+                    )
 
-            with tornado.stack_context.StackContext(minion_instance.ctx):
-                if isinstance(data['fun'], tuple) or isinstance(data['fun'], list):
-                    Minion._thread_multi_return(minion_instance, opts, data)
-                else:
-                    Minion._thread_return(minion_instance, opts, data)
-        except Exception as exc:
-            log.exception("Exception running _target method")
+        with tornado.stack_context.StackContext(minion_instance.ctx):
+            if isinstance(data['fun'], tuple) or isinstance(data['fun'], list):
+                Minion._thread_multi_return(minion_instance, opts, data)
+            else:
+                Minion._thread_return(minion_instance, opts, data)
 
     @classmethod
     def _thread_return(cls, minion_instance, opts, data):
@@ -2386,7 +2382,6 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
-        log.debug("_handle_payload %s", repr(payload)[:100])
         if payload is not None and payload['enc'] == 'aes':
             if self._target_load(payload['load']):
                 self._handle_decoded_payload(payload['load'])
@@ -2398,12 +2393,9 @@ class Minion(MinionBase):
         # the minion currently has no need.
 
     def _target_load(self, load):
-        start = time.time()
-        log.debug("_target_load start %s %s", start, repr(load))
         # Verify that the publication is valid
         if 'tgt' not in load or 'jid' not in load or 'fun' not in load \
            or 'arg' not in load:
-            log.debug("_target_load end 1 %s %s", time.time() - start, repr(load))
             return False
         # Verify that the publication applies to this minion
 
@@ -2416,22 +2408,17 @@ class Minion(MinionBase):
             match_func = getattr(self.matcher,
                                  '{0}_match'.format(load['tgt_type']), None)
             if match_func is None:
-                log.debug("_target_load end 2 %s %s", time.time() - start, repr(load))
                 return False
             if load['tgt_type'] in ('grain', 'grain_pcre', 'pillar'):
                 delimiter = load.get('delimiter', DEFAULT_TARGET_DELIM)
                 if not match_func(load['tgt'], delimiter=delimiter):
-                    log.debug("_target_load end 3 %s %s", time.time() - start, repr(load))
                     return False
             elif not match_func(load['tgt']):
-                log.debug("_target_load end 4 %s %s", time.time() - start, repr(load))
                 return False
         else:
             if not self.matcher.glob_match(load['tgt']):
-                log.debug("_target_load end 6 %s %s", time.time() - start, repr(load))
                 return False
 
-        log.debug("_target_load end 7 %s %s", time.time() - start, repr(load))
         return True
 
     def destroy(self):

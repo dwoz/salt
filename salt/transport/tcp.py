@@ -772,9 +772,6 @@ if USE_LOAD_BALANCER:
                         self._handle_connection, client_socket, address)
             except (KeyboardInterrupt, SystemExit):
                 pass
-                log.exception("Exception in LoadBalancerWorker")
-            except Exception as exc:
-                log.exception("Unhandled exception in LoadBalancerWorker")
 
 
 class TCPClientKeepAlive(tornado.tcpclient.TCPClient):

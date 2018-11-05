@@ -10,9 +10,6 @@ import logging
 from tests.support.case import ShellCase
 
 
-log = logging.getLogger()
-
-
 class BatchTest(ShellCase):
     '''
     Integration tests for the salt.cli.batch module
@@ -58,5 +55,4 @@ class BatchTest(ShellCase):
         Test that a failed state returns a non-zero exit code in batch mode
         '''
         cmd = self.run_salt(' "*" state.single test.fail_without_changes name=test_me -b 25%', with_retcode=True)
-        log.error("RET = %s", cmd)
         self.assertEqual(cmd[-1], 2)
