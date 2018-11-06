@@ -2423,7 +2423,7 @@ def managed(name,
         elif isinstance(use_contents, six.text_type) and str('\0') in use_contents:
             contents = use_contents
         else:
-            validated_contents = _validate_str_list(use_contents)
+            validated_contents = _validate_str_list(use_contents.splitlines())
             if not validated_contents:
                 return _error(
                     ret,
@@ -2431,8 +2431,10 @@ def managed(name,
                     'contents_grains is not a string or list of strings, and '
                     'is not binary data. SLS is likely malformed.'
                 )
+            if use_contents.endswith('\n'):
+                validated_contents.append('')
             contents = os.linesep.join(
-                [line.rstrip('\n').rstrip('\r') for line in validated_contents]
+                [line.rstrip('\r').rstrip('\n') for line in validated_contents]
             )
             if contents_newline and not contents.endswith(os.linesep):
                 contents += os.linesep

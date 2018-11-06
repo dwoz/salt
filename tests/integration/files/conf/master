@@ -33,6 +33,10 @@ peer:
 ext_pillar:
   - ext_pillar_opts:
     - test_issue_5951_actual_file_roots_in_opts
+  - file_tree:
+      root_dir: /tmp/ext_pillar
+      follow_dir_links: False
+      keep_newline: True 
 
 config_opt:
   layer2: 'kosher'

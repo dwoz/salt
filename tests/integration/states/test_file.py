@@ -2545,6 +2545,24 @@ class FileTest(ModuleCase, SaltReturnAssertsMixin):
             '',
         ]).encode('utf-8'))
 
+    def test_ext_pillar_issue_50221(self):
+        if os.path.exists('/tmp/issue_50221'):
+            os.remove('/tmp/issue_50221')
+        try:
+            os.makedirs('/tmp/ext_pillar/hosts/minion')
+        except OSError as exc:
+            print(exc.errno)
+        with open('/tmp/ext_pillar/hosts/minion/issue_50221', 'w') as fp:
+            fp.write('abcd\n\n\n')
+        assert self.run_function('saltutil.refresh_pillar')
+        ret = self.run_state('file.managed', name='/tmp/issue_50221', contents_pillar='issue_50221')
+        key = 'file_|-/tmp/issue_50221_|-/tmp/issue_50221_|-managed'
+        assert key in ret
+        assert ret[key]['result'] == True
+        with open('/tmp/issue_50221', 'r') as fp:
+            content = fp.read()
+        assert content == 'abcd\n\n\n', repr(content)
+
 
 class BlockreplaceTest(ModuleCase, SaltReturnAssertsMixin):
     marker_start = '# start'
