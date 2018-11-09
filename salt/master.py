@@ -530,7 +530,8 @@ class Master(SMaster):
             pub_channels = []
             log.info('Creating master publisher process')
             log_queue = salt.log.setup.get_multiprocessing_logging_queue()
-            msg_queue = multiprocessing.Queue()
+            #msg_queue = multiprocessing.Queue()
+            msg_queue = None
             for transport, opts in iter_transport_opts(self.opts):
                 chan = salt.transport.server.PubServerChannel.factory(opts)
                 chan.pre_fork(
