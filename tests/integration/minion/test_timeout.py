@@ -9,7 +9,7 @@ from __future__ import absolute_import
 # Import Salt Testing libs
 from tests.support.case import ShellCase
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 
 class MinionTimeoutTestCase(ShellCase):
@@ -23,9 +23,12 @@ class MinionTimeoutTestCase(ShellCase):
         '''
         # Launch the command
         sleep_length = 30
-        ret = self.run_salt('minion test.sleep {0}'.format(sleep_length), timeout=45, catche_stderr=True, with_retcode=True)
-        log.error("RET %s", ret)
-        self.assertTrue(isinstance(ret, list), 'Return is not a list. Minion'
+        ret = self.run_salt(
+            'minion test.sleep {0}'.format(sleep_length),
+            timeout=45, catch_stderr=True, with_retcode=True,
+        )
+        print("RET {}".format(ret))
+        self.assertTrue(isinstance(ret[0], list), 'Return is not a list. Minion'
                 ' may have returned error: {0}'.format(ret))
-        self.assertTrue('True' in ret[1], 'Minion did not return True after '
+        self.assertTrue('True' in ret[0][1], 'Minion did not return True after '
                 '{0} seconds.'.format(sleep_length))
