@@ -876,3 +876,25 @@ def test_state_sls_lazyloader_allows_recursion(state, state_tree):
         ret = pytest.helpers.state_return(ret)
         ret.assert_state_true_return()
         ret.assert_in_state_comment("Success!")
+
+
+def test_state_requires_missing(state, state_tree):
+    '''
+    this tests missing requisites are found as expected
+    '''
+    sls_contents = """
+    changing_state:
+      cmd.run:
+        - name: echo "Changed!"
+    missing_prereq:
+      cmd.run:
+        - name: echo "Changed!"
+        - onchanges_any:
+          - this: is missing
+        - onchanges:
+          - also: missing
+    """
+    with pytest.helpers.temp_file("req_any_missing.sls", sls_contents, state_tree):
+        ret = state.sls("req_any_missing")
+        expected = 'test_|-always-passes_|-always-passes_|-succeed_without_changes'
+        assert expected in ret
