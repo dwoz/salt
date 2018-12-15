@@ -109,16 +109,14 @@ class IPCServer(object):
 
         # Placeholders for attributes to be populated by method calls
         self.sock = None
+        #self.io_loop = None
+        #from salt.utils.zeromq import zmq, ZMQDefaultLoop, install_zmq, ZMQ_VERSION_INFO
+        #self.io_loop = io_loop or ZMQDefaultLoop.current()
         self.io_loop = io_loop or IOLoop.current()
         self._closing = False
 
-    def start(self):
-        '''
-        Perform the work necessary to start up a Tornado IPC server
-
-        Blocks until socket is established
-        '''
-        # Start up the ioloop
+    def pre_fork(self):
+        ## Start up the ioloop
         log.trace('IPCServer: binding to socket: %s', self.socket_path)
         if isinstance(self.socket_path, int):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -129,13 +127,36 @@ class IPCServer(object):
             self.sock.listen(128)
         else:
             self.sock = tornado.netutil.bind_unix_socket(self.socket_path)
+        pass
 
+    def post_fork(self, payload_handler=None, io_loop=None):
+        if io_loop:
+            self.io_loop = io_loop
+        elif not self.io_loop:
+            IOLoop.clear_current()
+            IOLoop().make_current()
+            self.io_loop = IOLoop.current()
+        # Start up the ioloop
+        if payload_handler is not None:
+            self.payload_handler = payload_handler
+        #import traceback
+        #log.error("**** POST FORK %s %s %s", payload_handler, self.payload_handler, ''.join(traceback.format_stack()))
         with salt.utils.asynchronous.current_ioloop(self.io_loop):
             tornado.netutil.add_accept_handler(
                 self.sock,
                 self.handle_connection,
             )
         self._started = True
+
+    def start(self):
+        '''
+        Perform the work necessary to start up a Tornado IPC server
+
+        Blocks until socket is established
+        '''
+        self.pre_fork()
+        self.post_fork()
+
 
     @tornado.gen.coroutine
     def handle_stream(self, stream):
@@ -170,6 +191,7 @@ class IPCServer(object):
             encoding = 'utf-8'
         unpacker = msgpack.Unpacker(encoding=encoding)
         while not stream.closed():
+            log.error("WTF 1 %s", self.payload_handler)
             try:
                 wire_bytes = yield stream.read_bytes(4096, partial=True)
                 unpacker.feed(wire_bytes)
@@ -189,11 +211,11 @@ class IPCServer(object):
                     log.error('Exception occurred while '
                               'handling stream: %s', exc)
             except Exception as exc:
-                log.error('Exception occurred while '
-                          'handling stream: %s', exc)
+                import traceback
+                log.error('Exception occurred while handling stream: %s %s', exc, ''.join(traceback.format_stack()))
 
     def handle_connection(self, connection, address):
-        log.trace('IPCServer: Handling connection '
+        log.debug('IPCServer: Handling connection '
                   'to address: %s', address)
         try:
             with salt.utils.asynchronous.current_ioloop(self.io_loop):
@@ -525,7 +547,8 @@ class IPCMessagePublisher(object):
             log.trace('Client disconnected from IPC %s', self.socket_path)
             self.streams.discard(stream)
         except Exception as exc:
-            log.error('Exception occurred while handling stream: %s', exc)
+            import traceback
+            log.error('Exception occurred while handling stream: %s %s', exc, ''.join(traceback.format_stack()))
             if not stream.closed():
                 stream.close()
             self.streams.discard(stream)

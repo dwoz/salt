@@ -878,7 +878,7 @@ class SaltEvent(object):
         '''
         Invoke the event_handler callback each time an event arrives.
         '''
-        assert not self._run_io_loop_sync
+        #assert not self._run_io_loop_sync
 
         if not self.cpub:
             self.connect_pub()

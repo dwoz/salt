@@ -106,7 +106,7 @@ def echo(text):
     return text
 
 
-def ping():
+def ping(*args, **kwargs):
     '''
     Used to make sure the minion is up and responding. Not an ICMP ping.
 
