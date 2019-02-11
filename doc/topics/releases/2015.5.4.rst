@@ -1006,7 +1006,7 @@ Changelog for v2015.5.3..v2015.5.4
 
   * 067ea788e9 Add salt:// to key_url options to docs for pkgrepo.managed
 
-* **ISSUE** `#22699`_: (`arthurlogilab`_) salt-cloud fails on KeyError when given a nonexistant action (refs: `#25807`_)
+* **ISSUE** `#22699`_: (`arthurlogilab`_) salt-cloud fails on KeyError when given a nonexistent action (refs: `#25807`_)
 
 * **PR** `#25807`_: (`rallytime`_) Provide helpful error when using actions with a mapfile
   @ *2015-07-29 15:30:15 UTC*

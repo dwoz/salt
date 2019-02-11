@@ -1111,7 +1111,7 @@ Changelog for v2016.11.2..v2016.11.3
 
       * fbc4d2a2c4 reactor: ensure glob_ref is a string
 
-      * 2e443d79a3 cp.cache_file: add note re: return for nonexistant salt:// path
+      * 2e443d79a3 cp.cache_file: add note re: return for nonexistent salt:// path
 
     * e9ebec4d80 Merge pull request `#38890`_ from cro/vmware_reset_vm_20163
 

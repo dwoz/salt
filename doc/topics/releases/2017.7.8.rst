@@ -2251,12 +2251,12 @@ Changelog for v2017.7.7..v2017.7.8
 
   * d22ed7dffa added handling for the aws error ConflictingDomainExists
 
-* **PR** `#47444`_: (`terminalmage`_) Skip trying to render a template for a nonexistant SLS file
+* **PR** `#47444`_: (`terminalmage`_) Skip trying to render a template for a nonexistent SLS file
   @ *2018-05-07 13:48:24 UTC*
 
   * 7f53be6e92 Merge pull request `#47444`_ from terminalmage/render_state-spurious-error
 
-  * a1e9fe00fd Skip trying to render a template for a nonexistant SLS file
+  * a1e9fe00fd Skip trying to render a template for a nonexistent SLS file
 
 * **PR** `#47478`_: (`terminalmage`_) Rename pip state test modules to match naming convention
   @ *2018-05-07 13:13:13 UTC*

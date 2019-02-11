@@ -153,12 +153,12 @@ Changelog for v2016.3.5..v2016.3.6
 
   * af1545deed Use the first address if cannot connect to any
 
-* **PR** `#40059`_: (`terminalmage`_) Fix traceback when virtualenv.managed is invoked with nonexistant user
+* **PR** `#40059`_: (`terminalmage`_) Fix traceback when virtualenv.managed is invoked with nonexistent user
   @ *2017-03-16 20:46:43 UTC*
 
   * 116201f345 Merge pull request `#40059`_ from terminalmage/fix-virtualenv-traceback
 
-  * e3cfd29d6b Fix traceback when virtualenv.managed is invoked with nonexistant user
+  * e3cfd29d6b Fix traceback when virtualenv.managed is invoked with nonexistent user
 
 * **PR** `#40090`_: (`rallytime`_) Back-port `#40056`_ to 2016.3
   @ *2017-03-16 19:42:58 UTC*
@@ -1084,14 +1084,14 @@ Changelog for v2016.3.5..v2016.3.6
 
 * **ISSUE** `#36121`_: (`Ashald`_) TemplateNotFound/Unable to cache file (refs: `#38875`_)
 
-* **PR** `#38875`_: (`terminalmage`_) Reactor: fix traceback when salt:// path is nonexistant
+* **PR** `#38875`_: (`terminalmage`_) Reactor: fix traceback when salt:// path is nonexistent
   @ *2017-01-24 15:23:39 UTC*
 
   * b5df104fc2 Merge pull request `#38875`_ from terminalmage/issue36121
 
   * fbc4d2a2c4 reactor: ensure glob_ref is a string
 
-  * 2e443d79a3 cp.cache_file: add note re: return for nonexistant salt:// path
+  * 2e443d79a3 cp.cache_file: add note re: return for nonexistent salt:// path
 
 * **ISSUE** `#37413`_: (`Snarfingcode666`_) Salt-cloud vmware missing reboot command (refs: `#38887`_, `#38890`_)
 

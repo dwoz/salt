@@ -1619,12 +1619,12 @@ Changelog for v2015.8.3..v2015.8.4
 
   * 0bb83e51aa Updated Cloud msic section.
 
-* **PR** `#30029`_: (`terminalmage`_) git.latest: Fix handling of nonexistant branches
+* **PR** `#30029`_: (`terminalmage`_) git.latest: Fix handling of nonexistent branches
   @ *2015-12-28 19:39:29 UTC*
 
-  * a5f7d9c2fc Merge pull request `#30029`_ from terminalmage/git.latest-nonexistant-branch
+  * a5f7d9c2fc Merge pull request `#30029`_ from terminalmage/git.latest-nonexistent-branch
 
-  * 0b95894c9f git.latest: Fix handling of nonexistant branches
+  * 0b95894c9f git.latest: Fix handling of nonexistent branches
 
 * **PR** `#30016`_: (`anlutro`_) Properly normalize locales in locale.gen_locale
   @ *2015-12-28 15:33:48 UTC*

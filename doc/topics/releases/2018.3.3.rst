@@ -4570,7 +4570,7 @@ Changelog for v2018.3.2..v2018.3.3
 
   * 7f53be6e92 Merge pull request `#47444`_ from terminalmage/render_state-spurious-error
 
-    * a1e9fe00fd Skip trying to render a template for a nonexistant SLS file
+    * a1e9fe00fd Skip trying to render a template for a nonexistent SLS file
 
   * 50b9c4d79d Merge pull request `#47478`_ from terminalmage/rename-pip-state-test
 

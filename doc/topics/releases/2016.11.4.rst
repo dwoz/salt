@@ -1378,7 +1378,7 @@ Changelog for v2016.11.3..v2016.11.4
 
   * 116201f345 Merge pull request `#40059`_ from terminalmage/fix-virtualenv-traceback
 
-    * e3cfd29d6b Fix traceback when virtualenv.managed is invoked with nonexistant user
+    * e3cfd29d6b Fix traceback when virtualenv.managed is invoked with nonexistent user
 
   * a01b52b9a3 Merge pull request `#40090`_ from rallytime/bp-40056
 
