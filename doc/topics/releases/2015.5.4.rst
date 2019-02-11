@@ -913,7 +913,7 @@ Changelog for v2015.5.3..v2015.5.4
 
   * d7f448d501 Needed popen.wait().
 
-  * 25f8042e41 Checking for scp existance. Using command -v should be POSIX
+  * 25f8042e41 Checking for scp existence. Using command -v should be POSIX
 
   * 6b2100a30b New exitcode for SCP not found Re: https://github.com/saltstack/salt/issues/25478 and https://github.com/saltstack/salt/issues/25026
 
