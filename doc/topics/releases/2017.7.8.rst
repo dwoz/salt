@@ -594,7 +594,7 @@ Changelog for v2017.7.7..v2017.7.8
 
   * 83e4bba916 Merge pull request `#48635`_ from nbraud/acme
 
-  * 3673bae9de modules/acme: explicitely ignore the `perms` return value
+  * 3673bae9de modules/acme: explicitly ignore the `perms` return value
 
   * 1800a231e8 Fixup some schema expectations
 

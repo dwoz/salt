@@ -558,12 +558,12 @@ Changelog for v2014.7.5..v2014.7.6
 
 * **ISSUE** `#22742`_: (`hvnsweeting`_) salt-master says: "This master address: 'salt' was previously resolvable but now fails to resolve!" (refs: `#23344`_)
 
-* **PR** `#23344`_: (`cachedout`_) Explicitely set file_client on master
+* **PR** `#23344`_: (`cachedout`_) Explicitly set file_client on master
   @ *2015-05-04 23:21:48 UTC*
 
   * 02658b1e60 Merge pull request `#23344`_ from cachedout/issue_22742
 
-  * 5adc96ce7f Explicitely set file_client on master
+  * 5adc96ce7f Explicitly set file_client on master
 
 * **PR** `#23318`_: (`cellscape`_) Honor seed argument in LXC container initializaton
   @ *2015-05-04 20:58:12 UTC*

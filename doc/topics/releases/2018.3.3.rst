@@ -1305,12 +1305,12 @@ Changelog for v2018.3.2..v2018.3.3
 
 * **ISSUE** `#37512`_: (`ChristianBeer`_) What's the precedence if multiple master configurations are specified? (refs: `#48888`_)
 
-* **PR** `#48888`_: (`terminalmage`_) Explictly document the configuration override priority
+* **PR** `#48888`_: (`terminalmage`_) Explicitly document the configuration override priority
   @ *2018-08-02 16:57:18 UTC*
 
   * ec8e07e8ce Merge pull request `#48888`_ from terminalmage/issue37512
 
-  * 7dce7cde14 Explictly document the configuration override priority
+  * 7dce7cde14 Explicitly document the configuration override priority
 
 * **PR** `#48871`_: (`dwoz`_) Remove unicode key pairs from environ after test
   @ *2018-08-01 22:33:41 UTC*
@@ -1695,7 +1695,7 @@ Changelog for v2018.3.2..v2018.3.3
 
     * 83e4bba916 Merge pull request `#48635`_ from nbraud/acme
 
-      * 3673bae9de modules/acme: explicitely ignore the `perms` return value
+      * 3673bae9de modules/acme: explicitly ignore the `perms` return value
 
       * 1800a231e8 Fixup some schema expectations
 
