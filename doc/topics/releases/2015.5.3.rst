@@ -62,7 +62,7 @@ Changelog for v2015.5.2..v2015.5.3
 
   * 564dffd14a depend on win libs rather than mocking them
 
-  * 9b9aeb8628 resolved all erors.
+  * 9b9aeb8628 resolved all errors.
 
   * aaf89354c0 adding win_groupadd unit test case.
 
