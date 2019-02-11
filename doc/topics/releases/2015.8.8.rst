@@ -642,7 +642,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * f0d931f4d0 Use hash_type configuration for the Cloud
 
-  * 95cb59dec7 Set defalt hash as SHA1 in config and explain why.
+  * 95cb59dec7 Set default hash as SHA1 in config and explain why.
 
   * 8f9543c292 Set config hash_type to SHA1
 
