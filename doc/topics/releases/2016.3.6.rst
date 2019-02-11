@@ -738,7 +738,7 @@ Changelog for v2016.3.5..v2016.3.6
 
   * 52440416ca Merge pull request `#39221`_ from lvg01/fix-bug-39220
 
-  * e8a41d6341 Removes to early content stripping (stripping is allready done when needed with ident:true), fixes `#39220`_
+  * e8a41d6341 Removes to early content stripping (stripping is already done when needed with ident:true), fixes `#39220`_
 
   * a4b169e0bd Fixed wrong logic, fixes `#39220`_
 
