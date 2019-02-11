@@ -1895,12 +1895,12 @@ Changelog for v2017.7.7..v2017.7.8
 
   * 4475ba19b8 Prevent zypper from parsing repo configuration from not .repo files
 
-* **PR** `#47781`_: (`rallytime`_) Update cloud test profile and docs to use new Linode size lables
+* **PR** `#47781`_: (`rallytime`_) Update cloud test profile and docs to use new Linode size labels
   @ *2018-05-23 13:09:13 UTC*
 
   * 0e87559ee3 Merge pull request `#47781`_ from rallytime/update-linode-sizes
 
-  * a90c1b760e Update cloud test profile and docs to use new Linode size lables
+  * a90c1b760e Update cloud test profile and docs to use new Linode size labels
 
 * **PR** `#47748`_: (`rallytime`_) [2017.7] Merge forward from 2017.7.6 to 2017.7
   @ *2018-05-22 20:53:02 UTC*

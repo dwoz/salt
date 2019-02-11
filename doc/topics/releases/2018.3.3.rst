@@ -4004,7 +4004,7 @@ Changelog for v2018.3.2..v2018.3.3
 
     * 0e87559ee3 Merge pull request `#47781`_ from rallytime/update-linode-sizes
 
-      * a90c1b760e Update cloud test profile and docs to use new Linode size lables
+      * a90c1b760e Update cloud test profile and docs to use new Linode size labels
 
     * 3ddc56cb9b Merge pull request `#47748`_ from rallytime/merge-2017.7
 
