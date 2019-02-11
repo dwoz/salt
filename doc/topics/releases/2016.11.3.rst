@@ -672,7 +672,7 @@ Changelog for v2016.11.2..v2016.11.3
 
       * 97521b3468 Second attempt to fix prepending of root_dir to paths
 
-    * 6ffeda3ee5 Clarify ipv6 option for minion and inteface for master, closes `#39118`_ (`#39131`_)
+    * 6ffeda3ee5 Clarify ipv6 option for minion and interface for master, closes `#39118`_ (`#39131`_)
 
     * 646b9ea4e5 Don't abort pillar.get with merge=True if default is None (`#39116`_)
 

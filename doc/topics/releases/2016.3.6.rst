@@ -883,7 +883,7 @@ Changelog for v2016.3.5..v2016.3.6
 
 * **ISSUE** `#39118`_: (`bobrik`_) Minion ipv6 option is not documented (refs: `#39289`_, `#39131`_)
 
-  * **PR** `#39131`_: (`bobrik`_) Clarify ipv6 option for minion and inteface for master, closes `#39118`_
+  * **PR** `#39131`_: (`bobrik`_) Clarify ipv6 option for minion and interface for master, closes `#39118`_
 
   * **PR** `#39116`_: (`terminalmage`_) Don't abort pillar.get with merge=True if default is None
 
