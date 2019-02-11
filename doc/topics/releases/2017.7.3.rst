@@ -1606,9 +1606,9 @@ Changelog for v2017.7.2..v2017.7.3
 
   * 3bb385b44e removing debugging logging
 
-  * 7f0ff5a8b0 When passing IDs on the command line convert them all the strings for later comparision.
+  * 7f0ff5a8b0 When passing IDs on the command line convert them all the strings for later comparison.
 
-  * 99e436add4 When looking for job ids to remove based on the tag_name the comparision was comparing an INT to a STR, so the correct job id was not being returned.
+  * 99e436add4 When looking for job ids to remove based on the tag_name the comparison was comparing an INT to a STR, so the correct job id was not being returned.
 
 * **ISSUE** `#44136`_: (`dupsatou`_) KeyError: 'runas' after updating to latest salt in yum repo. (refs: `#44695`_)
 

@@ -249,7 +249,7 @@ Changelog for v2015.5.1..v2015.5.2
 
   * 608da5ef5d modules/lxc: merge resolution
 
-  * 27c4689a24 modules/lxc: more consistent comparsion
+  * 27c4689a24 modules/lxc: more consistent comparison
 
   * 07c365a23b lxc: merge conflict spotted
 
