@@ -1753,7 +1753,7 @@ Changelog for v2018.3.0..v2018.3.1
 
   * a52137ee36 Merge pull request `#47109`_ from garethgreenaway/46943_slack_engine_fixes
 
-  * 02baa76595 Fixing a bug that occured when a comment was added to a message sent to Slack by Salt.  Also making `slack_engine:groups_pillar` optional.
+  * 02baa76595 Fixing a bug that occurred when a comment was added to a message sent to Slack by Salt.  Also making `slack_engine:groups_pillar` optional.
 
 * **PR** `#47045`_: (`tankywoo`_) Fix ba7d00f5 for gentoo pkg.installed method
   @ *2018-04-17 13:55:45 UTC*
