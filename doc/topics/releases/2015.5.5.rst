@@ -92,12 +92,12 @@ Changelog for v2015.5.4..v2015.5.5
 
   * cbe330e78b add dateutil dependency reporting
 
-* **PR** `#26494`_: (`cachedout`_) Remove unecessary debug statements
+* **PR** `#26494`_: (`cachedout`_) Remove unnecessary debug statements
   @ *2015-08-19 20:46:00 UTC*
 
   * 4fff53b842 Merge pull request `#26494`_ from cachedout/remove_debug_statements
 
-  * d717a43dcc Remove unecessary debug statements
+  * d717a43dcc Remove unnecessary debug statements
 
 * **PR** `#26465`_: (`rallytime`_) Back-port `#26457`_ to 2015.5
   @ *2015-08-19 16:08:16 UTC*

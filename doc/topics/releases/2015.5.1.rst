@@ -549,7 +549,7 @@ Changelog for v2015.5.0..v2015.5.1
 
   * 558798df1f Fix net_io_counters deprecation issue
 
-  * 8140f92ba8 Override unecessary pylint errors
+  * 8140f92ba8 Override unnecessary pylint errors
 
   * 7d02ad4f06 Fix some of the mock names for the new API
 

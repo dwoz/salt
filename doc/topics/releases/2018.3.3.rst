@@ -1195,7 +1195,7 @@ Changelog for v2018.3.2..v2018.3.3
 
   * abd7f1312d Merge pull request `#48928`_ from Ch3LL/mac_runas
 
-  * 3d6455dbcd remove unecessary comment in setup
+  * 3d6455dbcd remove unnecessary comment in setup
 
   * 8e30db0217 move destructivetest to testname
 

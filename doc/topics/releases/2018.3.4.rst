@@ -3383,7 +3383,7 @@ Changelog for v2018.3.3..v2018.3.4
 
   * 44ee2ec Updating default for retry_dns_count
 
-  * 75f64a6 Removing unneccesary code.
+  * 75f64a6 Removing unnecessary code.
 
   * e66dc18 Updating the resolve_dns function in minion.py to include a new minion configuration option which will control how many attempts will be made when the master hostname is unable to be resolved before giving up.
 

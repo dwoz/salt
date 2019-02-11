@@ -489,7 +489,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * 65c3ba7ff1 Remove useless documentation
 
-  * 5d67cb27de Remove unncessary commented line
+  * 5d67cb27de Remove unnecessary commented line
 
 * **PR** `#47347`_: (`dwoz`_) Proper fix for mysql tests
   @ *2018-04-27 17:27:53 UTC*
