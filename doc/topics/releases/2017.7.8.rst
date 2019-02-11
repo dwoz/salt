@@ -1286,7 +1286,7 @@ Changelog for v2017.7.7..v2017.7.8
 
   * 83d7d286c4 Merge pull request `#48080`_ from lusche/2017.7
 
-  * 917dc985fc `#47984`_ remove the line completly
+  * 917dc985fc `#47984`_ remove the line completely
 
   * ba12ee947b Merge branch '2017.7' of https://github.com/saltstack/salt into 2017.7
 

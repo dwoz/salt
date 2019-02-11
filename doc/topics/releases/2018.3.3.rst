@@ -2647,7 +2647,7 @@ Changelog for v2018.3.2..v2018.3.3
 
     * 83d7d286c4 Merge pull request `#48080`_ from lusche/2017.7
 
-      * 917dc985fc `#47984`_ remove the line completly
+      * 917dc985fc `#47984`_ remove the line completely
 
       * ba12ee947b Merge branch '2017.7' of https://github.com/saltstack/salt into 2017.7
 
@@ -3161,7 +3161,7 @@ Changelog for v2018.3.2..v2018.3.3
 
   * a040643a82 Accounting for certain situations when the query result is not a string, but actually a dictionary.
 
-* **ISSUE** `#48113`_: (`gaetanquentin`_) state file.line has error and  erase file content completly, while with mode  test=true it is ok (refs: `#48156`_)
+* **ISSUE** `#48113`_: (`gaetanquentin`_) state file.line has error and  erase file content completely, while with mode  test=true it is ok (refs: `#48156`_)
 
 * **PR** `#48156`_: (`garethgreenaway`_) [2018.3] Unicode fixes for file.line
   @ *2018-06-17 19:34:08 UTC*
