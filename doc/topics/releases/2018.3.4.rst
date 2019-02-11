@@ -1816,7 +1816,7 @@ Changelog for v2018.3.3..v2018.3.4
 
   * 77e8dcc On later versions of elementary, the os_family is being populated as elementary.  In order for the aptpkg module to function, we need to override is to be Debian.
 
-* **ISSUE** `#50311`_: (`marek-obuchowicz`_) pkg.installed state fails even though it suceeded (refs: `#50590`_, `#50333`_)
+* **ISSUE** `#50311`_: (`marek-obuchowicz`_) pkg.installed state fails even though it succeeded (refs: `#50590`_, `#50333`_)
 
 * **ISSUE** `#46689`_: (`mxork`_) pkg.installed: hold: True not applied to a package which is already installed. (refs: `#48426`_)
 
