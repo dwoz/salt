@@ -1518,7 +1518,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 274e6467be do not change kwargs in refresh while checking a value
 
-  * 644b14c273 simplify checking the refresh paramater
+  * 644b14c273 simplify checking the refresh parameter
 
   * db0e0de2fd add refresh option to more functions
 
