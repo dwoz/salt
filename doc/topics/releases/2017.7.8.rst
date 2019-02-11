@@ -398,7 +398,7 @@ Changelog for v2017.7.7..v2017.7.8
 
   * 8a1285239a Merge pull request `#48426`_ from garethgreenaway/46689_fixing_pkg_held_when_package_is_installed
 
-  * 9b0f5dd212 Fixing identation, removing some unnecessary conditionals.
+  * 9b0f5dd212 Fixing indentation, removing some unnecessary conditionals.
 
   * 727964ab55 One last cleanup.
 
