@@ -732,14 +732,14 @@ Changelog for v2015.8.3..v2015.8.4
 
   * a7c2ad5505 Fix issue where pyVmomi 6.0.0 raises SSL Error for systems using Python2.7+
 
-* **PR** `#30354`_: (`anlutro`_) Make sure all ignore_missing SLSes are catched
+* **PR** `#30354`_: (`anlutro`_) Make sure all ignore_missing SLSes are caught
   @ *2016-01-14 16:24:19 UTC*
 
   * **PR** `#19429`_: (`ryan-lane`_) Add new ignore_missing option to pillar top (refs: `#30354`_)
 
   * 7ee61f0d62 Merge pull request `#30354`_ from alprs/fix-pillar_ignore_missing
 
-  * 2f662bbc8d make sure *all* ignore_missing slses are catched
+  * 2f662bbc8d make sure *all* ignore_missing slses are caught
 
 * **PR** `#30356`_: (`nmadhok`_) Adding code author
   @ *2016-01-14 16:23:08 UTC*
