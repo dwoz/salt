@@ -199,7 +199,7 @@ Changelog for v2015.8.0..v2015.8.1
 
     * 68d784c3dd Merge pull request `#27472`_ from cachedout/fix_27447
 
-      * 5e745ad6da Change recommeded schema for data field in mysql event table
+      * 5e745ad6da Change recommended schema for data field in mysql event table
 
     * ee6e0ed057 Merge pull request `#27468`_ from cachedout/fix_27351
 
