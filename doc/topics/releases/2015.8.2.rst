@@ -3045,7 +3045,7 @@ Changelog for v2015.8.1..v2015.8.2
 
     * 579f2646ba .. versionadded:: 2015.5.6
 
-    * cbaf46e066 python <2.7 compability (pylint issue)
+    * cbaf46e066 python <2.7 compatibility (pylint issue)
 
     * ecde499478 s/bin/b to avoid confusion with bin()
 
