@@ -119,7 +119,7 @@ Changelog for v2017.7.2..v2017.7.3
 * **PR** `#45664`_: (`rallytime`_) Back-port `#45452`_ to 2017.7.3
   @ *2018-01-24 15:33:13 UTC*
 
-  * **PR** `#45452`_: (`adelcast`_) opkg.py: make owner fuction return value, instead of iterator (refs: `#45664`_)
+  * **PR** `#45452`_: (`adelcast`_) opkg.py: make owner function return value, instead of iterator (refs: `#45664`_)
 
   * 0717f7a578 Merge pull request `#45664`_ from rallytime/bp-45452
 
