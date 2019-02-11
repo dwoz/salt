@@ -552,7 +552,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * ec90294442 Merge pull request `#31733`_ from jacobhammons/cloud-docs
 
-  * 209c641a41 Made udpates as suggested by @rallytime
+  * 209c641a41 Made updates as suggested by @rallytime
 
   * 26d4991cb3 moved previous intro to new quick start topic (topics/cloud/qs.rst) added new intro that explains the salt cloud configuration files added an inheritance and minion startup state example to topics/cloud/config.rst
 
