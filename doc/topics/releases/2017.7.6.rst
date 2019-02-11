@@ -1393,7 +1393,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * 2bee383e9d correct create list item value names if the valuePrefix attribute does not exist on the list item, the value is the value name, other wise, the valuename a number with the valuePrefix prepended to it
 
-* **ISSUE** `#46347`_: (`twangboy`_) Buid 449: unit.modules.test_inspect_collector (refs: `#46675`_)
+* **ISSUE** `#46347`_: (`twangboy`_) Build 449: unit.modules.test_inspect_collector (refs: `#46675`_)
 
 * **PR** `#46675`_: (`dwoz`_) Skip test when git symlinks are not configured
   @ *2018-04-03 12:19:19 UTC*
