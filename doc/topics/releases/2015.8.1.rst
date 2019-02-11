@@ -1556,12 +1556,12 @@ Changelog for v2015.8.0..v2015.8.1
 
   * 7e35b13022 Turned multiprocessing on
 
-* **PR** `#27086`_: (`techhat`_) Document develoment of SPM loader modules
+* **PR** `#27086`_: (`techhat`_) Document development of SPM loader modules
   @ *2015-09-13 04:52:55 UTC*
 
   * c78d833540 Merge pull request `#27086`_ from techhat/spmdevdocs
 
-  * ee0c8955dd Document develoment of SPM loader modules
+  * ee0c8955dd Document development of SPM loader modules
 
 * **ISSUE** `#23125`_: (`bemeyert`_) Elasticsearch as master_job_cache throws critical (refs: `#26941`_)
 
