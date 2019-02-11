@@ -2797,9 +2797,9 @@ Changelog for v2017.7.2..v2017.7.3
 * **PR** `#44133`_: (`cachedout`_) Fix typos in parallel states docs
   @ *2017-10-17 15:24:19 UTC*
 
-  * 6252f82f58 Merge pull request `#44133`_ from cachedout/fix_paralell_docs
+  * 6252f82f58 Merge pull request `#44133`_ from cachedout/fix_parallel_docs
 
-  * 8d1c1e21f0 Fix typos in paralell states docs
+  * 8d1c1e21f0 Fix typos in parallel states docs
 
 * **PR** `#44135`_: (`timfreund`_) Insert missing verb in gitfs walkthrough
   @ *2017-10-17 14:32:13 UTC*

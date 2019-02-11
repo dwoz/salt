@@ -902,12 +902,12 @@ Changelog for v2015.8.8.2..v2015.8.9
 
 * **ISSUE** `#31632`_: (`zieba88`_) salt-cloud map parallel provisioning -P option failed on 2015.8.5 (refs: `#32425`_)
 
-* **PR** `#32425`_: (`cachedout`_) Fix salt-cloud paralell provisioning
+* **PR** `#32425`_: (`cachedout`_) Fix salt-cloud parallel provisioning
   @ *2016-04-07 21:52:06 UTC*
 
   * c07e02bacb Merge pull request `#32425`_ from cachedout/issue_31632
 
-  * 127c0829ee Fix salt-cloud paralell provisioning
+  * 127c0829ee Fix salt-cloud parallel provisioning
 
 * **PR** `#32323`_: (`mcalmer`_) fix sorting by latest version when called with an attribute
   @ *2016-04-07 06:24:35 UTC*
