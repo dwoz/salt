@@ -1569,7 +1569,7 @@ Changelog for v2016.11.7..v2016.11.8
 
   * 7f6961378e test and lint fixes
 
-  * 8ee48432f4 Suppress output of crypt context and be more specifc with whitespace vs. serial
+  * 8ee48432f4 Suppress output of crypt context and be more specific with whitespace vs. serial
 
   * 61f817d172 Match serials based on output position (fix for non-English languages)
 

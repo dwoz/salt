@@ -2026,7 +2026,7 @@ Changelog for v2015.8.3..v2015.8.4
 
   * 7c50533d3f Merge pull request `#29683`_ from rallytime/vsan_fixes
 
-  * afc003079e Catch more specifc error to pass the error message through elegantly.
+  * afc003079e Catch more specific error to pass the error message through elegantly.
 
 * **PR** `#29687`_: (`basepi`_) [2015.8] Merge forward from 2015.5 to 2015.8
   @ *2015-12-15 18:38:46 UTC*

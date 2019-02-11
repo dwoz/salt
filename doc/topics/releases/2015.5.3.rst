@@ -583,11 +583,11 @@ Changelog for v2015.5.2..v2015.5.3
 * **PR** `#24791`_: (`rallytime`_) Back-port `#24749`_ to 2015.5
   @ *2015-06-18 17:43:15 UTC*
 
-  * **PR** `#24749`_: (`obestwalter`_) add windows specfic default for multiprocessing (refs: `#24791`_)
+  * **PR** `#24749`_: (`obestwalter`_) add windows specific default for multiprocessing (refs: `#24791`_)
 
   * 7073a9f850 Merge pull request `#24791`_ from rallytime/bp-24749
 
-  * be43b2b394 add windows specfic default for multiprocessing
+  * be43b2b394 add windows specific default for multiprocessing
 
 * **PR** `#24792`_: (`rallytime`_) Back-port `#24757`_ to 2015.5
   @ *2015-06-18 15:58:35 UTC*
