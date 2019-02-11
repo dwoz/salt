@@ -809,7 +809,7 @@ Changelog for v2016.11.5..v2016.11.6
 
   * 66ab1e5184 Re-adding neutron dependency check
 
-  * cce07eefc2 Updating Neutron module to suport KeystoneAuth
+  * cce07eefc2 Updating Neutron module to support KeystoneAuth
 
 * **ISSUE** `#34460`_: (`Ch3LL`_) Receive an error when using salt-api to call a runner (refs: `#41409`_)
 
