@@ -449,7 +449,7 @@ Changelog for v2015.8.10..v2015.8.11
 
   * **PR** `#33599`_: (`lomeroe`_) Fix s3 large file download (refs: `#33681`_)
 
-* **ISSUE** `#34213`_: (`terminalmage`_) gitfs w/pygit2 - corner case, traceback with short hexidecimal environment names (refs: `#34218`_)
+* **ISSUE** `#34213`_: (`terminalmage`_) gitfs w/pygit2 - corner case, traceback with short hexadecimal environment names (refs: `#34218`_)
 
 * **ISSUE** `#34212`_: (`terminalmage`_) gitfs: commit SHAs no longer available as fileserver environments (refs: `#34218`_)
 
