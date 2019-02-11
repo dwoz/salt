@@ -2930,7 +2930,7 @@ Changelog for v2018.3.0..v2018.3.1
 
   * f15f92318d Add tests for salt.utils.win_reg
 
-  * f7112b19a2 Submit `#46527`_ agains 2018.3
+  * f7112b19a2 Submit `#46527`_ against 2018.3
 
 * **ISSUE** `#46334`_: (`sjorge`_) [2018.3.0rc1] Stacktrace on call to nacl.dec (refs: `#46426`_)
 
