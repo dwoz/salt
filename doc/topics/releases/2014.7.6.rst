@@ -318,9 +318,9 @@ Changelog for v2014.7.5..v2014.7.6
 * **PR** `#23551`_: (`dr4Ke`_) grains.append unit tests, related to `#23474`_
   @ *2015-05-11 21:54:25 UTC*
 
-  * **PR** `#23474`_: (`dr4Ke`_) Fix grains.append in nested dictionnary grains `#23411`_ (refs: `#23551`_)
+  * **PR** `#23474`_: (`dr4Ke`_) Fix grains.append in nested dictionary grains `#23411`_ (refs: `#23551`_)
 
-  * **PR** `#23440`_: (`dr4Ke`_) fix grains.append in nested dictionnary grains `#23411`_ (refs: `#23474`_)
+  * **PR** `#23440`_: (`dr4Ke`_) fix grains.append in nested dictionary grains `#23411`_ (refs: `#23474`_)
 
   * 6ec87ce9f5 Merge pull request `#23551`_ from dr4Ke/grains.append_unit_tests
 
@@ -334,10 +334,10 @@ Changelog for v2014.7.5..v2014.7.6
 
 * **ISSUE** `#23411`_: (`dr4Ke`_) grains.append should work at any level of a grain (refs: `#23440`_, `#23474`_)
 
-* **PR** `#23474`_: (`dr4Ke`_) Fix grains.append in nested dictionnary grains `#23411`_ (refs: `#23551`_)
+* **PR** `#23474`_: (`dr4Ke`_) Fix grains.append in nested dictionary grains `#23411`_ (refs: `#23551`_)
   @ *2015-05-11 18:00:21 UTC*
 
-  * **PR** `#23440`_: (`dr4Ke`_) fix grains.append in nested dictionnary grains `#23411`_ (refs: `#23474`_)
+  * **PR** `#23440`_: (`dr4Ke`_) fix grains.append in nested dictionary grains `#23411`_ (refs: `#23474`_)
 
   * e96c5c5bf3 Merge pull request `#23474`_ from dr4Ke/fix_grains.append_nested
 
@@ -345,7 +345,7 @@ Changelog for v2014.7.5..v2014.7.6
 
   * b39f50475d remove debugging output
 
-  * b6e15e295c fix grains.append in nested dictionnary grains `#23411`_
+  * b6e15e295c fix grains.append in nested dictionary grains `#23411`_
 
 * **PR** `#23537`_: (`t0rrant`_) Update changelog
   @ *2015-05-11 17:02:16 UTC*
