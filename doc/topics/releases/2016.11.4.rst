@@ -2029,12 +2029,12 @@ Changelog for v2016.11.3..v2016.11.4
 
 * **ISSUE** `#38836`_: (`toanctruong`_) file.managed with S3 Source errors out with obscure message (refs: `#39609`_, `#39589`_)
 
-* **PR** `#39609`_: (`gtmanfred`_) intialize the Client stuff in FSClient
+* **PR** `#39609`_: (`gtmanfred`_) initialize the Client stuff in FSClient
   @ *2017-02-24 18:50:55 UTC*
 
   * 0bc6027e68 Merge pull request `#39609`_ from gtmanfred/2016.11
 
-  * 0820620ef8 intialize the Client stuff in FSClient
+  * 0820620ef8 initialize the Client stuff in FSClient
 
 * **PR** `#39615`_: (`skizunov`_) Bonjour/Avahi beacons: Make sure TXT record length is valid
   @ *2017-02-24 18:47:05 UTC*
