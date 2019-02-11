@@ -1916,13 +1916,13 @@ Changelog for v2018.3.0..v2018.3.1
 * **PR** `#47023`_: (`rallytime`_) Back-port `#46997`_ to 2018.3
   @ *2018-04-12 15:05:24 UTC*
 
-  * **PR** `#46997`_: (`LukeCarrier`_) Fix respository (=> repository) typo in sls_build (refs: `#47023`_)
+  * **PR** `#46997`_: (`LukeCarrier`_) Fix repository (=> repository) typo in sls_build (refs: `#47023`_)
 
   * **PR** `#44638`_: (`terminalmage`_) Many improvements to docker network and container states (refs: `#46997`_)
 
   * 68d17c71f1 Merge pull request `#47023`_ from rallytime/bp-46997
 
-  * c2c60f4ffc Fix respository (=> repository) typo in sls_build
+  * c2c60f4ffc Fix repository (=> repository) typo in sls_build
 
 * **PR** `#47026`_: (`rallytime`_) [2018.3] Merge forward from 2017.7 to 2018.3
   @ *2018-04-12 14:39:41 UTC*
