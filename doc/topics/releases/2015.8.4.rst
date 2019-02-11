@@ -1834,7 +1834,7 @@ Changelog for v2015.8.3..v2015.8.4
 
   * 3b7f5540ec Add vSphere module to doc ref module tree
 
-* **ISSUE** `#29751`_: (`ether42`_) mod_hostname behavior is systemd dependant (refs: `#29767`_)
+* **ISSUE** `#29751`_: (`ether42`_) mod_hostname behavior is systemd dependent (refs: `#29767`_)
 
 * **PR** `#29767`_: (`abednarik`_) Hosts file update in mod_hostname.
   @ *2015-12-17 18:31:18 UTC*
