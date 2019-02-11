@@ -2209,9 +2209,9 @@ Changelog for v2015.8.3..v2015.8.4
 
   * b96d8ff1d9 Minor update to release notes for missing fix
 
-  * e72354aac4 Fix typo specfic -> specific
+  * e72354aac4 Fix typo of specific
 
-  * 5708355762 Fix typo comparsion -> comparison
+  * 5708355762 Fix typo of comparison
 
 * **PR** `#29540`_: (`basepi`_) [2015.8] Merge forward from 2015.5 to 2015.8
   @ *2015-12-08 21:27:01 UTC*

@@ -1128,37 +1128,37 @@ Changelog for v2015.8.8.2..v2015.8.9
 
   * f16e332b3a Merge pull request `#32326`_ from bdrung/fix-typos
 
-  * a7db152333 Fix typo dont -> don't
+  * a7db152333 Fix typo of don't
 
-  * d4c037301b Fix typo missmatch -> mismatch
+  * d4c037301b Fix typo of mismatch
 
-  * 70dba70ff0 Fix typo additonal -> addition
+  * 70dba70ff0 Fix typo of addition
 
-  * 68c60903aa Fix typo mutliple -> multiple
+  * 68c60903aa Fix typo of multiple
 
-  * 0f2c779b90 Fix typo fucntion -> function
+  * 0f2c779b90 Fix typo of function
 
-  * 0c9e4c8c80 Fix typo avilable -> available
+  * 0c9e4c8c80 Fix typo of available
 
-  * 920abe2ec7 Fix typo formated -> formatted
+  * 920abe2ec7 Fix typo of formatted
 
-  * e56dd4bb23 Fix typo ommitted -> omitted
+  * e56dd4bb23 Fix typo of omitted
 
-  * f99e6f1f13 Fix typo ouptut -> output
+  * f99e6f1f13 Fix typo of output
 
-  * d3804094f2 Fix typo wether -> whether
+  * d3804094f2 Fix typo of whether
 
-  * 538fb6fae2 Fix typo perfomed -> performed
+  * 538fb6fae2 Fix typo of performed
 
-  * db7af998ee Fix typo santized -> sanitized
+  * db7af998ee Fix typo of sanitized
 
-  * d7af01da2b Fix typo coresponding -> corresponding
+  * d7af01da2b Fix typo of corresponding
 
-  * 301e78b5be Fix typo vaules -> values
+  * 301e78b5be Fix typo of values
 
   * 8cada9573f Fix typos of retrieve
 
-  * b484d6f9c9 Fix typo directorys -> directories
+  * b484d6f9c9 Fix typo of directories
 
 * **PR** `#32300`_: (`twangboy`_) Add documentation to disable winrepo/winrepo_ng
   @ *2016-04-01 21:23:09 UTC*

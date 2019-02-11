@@ -2533,49 +2533,49 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 4372851ad9 Merge pull request `#30895`_ from bdrung/2015.8
 
-  * 708f2ff8ea Fix typo reponse -> response
+  * 708f2ff8ea Fix typo of response
 
-  * 72c4eab6d7 Fix typo propogate -> propagate
+  * 72c4eab6d7 Fix typo of propagate
 
-  * 4912e365cb Fix typo directores -> directories
+  * 4912e365cb Fix typo of directories
 
-  * 74c8aba03e Fix typo exeption -> exception
+  * 74c8aba03e Fix typo of exception
 
   * 4692d84b07 Fix typos of improvement
 
-  * 213fc2d858 Fix typo occuring -> occurring
+  * 213fc2d858 Fix typo of occurring
 
-  * fe6124003b Fix typo nonexistant -> nonexistent
+  * fe6124003b Fix typo of nonexistent
 
-  * 56ce7479b1 Fix typo catched -> caught
+  * 56ce7479b1 Fix typo of caught
 
-  * 821e690e65 Fix typo develoment -> development
+  * 821e690e65 Fix typo of development
 
-  * b51279e086 Fix typo overide -> override
+  * b51279e086 Fix typo of override
 
-  * 4f2f04ea7d Fix typo relevent -> relevant
+  * 4f2f04ea7d Fix typo of relevant
 
-  * fe8be562c5 Fix typo existance -> existence
+  * fe8be562c5 Fix typo of existence
 
-  * 4a2f4de1a8 Fix typo accross -> across
+  * 4a2f4de1a8 Fix typo of across
 
-  * 9ae50c993e Fix typo Lenth -> Length
+  * 9ae50c993e Fix typo of Length
 
-  * 20e79981e1 Fix typo preferrably -> preferably
+  * 20e79981e1 Fix typo of preferably
 
-  * f8d9f608dd Fix typo addres -> address
+  * f8d9f608dd Fix typo of address
 
-  * a7f12a13f0 Fix typo keywork -> keyword
+  * a7f12a13f0 Fix typo of keyword
 
-  * bf92c3663b Fix typo formating -> formatting
+  * bf92c3663b Fix typo of formatting
 
-  * ca4450d881 Fix typo wont -> won't
+  * ca4450d881 Fix typo of won't
 
-  * cd72b12161 Fix typo thats -> that's
+  * cd72b12161 Fix typo of that's
 
-  * 6db9724ec7 Fix typo doesnt -> doesn't
+  * 6db9724ec7 Fix typo of doesn't
 
-  * 58d46a7e98 Fix typo certficate -> certificate
+  * 58d46a7e98 Fix typo of certificate
 
 * **ISSUE** `#30887`_: (`anlutro`_) salt-ssh fails on import msgpack - 2015.8 (refs: `#30889`_)
 
