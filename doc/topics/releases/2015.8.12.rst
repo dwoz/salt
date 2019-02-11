@@ -288,7 +288,7 @@ Changelog for v2015.8.11..v2015.8.12
 
   * 8a5b47b5d7 Collect all error data from the wfuncs call
 
-  * 11864c31b7 supress a stack trace to show clean ssh error
+  * 11864c31b7 suppress a stack trace to show clean ssh error
 
   * 9fbfa282fa wow this solves an issue!
 

@@ -3025,7 +3025,7 @@ Changelog for v2018.3.0..v2018.3.1
 
     * 5cc11129f1 Merge pull request `#46511`_ from rallytime/bp-45769
 
-      * a8ffceda53 Surpress boto WARNING during decode, reference: https://github.com/boto/boto/issues/2965
+      * a8ffceda53 Suppress boto WARNING during decode, reference: https://github.com/boto/boto/issues/2965
 
     * 0e90c8ca6f Merge pull request `#46493`_ from terminalmage/issue46207
 

@@ -1911,11 +1911,11 @@ Changelog for v2017.7.5..v2017.7.6
 * **PR** `#46511`_: (`rallytime`_) Back-port `#45769`_ to 2017.7
   @ *2018-03-13 17:08:52 UTC*
 
-  * **PR** `#45769`_: (`Quarky9`_) Surpress boto WARNING during SQS msg decode in sqs_engine (refs: `#46511`_)
+  * **PR** `#45769`_: (`Quarky9`_) Suppress boto WARNING during SQS msg decode in sqs_engine (refs: `#46511`_)
 
   * 5cc11129f1 Merge pull request `#46511`_ from rallytime/bp-45769
 
-  * a8ffceda53 Surpress boto WARNING during decode, reference: https://github.com/boto/boto/issues/2965
+  * a8ffceda53 Suppress boto WARNING during decode, reference: https://github.com/boto/boto/issues/2965
 
 .. _`#20581`: https://github.com/saltstack/salt/issues/20581
 .. _`#20639`: https://github.com/saltstack/salt/issues/20639
