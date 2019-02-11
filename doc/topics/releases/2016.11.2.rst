@@ -772,7 +772,7 @@ Changelog for v2016.11.1..v2016.11.2
 
   * 68d5475c1f Fixing Snapper unit tests for SUBVOLUME support
 
-  * e9919a913f Removing posible double '/' from the file paths
+  * e9919a913f Removing possible double '/' from the file paths
 
   * 8b4f87f226 Updating and fixing the documentation
 
