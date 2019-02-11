@@ -1037,7 +1037,7 @@ Changelog for v2015.8.3..v2015.8.4
 
   * 0877b33026 Fixed some linting issues
 
-  * 8ec36497a1 Added note about systemd and uncleanshutdown. Also fixed line lenght of comments to max 80 characters as per PEP0008
+  * 8ec36497a1 Added note about systemd and uncleanshutdown. Also fixed line length of comments to max 80 characters as per PEP0008
 
   * a50428d02c On an unclean shutdown, if oncleanshutdown is given a path, an keyy:value of shutdown:unclean is added to the returned data. The documentation states that the key should be 'uncleanshutdown' and that the value should either be True or False. This is fixed in the code
 
