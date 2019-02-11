@@ -1328,7 +1328,7 @@ Changelog for v2015.8.8.2..v2015.8.9
 
   * bf59f06733 Merge pull request `#32217`_ from jacobhammons/dot8
 
-  * 596444e2b4 2015.8.8.2 release notes Adds banner notifiying user when they are viewing release notes for an old release
+  * 596444e2b4 2015.8.8.2 release notes Adds banner notifying user when they are viewing release notes for an old release
 
 * **ISSUE** `#31844`_: (`Talkless`_) slspath is not documented (refs: `#32197`_)
 
