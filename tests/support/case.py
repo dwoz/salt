@@ -275,7 +275,7 @@ class ShellTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
                 popen_kwargs['cwd'] = os.getcwd()
             if 'env' not in popen_kwargs:
                 popen_kwargs['env'] = os.environ.copy()
-                popen_kwargs['env'][b'PYTHONPATH'] = os.getcwd().encode()
+                popen_kwargs['env'][b'PYTHONPATH'] = CODE_DIR.encode()
         else:
             cmd = 'PYTHONPATH='
             python_path = os.environ.get('PYTHONPATH', None)
