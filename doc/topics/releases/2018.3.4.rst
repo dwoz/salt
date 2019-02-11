@@ -3643,7 +3643,7 @@ Changelog for v2018.3.3..v2018.3.4
 
   * d40c034 Fix index error when running on Python 3
 
-* **PR** `#49720`_: (`cstarke`_) Seperate prlctl and prlsrvctl checks into each requiring function
+* **PR** `#49720`_: (`cstarke`_) Separate prlctl and prlsrvctl checks into each requiring function
   @ *2018-09-21 13:32:46 UTC*
 
   * e7bbb83 Merge pull request `#49720`_ from cstarke/2018.3
@@ -3656,7 +3656,7 @@ Changelog for v2018.3.3..v2018.3.4
 
   * 9034c4e Add import for CommandExecutionError
 
-  * 752b6f8 Seperate prlctl and prlsrvctl checks into each requiring function
+  * 752b6f8 Separate prlctl and prlsrvctl checks into each requiring function
 
 * **PR** `#49615`_: (`terminalmage`_) ping_interval: use service.restart instead of signaling
   @ *2018-09-21 13:26:41 UTC*

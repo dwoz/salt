@@ -1285,7 +1285,7 @@ Changelog for v2015.8.10..v2015.8.11
 
   * **PR** `#33421`_: (`abednarik`_) Documentation update in file.serialize.
 
-  * **PR** `#33398`_: (`lvg01`_) Fix LVM parameter devices as a pure list. Comma seperated lists are c…
+  * **PR** `#33398`_: (`lvg01`_) Fix LVM parameter devices as a pure list. Comma separated lists are c…
 
   * **PR** `#33406`_: (`rallytime`_) Back-port `#33387`_ to 2015.8
 
