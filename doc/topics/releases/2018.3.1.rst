@@ -934,7 +934,7 @@ Changelog for v2018.3.0..v2018.3.1
 
       * b2ae5889b7 Close the temporary file handle
 
-      * 9f7f83a975 Use salt.utils.fopen for line ending consistancy
+      * 9f7f83a975 Use salt.utils.fopen for line ending consistency
 
     * b221860151 Merge pull request `#47335`_ from dwoz/pip_test_fix
 

@@ -557,7 +557,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * 85451f48d4 Fix python 3 support for inet_pton function
 
-* **PR** `#47339`_: (`dwoz`_) Use salt.utils.fopen for line ending consistancy
+* **PR** `#47339`_: (`dwoz`_) Use salt.utils.fopen for line ending consistency
   @ *2018-04-26 22:39:56 UTC*
 
   * e4779f3246 Merge pull request `#47339`_ from dwoz/ssh_key_test_fix
@@ -566,7 +566,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * b2ae5889b7 Close the temporary file handle
 
-  * 9f7f83a975 Use salt.utils.fopen for line ending consistancy
+  * 9f7f83a975 Use salt.utils.fopen for line ending consistency
 
 * **PR** `#47335`_: (`dwoz`_) Remove un-needed string-escape
   @ *2018-04-26 21:49:27 UTC*

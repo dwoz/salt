@@ -3157,7 +3157,7 @@ Changelog for v2018.3.3..v2018.3.4
 
   * eee82d3 Merge pull request `#49875`_ from dwoz/win_spm_tests
 
-  * e76a751 Use os.path.split for more consistancy
+  * e76a751 Use os.path.split for more consistency
 
   * bc54d15 Fix wart in spm on windows
 
@@ -3218,7 +3218,7 @@ Changelog for v2018.3.3..v2018.3.4
 
     * 9ef9206 Actually catch the exception when we fail
 
-            * 19072f0 Use os.path.split for more consistancy
+            * 19072f0 Use os.path.split for more consistency
 
             * 6c22459 Merge remote-tracking branch 'origin/shelltests' into shelltests
 

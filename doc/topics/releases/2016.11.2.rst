@@ -566,7 +566,7 @@ Changelog for v2016.11.1..v2016.11.2
 
   * 26fae54f5b network.ifacestartswith throws exception on Solaris-like platforms
 
-* **ISSUE** `#37027`_: (`sjorge`_) Solaris FQDN/UQDN and documentation/consistancy (refs: `#38615`_)
+* **ISSUE** `#37027`_: (`sjorge`_) Solaris FQDN/UQDN and documentation/consistency (refs: `#38615`_)
 
 * **PR** `#38615`_: (`sjorge`_) add note related to issue `#37027`_
   @ *2017-01-06 16:38:34 UTC*
