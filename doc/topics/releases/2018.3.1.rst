@@ -2137,7 +2137,7 @@ Changelog for v2018.3.0..v2018.3.1
 
   * dceda5eb88 Moving all jinja filter tests into support/jinja_filters.py.  Updaitng integration/ssh/test_jinja_filters.py to use those tests.  Adding integration/modules/test_state_jinja_filters.py to also use the common jinja filter tests.
 
-  * 07d7e3ca01 Adding a new integration test and corresponding state files to test availabilty of jinja filters when using salt-ssh.
+  * 07d7e3ca01 Adding a new integration test and corresponding state files to test availability of jinja filters when using salt-ssh.
 
 * **ISSUE** `#46880`_: (`liquidgecka`_) rabbitmq_policy broken in 2018.3.0 (refs: `#46973`_)
 
