@@ -963,12 +963,12 @@ Changelog for v2016.11.7..v2016.11.8
 
   * 8c048403d7 Detect Server OS with a desktop release name
 
-* **PR** `#42356`_: (`meaksh`_) Allow to check whether a function is available on the AliasesLoader wrapper
+* **PR** `#42356`_: (`meaksh`_) Allow checking whether a function is available on the AliasesLoader wrapper
   @ *2017-07-19 16:56:41 UTC*
 
   * 0a72e56f6b Merge pull request `#42356`_ from meaksh/2016.11-AliasesLoader-wrapper-fix
 
-  * 915d94219e Allow to check whether a function is available on the AliasesLoader wrapper
+  * 915d94219e Allow checking whether a function is available on the AliasesLoader wrapper
 
 * **PR** `#42368`_: (`twangboy`_) Remove build and dist directories before install (2016.11)
   @ *2017-07-19 16:47:28 UTC*

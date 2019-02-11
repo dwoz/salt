@@ -3552,7 +3552,7 @@ Changelog for v2018.3.0..v2018.3.1
 
   * **PR** `#45932`_: (`The-Loeki`_) Fix cmd run_all bg error (refs: `#46172`_)
 
-  * **PR** `#39980`_: (`vutny`_) [2016.3] Allow to use `bg` kwarg for `cmd.run` state function (refs: `#46172`_, `#45932`_)
+  * **PR** `#39980`_: (`vutny`_) [2016.3] Allow using `bg` kwarg for `cmd.run` state function (refs: `#46172`_, `#45932`_)
 
   * 20d869c228 Merge pull request `#46172`_ from The-Loeki/fix_cmd_run_all_bg_oxygen
 

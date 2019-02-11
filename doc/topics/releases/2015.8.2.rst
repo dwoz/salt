@@ -837,7 +837,7 @@ Changelog for v2015.8.1..v2015.8.2
 
   * ec924e8410 Merge pull request `#28560`_ from bdrung/2015.8
 
-  * 89dcb66310 Fix the wrong "allow to do" phrase
+  * 89dcb66310 Fix "allow one to do" phrase
 
   * 859b6b46a6 Fix typo of nonexistent
 
