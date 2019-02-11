@@ -1825,14 +1825,14 @@ Changelog for v2017.7.2..v2017.7.3
 
                   * c6733ac1ee pop None
 
-* **PR** `#44616`_: (`Ch3LL`_) Add Non Base Environement salt:// source integration test
+* **PR** `#44616`_: (`Ch3LL`_) Add Non Base Environment salt:// source integration test
   @ *2017-11-22 16:13:54 UTC*
 
   * d6ccf4bb30 Merge pull request `#44616`_ from Ch3LL/nonbase_test
 
   * 80b71652e3 Merge branch '2017.7' into nonbase_test
 
-  * c9ba33432e Add Non Base Environement salt:// source integration test
+  * c9ba33432e Add Non Base Environment salt:// source integration test
 
 * **PR** `#44617`_: (`Ch3LL`_) Add ssh thin_dir integration test
   @ *2017-11-22 16:12:51 UTC*
