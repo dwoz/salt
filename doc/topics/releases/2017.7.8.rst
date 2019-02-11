@@ -782,7 +782,7 @@ Changelog for v2017.7.7..v2017.7.8
 
   * fab25af1a9 Adding some quick documentation about why we are setting ret=True following the channel.send.
 
-  * bf78f4b188 If the channel send is sucessful and does not raise an exception, we set ret to True, in case a previous exception from a previous channel send to another master has sent it to False.
+  * bf78f4b188 If the channel send is successful and does not raise an exception, we set ret to True, in case a previous exception from a previous channel send to another master has sent it to False.
 
   * 8d1551c5fb When using Salt multi-master, if we encouter a salt master that has not accepted the minion key yet we should not exit right away, rather continue on and try the next salt master available in the list.
 

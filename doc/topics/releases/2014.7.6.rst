@@ -858,7 +858,7 @@ Changelog for v2014.7.5..v2014.7.6
 * **PR** `#23113`_: (`rallytime`_) Revert "Backport `#22895`_ to 2014.7"
   @ *2015-04-28 03:27:29 UTC*
 
-  * **PR** `#22895`_: (`aletourneau`_) pam_tally counter was not reset to 0 after a succesfull login (refs: `#23113`_, `#22925`_, #saltstack/salt`#22925`_)
+  * **PR** `#22895`_: (`aletourneau`_) pam_tally counter was not reset to 0 after a successful login (refs: `#23113`_, `#22925`_, #saltstack/salt`#22925`_)
 
   * dfe2066b25 Merge pull request `#23113`_ from saltstack/revert-22925-bp-22895
 
@@ -1040,7 +1040,7 @@ Changelog for v2014.7.5..v2014.7.6
 * **PR** `#22925`_: (`rallytime`_) Backport `#22895`_ to 2014.7
   @ *2015-04-22 02:30:26 UTC*
 
-  * **PR** `#22895`_: (`aletourneau`_) pam_tally counter was not reset to 0 after a succesfull login (refs: `#23113`_, `#22925`_, #saltstack/salt`#22925`_)
+  * **PR** `#22895`_: (`aletourneau`_) pam_tally counter was not reset to 0 after a successful login (refs: `#23113`_, `#22925`_, #saltstack/salt`#22925`_)
 
   * 6890752dd3 Merge pull request `#22925`_ from rallytime/bp-22895
 
@@ -1050,7 +1050,7 @@ Changelog for v2014.7.5..v2014.7.6
 
   * 5ebf159554 Cleaned up pull request
 
-  * a08ac478f6 pam_tally counter was not reset to 0 after a succesfull login
+  * a08ac478f6 pam_tally counter was not reset to 0 after a successful login
 
 * **ISSUE** `#22790`_: (`whiteinge`_) jobs.list_jobs runner tracebacks on 'missing' argument (refs: `#22914`_)
 
