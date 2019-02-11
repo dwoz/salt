@@ -561,7 +561,7 @@ Changelog for v2015.5.0..v2015.5.1
 
   * e48982ff9c Fix version checking in psutil_compat
 
-  * 93ee411fd5 Create compatability psutil. psutil 3.0 drops 1.0 API, but we still support old psutil versions.
+  * 93ee411fd5 Create compatibility psutil. psutil 3.0 drops 1.0 API, but we still support old psutil versions.
 
 * **PR** `#23782`_: (`terminalmage`_) Replace "command -v" with "which" and get rid of spurious log messages
   @ *2015-05-16 04:03:10 UTC*
@@ -976,7 +976,7 @@ Changelog for v2015.5.0..v2015.5.1
 
   * 73cfda751a Remove unused import
 
-  * 52b68d695a Use the zip_longest from six module for python 3 compatiblity
+  * 52b68d695a Use the zip_longest from six module for python 3 compatibility
 
   * 18d5ff9a8e Fix salt.state.file._unify_sources_and_hashes when sources is used without sources_hashes
 

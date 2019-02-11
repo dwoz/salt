@@ -1256,12 +1256,12 @@ Changelog for v2018.3.0..v2018.3.1
 
   * 9075070573 make sure not to send invalid information
 
-* **ISSUE** `#46977`_: (`gtmanfred`_) [2018.3.0] Backwards compatibilty breaking change in 2018.3.0 (refs: `#47038`_)
+* **ISSUE** `#46977`_: (`gtmanfred`_) [2018.3.0] Backwards compatibility breaking change in 2018.3.0 (refs: `#47038`_)
 
 * **PR** `#47038`_: (`garethgreenaway`_) [2018.3] fix to fileclient.py
   @ *2018-04-25 14:57:04 UTC*
 
-  * 205701dcbe Merge pull request `#47038`_ from garethgreenaway/46977_fixing_fileclient_forward_compatibilty
+  * 205701dcbe Merge pull request `#47038`_ from garethgreenaway/46977_fixing_fileclient_forward_compatibility
 
   * ba01d2133a Updating version.py to include Magnesium.
 
