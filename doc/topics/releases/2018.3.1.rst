@@ -497,7 +497,7 @@ Changelog for v2018.3.0..v2018.3.1
 
     * ed69821d19 Merge pull request `#47433`_ from s0undt3ch/2017.7
 
-      * 5abadf25d6 Add missing requirements files not commited in `#47106`_
+      * 5abadf25d6 Add missing requirements files not committed in `#47106`_
 
 * **ISSUE** `#47443`_: (`skylerberg`_) Input validation does not raise SaltInvocationError in win_dsc.py (refs: `#47505`_)
 

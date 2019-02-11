@@ -1063,7 +1063,7 @@ Changelog for v2017.7.2..v2017.7.3
 
   * 4b60b1ec84 Merge remote branch 'refs/remotes/upstream/2017.7' into 2017.7_replace_with_newer_2016.11_win_pkg
 
-  * b46f818a57 Raise a PR to fix 2016 issues commited here, fixed issues with merge.
+  * b46f818a57 Raise a PR to fix 2016 issues committed here, fixed issues with merge.
 
   * 32ef1e12ae Merge branch '2017.7' into 2017.7_replace_with_newer_2016.11_win_pkg
 

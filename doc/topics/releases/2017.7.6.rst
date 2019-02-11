@@ -276,14 +276,14 @@ Changelog for v2017.7.5..v2017.7.6
 
 * **ISSUE** `#45790`_: (`bdarnell`_) Test with Tornado 5.0b1 (refs: `#47106`_, `#47433`_)
 
-* **PR** `#47433`_: (`s0undt3ch`_) Add missing requirements files not commited in `#47106`_
+* **PR** `#47433`_: (`s0undt3ch`_) Add missing requirements files not committed in `#47106`_
   @ *2018-05-02 20:57:14 UTC*
 
   * **PR** `#47106`_: (`DmitryKuzmenko`_) Tornado50 compatibility fixes (refs: `#47433`_)
 
   * ed69821d19 Merge pull request `#47433`_ from s0undt3ch/2017.7
 
-  * 5abadf25d6 Add missing requirements files not commited in `#47106`_
+  * 5abadf25d6 Add missing requirements files not committed in `#47106`_
 
 * **ISSUE** `#47424`_: (`bcharron`_) "salt-cloud -m" fails with nova driver: "There was a query error: u'state'" (refs: `#47429`_)
 
