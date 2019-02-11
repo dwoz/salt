@@ -1281,7 +1281,7 @@ Changelog for v2015.8.3..v2015.8.4
 
       * 56544a77f6 Update user home event when createhome is set to False
 
-    * 1a5d585d91 Merge pull request `#30127`_ from jsutton/clarify-documenation-for-random_master
+    * 1a5d585d91 Merge pull request `#30127`_ from jsutton/clarify-documentation-for-random_master
 
       * 01dbf385ef Adding random_master to reference and updating master_shuffle. Adding master_shuffle to the minion example config file as it is needed for multi-master PKI.
 

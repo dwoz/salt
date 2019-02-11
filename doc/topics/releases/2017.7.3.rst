@@ -435,7 +435,7 @@ Changelog for v2017.7.2..v2017.7.3
 
   * 9a15ec3430 Updating versionadded string.  Fixing typo.
 
-  * edfc3dc078 Adding in documention for `auth_events` configuration option
+  * edfc3dc078 Adding in documentation for `auth_events` configuration option
 
   * 3ee4eabffd Fixing small typo
 

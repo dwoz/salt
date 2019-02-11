@@ -1807,7 +1807,7 @@ Changelog for v2018.3.2..v2018.3.3
 
     * 1b6e6388f8 Merge pull request `#48588`_ from garethgreenaway/48415_event_send_multi_master
 
-      * fab25af1a9 Adding some quick documention about why we are setting ret=True following the channel.send.
+      * fab25af1a9 Adding some quick documentation about why we are setting ret=True following the channel.send.
 
       * bf78f4b188 If the channel send is sucessful and does not raise an exception, we set ret to True, in case a previous exception from a previous channel send to another master has sent it to False.
 

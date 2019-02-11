@@ -114,7 +114,7 @@ Changelog for v2015.8.8.2..v2015.8.9
 
   * **PR** `#33224`_: (`rallytime`_) Make note of files that begin with '_' in master.d or minion.d dirs
 
-* **ISSUE** `#31975`_: (`rajvidhimar`_) Docstrings not reflected in the salt documenation. (refs: `#33150`_)
+* **ISSUE** `#31975`_: (`rajvidhimar`_) Docstrings not reflected in the salt documentation. (refs: `#33150`_)
 
   * **PR** `#33150`_: (`rallytime`_) Gate jnpr imports in salt.proxy.junos.py
 

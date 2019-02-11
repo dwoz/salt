@@ -1911,7 +1911,7 @@ Changelog for v2018.3.0..v2018.3.1
 
   * c33de7c82d Merge pull request `#47009`_ from garethgreenaway/46947_slack_documentation_update_catch_non_dicts
 
-  * f0fadbb4ce Fixing indention for slack documention.  Updating try..except to ensure we catch when groups aren't dicts.
+  * f0fadbb4ce Fixing indention for slack documentation.  Updating try..except to ensure we catch when groups aren't dicts.
 
 * **PR** `#47023`_: (`rallytime`_) Back-port `#46997`_ to 2018.3
   @ *2018-04-12 15:05:24 UTC*
@@ -2266,7 +2266,7 @@ Changelog for v2018.3.0..v2018.3.1
 
     * 058bbed221 Merge pull request `#46799`_ from garethgreenaway/46762_prereq_shenanigans_tests
 
-      * 13875e78cf Fixing documention string for test.
+      * 13875e78cf Fixing documentation string for test.
 
       * 3d288c44d4 Fixing test documentation
 

@@ -1100,7 +1100,7 @@ Changelog for v2016.3.4..v2016.3.5
 
   * **PR** `#37826`_: (`rallytime`_) Update branch refs to more relevant branch
 
-  * **PR** `#37822`_: (`laleocen`_) add documenation for multiline encryption using nacl (refs: `#37826`_)
+  * **PR** `#37822`_: (`laleocen`_) add documentation for multiline encryption using nacl (refs: `#37826`_)
 
 * **ISSUE** `#19269`_: (`markuskramerIgitt`_) Undocumented  feature `names:` of `file.directory` (refs: `#37823`_)
 

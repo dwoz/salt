@@ -1253,7 +1253,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * 058bbed221 Merge pull request `#46799`_ from garethgreenaway/46762_prereq_shenanigans_tests
 
-  * 13875e78cf Fixing documention string for test.
+  * 13875e78cf Fixing documentation string for test.
 
   * 3d288c44d4 Fixing test documentation
 
