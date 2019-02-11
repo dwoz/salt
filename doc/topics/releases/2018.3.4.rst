@@ -3356,13 +3356,13 @@ Changelog for v2018.3.3..v2018.3.4
 * **PR** `#49846`_: (`rallytime`_) Back-port `#49650`_ and `#49827`_ to 2018.3
   @ *2018-10-01 20:05:24 UTC*
 
-  * **PR** `#49827`_: (`dgmorrisjr`_) fixing mis-spelling of lattrs in file.py, referncing `#49204`_  (refs: `#49846`_)
+  * **PR** `#49827`_: (`dgmorrisjr`_) fixing mis-spelling of lattrs in file.py, referencing `#49204`_  (refs: `#49846`_)
 
   * **PR** `#49650`_: (`Yxnt`_) fix aliyun cloud typeerror (refs: `#49846`_)
 
   * 93d064a Merge pull request `#49846`_ from rallytime/bp-49650
 
-  * fb7fed7 referncing `#49204`_, fixing mis-spelling of lattrs on line 4514 per request from @gtmanfred
+  * fb7fed7 referencing `#49204`_, fixing mis-spelling of lattrs on line 4514 per request from @gtmanfred
 
   * ec9fa92 use stringutils instead of hard code
 

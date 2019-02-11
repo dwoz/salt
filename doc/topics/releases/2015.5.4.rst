@@ -1460,7 +1460,7 @@ Changelog for v2015.5.3..v2015.5.4
 
   * 8a1765fc6f Add version_cmp function to yumpkg.py
 
-  * 457e72e273 Fix refernces to __salt__['version_cmp']
+  * 457e72e273 Fix references to __salt__['version_cmp']
 
   * a19fa2296a Avoid using single-letter variable
 
