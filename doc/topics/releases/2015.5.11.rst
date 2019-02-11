@@ -434,9 +434,9 @@ Changelog for v2015.5.10..v2015.5.11
 
   * d18b4be80b remove whitespace end of line 186:q
 
-  * d2b89c85ad fix formating
+  * d2b89c85ad fix formatting
 
-  * 103cee9e29 cleaned up formating
+  * 103cee9e29 cleaned up formatting
 
   * 7a4d7f0bff added whitespace
 

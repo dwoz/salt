@@ -115,7 +115,7 @@ Changelog for v2015.5.1..v2015.5.2
 
   * 02bfb254d6 Merge pull request `#24281`_ from steverweber/ipmi_docfix
 
-  * dd36f2c555 yaml formating
+  * dd36f2c555 yaml formatting
 
   * f6deef3047 include api_kg kwarg in ipmi state
 
