@@ -1001,7 +1001,7 @@ Changelog for v2016.11.5..v2016.11.6
 * **PR** `#41319`_: (`lomeroe`_) backport `#41307`_ to 2016.11, properly pack version numbers into single
   @ *2017-05-19 18:25:00 UTC*
 
-  * **PR** `#41307`_: (`lomeroe`_) properly pack/unpack the verison numbers into a number (refs: `#41319`_)
+  * **PR** `#41307`_: (`lomeroe`_) properly pack/unpack the version numbers into a number (refs: `#41319`_)
 
   * 140b0427e1 Merge pull request `#41319`_ from lomeroe/bp_41307
 
