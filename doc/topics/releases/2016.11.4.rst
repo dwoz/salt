@@ -1808,14 +1808,14 @@ Changelog for v2016.11.3..v2016.11.4
 
   * 6539dbdbca Do not use name resolving for --notrim check
 
-* **ISSUE** `#38231`_: (`tjuup`_) Typo: salt-key deleteed (refs: `#39799`_)
+* **ISSUE** `#38231`_: (`tjuup`_) Typo: salt-key deleted (refs: `#39799`_)
 
-* **PR** `#39799`_: (`Ch3LL`_) Fix deleteed message when key is deleted
+* **PR** `#39799`_: (`Ch3LL`_) Fix deleted message when key is deleted
   @ *2017-03-03 05:17:43 UTC*
 
   * d0440e2a2a Merge pull request `#39799`_ from Ch3LL/fix_salt_key_msg
 
-  * 8346682cf7 Fix deleteed message when key is deleted
+  * 8346682cf7 Fix deleted message when key is deleted
 
 * **ISSUE** `#38962`_: (`gstachowiak`_) Broken /jobs in salt-api in salt 2016.11.1 (Carbon) (refs: `#39472`_)
 

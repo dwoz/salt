@@ -1202,14 +1202,14 @@ Changelog for v2016.11.1..v2016.11.2
 
   * 6b9060c38f [2016.3] Bump latest release version to 2016.11.1 (`#38256`_)
 
-* **ISSUE** `#38231`_: (`tjuup`_) Typo: salt-key deleteed (refs: `#38232`_)
+* **ISSUE** `#38231`_: (`tjuup`_) Typo: salt-key deleted (refs: `#38232`_)
 
-* **PR** `#38232`_: (`rallytime`_) Strip final 'e' in key cmd to correct "deleteed" misspelling
+* **PR** `#38232`_: (`rallytime`_) Strip final 'e' in key cmd to correct "deleted" misspelling
   @ *2016-12-15 10:38:49 UTC*
 
   * 0af343e71f Merge pull request `#38232`_ from rallytime/fix-38231
 
-  * 26e1ee3650 Strip final 'e' in key cmd to correct "deleteed" misspelling
+  * 26e1ee3650 Strip final 'e' in key cmd to correct "deleted" misspelling
 
 * **ISSUE** `#38200`_: (`sebw`_) selinux.mode doesn't return any output and doesn't persist (refs: `#38236`_)
 
