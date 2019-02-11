@@ -1795,7 +1795,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 29e3dd091d Merge pull request `#31271`_ from rallytime/bp-30689
 
-  * 3dae79d516 fix nested grains always show update due to __grains__.get() not supporting the ":" seperator
+  * 3dae79d516 fix nested grains always show update due to __grains__.get() not supporting the ":" separator
 
 * **ISSUE** `#30461`_: (`jfindlay`_) update documentation on bootstrap-supported platforms (refs: `#31255`_)
 
