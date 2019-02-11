@@ -1355,13 +1355,13 @@ Changelog for v2015.5.2..v2015.5.3
 * **PR** `#24456`_: (`rallytime`_) Back-port `#24441`_ to 2015.5
   @ *2015-06-05 22:32:25 UTC*
 
-  * **PR** `#24441`_: (`arthurlogilab`_) [doc] Alignement fix on external_auth documentation (refs: `#24456`_)
+  * **PR** `#24441`_: (`arthurlogilab`_) [doc] Alignment fix on external_auth documentation (refs: `#24456`_)
 
   * ced558a6e6 Merge pull request `#24456`_ from rallytime/bp-24441
 
   * 70028553c1 yaml indentations should be 2 spaces
 
-  * 21b51abf25 [doc] Alignement fix on external_auth documentation
+  * 21b51abf25 [doc] Alignment fix on external_auth documentation
 
 * **ISSUE** `#24397`_: (`kiorky`_) on debian: states.apt should use virtualname as it shadows system apt module (refs: `#24398`_, `#24400`_, `#24399`_)
 
