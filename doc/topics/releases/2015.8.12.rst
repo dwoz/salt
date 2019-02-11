@@ -461,7 +461,7 @@ Changelog for v2015.8.11..v2015.8.12
 
   * e1fcb8311d Put pkg.latest_version in try/except structure Move refreshed or refresh to different spot (just for code tidyness)
 
-  * e0b6261659 changed name of varibale 'refreshed' to 'was_refreshed'
+  * e0b6261659 changed name of variable 'refreshed' to 'was_refreshed'
 
   * 340110b4b4 Move check for rtag to outermost-nesting in function
 
