@@ -1564,11 +1564,11 @@ Changelog for v2017.7.5..v2017.7.6
 * **PR** `#46732`_: (`rallytime`_) Back-port `#46032`_ to 2017.7
   @ *2018-03-28 13:43:17 UTC*
 
-  * **PR** `#46032`_: (`DmitryKuzmenko`_) Workaroung python bug in traceback.format_exc() (refs: `#46732`_)
+  * **PR** `#46032`_: (`DmitryKuzmenko`_) Workaround python bug in traceback.format_exc() (refs: `#46732`_)
 
   * 1222bdbc00 Merge pull request `#46732`_ from rallytime/bp-46032
 
-  * bf0b962dc0 Workaroung python bug in traceback.format_exc()
+  * bf0b962dc0 Workaround python bug in traceback.format_exc()
 
 * **ISSUE** `#28142`_: (`zmalone`_) Deprecate or update the copr repo (refs: `#46749`_)
 

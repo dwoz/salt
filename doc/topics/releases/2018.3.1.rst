@@ -2654,7 +2654,7 @@ Changelog for v2018.3.0..v2018.3.1
 
     * 1222bdbc00 Merge pull request `#46732`_ from rallytime/bp-46032
 
-      * bf0b962dc0 Workaroung python bug in traceback.format_exc()
+      * bf0b962dc0 Workaround python bug in traceback.format_exc()
 
     * 50fe1e9480 Merge pull request `#46749`_ from vutny/doc-deprecate-copr
 
