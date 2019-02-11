@@ -441,7 +441,7 @@ Changelog for v2016.11.2..v2016.11.3
 
       * 624f25b78d Fix for `#38697`_
 
-* **ISSUE** `#39269`_: (`alexharrington`_) Remount forced with lizardfs fuse filesystem due to device missmatch (refs: `#39276`_)
+* **ISSUE** `#39269`_: (`alexharrington`_) Remount forced with lizardfs fuse filesystem due to device mismatch (refs: `#39276`_)
 
 * **ISSUE** `#39106`_: (`carsten-AEI`_) CVMFS fuse mount gets remounted every time (refs: `#39276`_)
 

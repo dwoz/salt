@@ -594,12 +594,12 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 1349bdd2e8 fix influxdb user functionality for version 0.9+
 
-* **PR** `#31743`_: (`Talkless`_) Fix parentheses missmatch in documentation
+* **PR** `#31743`_: (`Talkless`_) Fix parentheses mismatch in documentation
   @ *2016-03-08 18:01:23 UTC*
 
   * c0868307df Merge pull request `#31743`_ from Talkless/patch-1
 
-  * 26ff46dbc6 Fix parenthesis missmatch in documentation
+  * 26ff46dbc6 Fix parenthesis mismatch in documentation
 
 * **PR** `#31162`_: (`isbm`_) Remove MD5 digest from everywhere and default to SHA256
   @ *2016-03-07 19:11:36 UTC*
