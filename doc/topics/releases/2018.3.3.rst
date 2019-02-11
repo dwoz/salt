@@ -1517,7 +1517,7 @@ Changelog for v2018.3.2..v2018.3.3
 
   * 95329acb1e Fileserver transfers bytes
 
-  * aa34a80997 Always trasfer bytes from fileserver roots
+  * aa34a80997 Always transfer bytes from fileserver roots
 
 * **PR** `#48822`_: (`Ch3LL`_) Fix salt-ssh state.sls_id TypeError key must be a string
   @ *2018-07-30 20:29:29 UTC*
