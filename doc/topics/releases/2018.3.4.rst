@@ -2434,7 +2434,7 @@ Changelog for v2018.3.3..v2018.3.4
 
     * f28a4fa Merge pull request `#50211`_ from channias/fix-spm-modules-install
 
-      * 9b203d5 Fix broken install of additionnal modules in SPM packages
+      * 9b203d5 Fix broken install of additional modules in SPM packages
 
     * 6b4e07b Merge pull request `#50212`_ from dwoz/test_no_fail
 
