@@ -231,7 +231,7 @@ Changelog for v2015.5.4..v2015.5.5
 
   * 87151736c5 Merge pull request `#26371`_ from bastiaanb/fix/issue-26161-salt-initscripts-dont-set-lockfile
 
-  * ec8d4b0470 test wether RETVAL is 0 with -eq rather than =.
+  * ec8d4b0470 test whether RETVAL is 0 with -eq rather than =.
 
   * a83a5de41e fix issue `#26161`_: on RedHat family systems touch /var/lock/subsys/$SERVICE to ensure the daemon will be stopped on shutdown.
 
