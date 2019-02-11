@@ -1080,7 +1080,7 @@ Changelog for v2015.8.10..v2015.8.11
 
   * 6b6febb211 unit tests for rpm.checksum() and zypper.download()
 
-* **ISSUE** `#33319`_: (`ghost`_) Salt interpets jinja syntax in contents pillar (refs: `#33513`_)
+* **ISSUE** `#33319`_: (`ghost`_) Salt interprets jinja syntax in contents pillar (refs: `#33513`_)
 
 * **PR** `#33513`_: (`rallytime`_) Add a section to the jinja docs about escaping jinja
   @ *2016-05-26 14:24:58 UTC*
