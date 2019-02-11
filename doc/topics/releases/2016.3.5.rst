@@ -169,9 +169,9 @@ Changelog for v2016.3.4..v2016.3.5
 
   * fd2ee7db30 Add some simple unit tests for salt.config.api_config function
 
-  * 3d2fefc83b Make sure the pidfile and log_file values are overriden by api opts
+  * 3d2fefc83b Make sure the pidfile and log_file values are overridden by api opts
 
-  * 1f6b540e46 Make sure the pidfile and log_file values are overriden by api opts
+  * 1f6b540e46 Make sure the pidfile and log_file values are overridden by api opts
 
   * 04d307f917 salt-api no longer forces the default timeout
 
