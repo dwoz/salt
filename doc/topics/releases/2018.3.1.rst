@@ -2856,7 +2856,7 @@ Changelog for v2018.3.0..v2018.3.1
 
     * f038e3c452 Merge pull request `#46571`_ from garethgreenaway/46552_onfail_and_require
 
-      * 152c43c843 Accounting for a case when multiple onfails are used along with requires.  Previously if you have multiple states using 'onfail' and two of those states using a 'require' against the first one state, the last two will run even if the 'onfail' isn't met because the 'require' is met because the first state returns true even though it didn't excute.  This change adds an additional hidden variable that is used when checking requisities to determine if the state actually ran.
+      * 152c43c843 Accounting for a case when multiple onfails are used along with requires.  Previously if you have multiple states using 'onfail' and two of those states using a 'require' against the first one state, the last two will run even if the 'onfail' isn't met because the 'require' is met because the first state returns true even though it didn't execute.  This change adds an additional hidden variable that is used when checking requisities to determine if the state actually ran.
 
     * 2677330e19 Merge pull request `#46520`_ from gtmanfred/2017.7
 
