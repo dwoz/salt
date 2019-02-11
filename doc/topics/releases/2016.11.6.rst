@@ -564,7 +564,7 @@ Changelog for v2016.11.5..v2016.11.6
 
   * ef8e3ef569 Update win_pki.py
 
-* **PR** `#41557`_: (`dmurphy18`_) Add symbolic link for salt-proxy service similar to other serivce files
+* **PR** `#41557`_: (`dmurphy18`_) Add symbolic link for salt-proxy service similar to other service files
   @ *2017-06-06 17:13:52 UTC*
 
   * 3335fcbc7d Merge pull request `#41557`_ from dmurphy18/fix-proxy-service
