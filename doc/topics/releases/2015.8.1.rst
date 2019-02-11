@@ -235,7 +235,7 @@ Changelog for v2015.8.0..v2015.8.1
 
     * ed6207a438 Merge pull request `#27419`_ from rallytime/fix-9856
 
-      * 551396564a Ammend error log to include multiple tips for troubleshooting.
+      * 551396564a Amend error log to include multiple tips for troubleshooting.
 
     * 73fa89edf7 Merge pull request `#27426`_ from rallytime/fix-16753
 

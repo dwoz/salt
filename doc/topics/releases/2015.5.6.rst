@@ -185,7 +185,7 @@ Changelog for v2015.5.5..v2015.5.6
 
   * ed6207a438 Merge pull request `#27419`_ from rallytime/fix-9856
 
-  * 551396564a Ammend error log to include multiple tips for troubleshooting.
+  * 551396564a Amend error log to include multiple tips for troubleshooting.
 
 * **ISSUE** `#16753`_: (`johtso`_) Duplicate selector in top file gives unhelpful traceback (refs: `#27426`_)
 
