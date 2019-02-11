@@ -1020,7 +1020,7 @@ Changelog for v2015.5.1..v2015.5.2
 
   * 1dc67e5678 lxc: versionadded
 
-  * fcad7cb804 lxc: states improvments
+  * fcad7cb804 lxc: states improvements
 
   * 644bd729f7 lxc: more consistence for profiles
 
