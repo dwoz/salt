@@ -682,7 +682,7 @@ Changelog for v2016.11.8..v2016.11.9
 
   * cab54e34b5 Merge pull request `#44173`_ from twangboy/win_system_docs
 
-  * 8e111b413d Fix some of the wording and grammer errors
+  * 8e111b413d Fix some of the wording and grammar errors
 
   * a12bc5ae41 Use google style docstrings
 

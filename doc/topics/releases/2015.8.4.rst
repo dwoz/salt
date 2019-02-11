@@ -2545,7 +2545,7 @@ Changelog for v2015.8.3..v2015.8.4
 
   * 8fe39d0ef8 Merge pull request `#29400`_ from twangboy/fix_19332
 
-  * 7bdddaca53 Fixed grammer
+  * 7bdddaca53 Fixed grammar
 
   * d965d00a09 Fix `#19332`_
 
