@@ -940,7 +940,7 @@ Changelog for v2017.7.1..v2017.7.2
 
     * 1cc86592ed Update return data before calling returners
 
-* **ISSUE** `#42842`_: (`Giandom`_) retreive kwargs passed with slack engine (refs: `#42884`_)
+* **ISSUE** `#42842`_: (`Giandom`_) retrieve kwargs passed with slack engine (refs: `#42884`_)
 
 * **PR** `#42884`_: (`Giandom`_) Convert to dict type the pillar string value passed from slack
   @ *2017-08-16 22:30:43 UTC*
