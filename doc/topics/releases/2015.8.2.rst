@@ -1118,7 +1118,7 @@ Changelog for v2015.8.1..v2015.8.2
 
       * b1f4a2bdf4 i think i changed the wrong header, updated to fix
 
-      * 846b3aece1 I found you can not run the cp.push commands until after enabling the feature in the conf, so I wanted to update the docs so others who try these commands wont bump into the same issue I had.
+      * 846b3aece1 I found you can not run the cp.push commands until after enabling the feature in the conf, so I wanted to update the docs so others who try these commands won't bump into the same issue I had.
 
     * e3eff9b909 Merge pull request `#28280`_ from 0xf10e/patch-1
 

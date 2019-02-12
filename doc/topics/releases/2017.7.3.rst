@@ -1764,7 +1764,7 @@ Changelog for v2017.7.2..v2017.7.3
 
     * 88ef9f18fc ignore lint error on import
 
-    * 25427d845e convert key iterator to list as python 3 wont index an iterator
+    * 25427d845e convert key iterator to list as python 3 won't index an iterator
 
   * bce50154e5 Merge branch '2017.7' into improve-net-load
 
