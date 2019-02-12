@@ -669,7 +669,7 @@ Changelog for v2015.8.0..v2015.8.1
 
   * ed18384108 Merge pull request `#7`_ from jtand/cloud-logging-eight
 
-    * a6c1d0b408 Fixed a bug where logging_command wasnt set as a key in a couple spots
+    * a6c1d0b408 Fixed a bug where logging_command wasn't set as a key in a couple spots
 
   * 8bb7cb7ff4 Use correct indexes
 
