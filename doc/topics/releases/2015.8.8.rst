@@ -92,7 +92,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * d661081016 Lint.
 
-  * 59e0a6f923 Dont add this file
+  * 59e0a6f923 Don't add this file
 
   * c68b968403 Old-style proxymodules need to be setup earlier in minion init. Also include more correct comments in config.py
 
@@ -1544,7 +1544,7 @@ Changelog for v2015.8.7..v2015.8.8
 
 * **ISSUE** `#28004`_: (`warden`_) dockerng.image_present should allow public repository pulling by default (refs: `#31354`_)
 
-* **PR** `#31354`_: (`ticosax`_) [dockerng] Dont require auth for all registries
+* **PR** `#31354`_: (`ticosax`_) [dockerng] Don't require auth for all registries
   @ *2016-02-20 05:45:10 UTC*
 
   * 174ee10fc2 Merge pull request `#31354`_ from ticosax/dont-require-auth-for-all-registries
@@ -1988,7 +1988,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 47ecb7a150 include all ips in public_ips or private_ips
 
-  * b2e8202f5d dont exit on a missing server
+  * b2e8202f5d don't exit on a missing server
 
   * 8ad1ee6db4 clean up references to access_ip extra network
 
@@ -3199,7 +3199,7 @@ Changelog for v2015.8.7..v2015.8.8
 
   * 57b7e6cc93 Add glance state to list of state modules
 
-* **ISSUE** `#19288`_: (`oba11`_) AssociatePublicIpAddress doesnt work with salt-cloud 2014.7.0 (refs: `#20972`_, `#30591`_)
+* **ISSUE** `#19288`_: (`oba11`_) AssociatePublicIpAddress doesn't work with salt-cloud 2014.7.0 (refs: `#20972`_, `#30591`_)
 
 * **PR** `#30618`_: (`rallytime`_) Back-port `#30591`_ to 2015.8
   @ *2016-01-25 23:55:20 UTC*

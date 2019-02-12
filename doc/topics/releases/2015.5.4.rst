@@ -1923,11 +1923,11 @@ Changelog for v2015.5.3..v2015.5.4
 * **PR** `#25392`_: (`rallytime`_) Back-port `#25256`_ to 2015.5
   @ *2015-07-14 03:25:13 UTC*
 
-  * **PR** `#25256`_: (`yanatan16`_) Dont assume source_hash exists (refs: `#25392`_)
+  * **PR** `#25256`_: (`yanatan16`_) Don't assume source_hash exists (refs: `#25392`_)
 
   * 008e3295c6 Merge pull request `#25392`_ from rallytime/bp-25256
 
-  * 6b2da4d582 Dont assume source_hash exists
+  * 6b2da4d582 Don't assume source_hash exists
 
 * **PR** `#25398`_: (`twangboy`_) Fix date
   @ *2015-07-14 03:21:17 UTC*
@@ -2029,7 +2029,7 @@ Changelog for v2015.5.3..v2015.5.4
 
   * e13a9fd74e Fix documentation for file.blockreplace
 
-* **ISSUE** `#19288`_: (`oba11`_) AssociatePublicIpAddress doesnt work with salt-cloud 2014.7.0 (refs: `#25326`_, `#20972`_)
+* **ISSUE** `#19288`_: (`oba11`_) AssociatePublicIpAddress doesn't work with salt-cloud 2014.7.0 (refs: `#25326`_, `#20972`_)
 
 * **PR** `#25326`_: (`rallytime`_) Back-port `#20972`_ to 2015.5
   @ *2015-07-10 18:49:44 UTC*

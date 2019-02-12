@@ -1517,7 +1517,7 @@ Changelog for v2018.3.0..v2018.3.1
 
       * 4c07a3d1e9 fix other tests
 
-      * b71e3d8a04 dont allow using no_use_wheel for pip 10.0.0 or newer
+      * b71e3d8a04 don't allow using no_use_wheel for pip 10.0.0 or newer
 
     * c1dc42e67e Merge pull request `#47037`_ from twangboy/fix_dev_scripts
 

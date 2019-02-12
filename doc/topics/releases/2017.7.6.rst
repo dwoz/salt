@@ -712,7 +712,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * **PR** `#47207`_: (`benediktwerner`_) Fix pip_state with pip3 if no changes occourred (refs: `#47220`_)
 
-  * **PR** `#47102`_: (`gtmanfred`_) dont allow using no_use_wheel for pip 10.0.0 or newer (refs: `#47220`_)
+  * **PR** `#47102`_: (`gtmanfred`_) don't allow using no_use_wheel for pip 10.0.0 or newer (refs: `#47220`_)
 
   * 4e2e1f0719 Merge pull request `#47220`_ from benediktwerner/fix-pip-2017.7
 
@@ -894,7 +894,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * bd0c23396c fix pip.req import error in pip 10.0.0
 
-* **PR** `#47102`_: (`gtmanfred`_) dont allow using no_use_wheel for pip 10.0.0 or newer (refs: `#47220`_)
+* **PR** `#47102`_: (`gtmanfred`_) don't allow using no_use_wheel for pip 10.0.0 or newer (refs: `#47220`_)
   @ *2018-04-17 20:44:58 UTC*
 
   * eb5ac51a48 Merge pull request `#47102`_ from gtmanfred/2017.7
@@ -905,7 +905,7 @@ Changelog for v2017.7.5..v2017.7.6
 
   * 4c07a3d1e9 fix other tests
 
-  * b71e3d8a04 dont allow using no_use_wheel for pip 10.0.0 or newer
+  * b71e3d8a04 don't allow using no_use_wheel for pip 10.0.0 or newer
 
 * **PR** `#47037`_: (`twangboy`_) Fix build_env scripts
   @ *2018-04-17 18:54:17 UTC*

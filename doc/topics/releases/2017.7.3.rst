@@ -1389,7 +1389,7 @@ Changelog for v2017.7.2..v2017.7.3
 
     * 998d714ee7 Merge pull request `#44517`_ from whytewolf/publish_port_doc_missing
 
-      * 4b5855283a missed one place where i didnt chanbge master_port from my copy to publish_port
+      * 4b5855283a missed one place where i didn't chanbge master_port from my copy to publish_port
 
       * e4610baea5 update doc to have publish port
 
@@ -1961,7 +1961,7 @@ Changelog for v2017.7.2..v2017.7.3
 
   * ce1882943d Use salt.utils.files.mkstemp() instead
 
-  * 6689bd3b2d Dont use dangerous os.tmpnam
+  * 6689bd3b2d Don't use dangerous os.tmpnam
 
   * 2d6176b0bc Fx2 proxy minion: clean return, like all the other modules
 
@@ -3366,7 +3366,7 @@ Changelog for v2017.7.2..v2017.7.3
 
     * 1a8cc60bb4 Merge pull request `#43772`_ from gtmanfred/2016.11
 
-      * 0194c60960 dont print Minion not responding with quiet
+      * 0194c60960 don't print Minion not responding with quiet
 
     * 9dee896fb9 Merge pull request `#43747`_ from rallytime/gpg-verification
 

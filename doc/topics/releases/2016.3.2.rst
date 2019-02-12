@@ -403,7 +403,7 @@ Changelog for v2016.3.1..v2016.3.2
 
 * **ISSUE** `saltstack/salt#34630`_: (`bdrung`_) Spelling errors (refs: `#34756`_, `#34722`_)
 
-* **ISSUE** `saltstack/salt#33923`_: (`pavankumar2203`_) Salt module certutil install doesnt work (refs: `#34756`_)
+* **ISSUE** `saltstack/salt#33923`_: (`pavankumar2203`_) Salt module certutil install doesn't work (refs: `#34756`_)
 
   * **PR** `#34756`_: (`jacobhammons`_) Rebuild man pages
 

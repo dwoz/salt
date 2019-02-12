@@ -1033,7 +1033,7 @@ Changelog for v2015.5.2..v2015.5.3
 
 * **ISSUE** `#24480`_: (`kiorky`_) [CRITICAL] [2015.5] tls breaks tzinfo (refs: `#24551`_)
 
-* **PR** `#24551`_: (`joejulian`_) 2015.5 dont pollute environment
+* **PR** `#24551`_: (`joejulian`_) 2015.5 don't pollute environment
   @ *2015-06-11 02:13:06 UTC*
 
   * 20ada1f8a1 Merge pull request `#24551`_ from joejulian/2015.5_dont_pollute_environment

@@ -2611,7 +2611,7 @@ Changelog for v2018.3.2..v2018.3.3
 
   * 06a927b2aa Merge pull request `#48293`_ from rallytime/bp-47453
 
-    * e96ab6778e dont reset system locale when running rabbitmqctl commands
+    * e96ab6778e don't reset system locale when running rabbitmqctl commands
 
 * **ISSUE** `#45939`_: (`andygabby`_) user.present with hash_password: True detects change on every state.apply/highstate (refs: `#47147`_)
 
