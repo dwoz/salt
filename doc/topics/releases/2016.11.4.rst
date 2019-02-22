@@ -864,7 +864,7 @@ Changelog for v2016.11.3..v2016.11.4
 
   * d68067f1d7 Merge remote-tracking branch 'main/2016.11' into pip-cache-fixes
 
-  * 4f23a23ca8 Fixed the `test_install_download_cache_argument_in_resulting_command` to accommodate introduced cache directory argument fixes and renamed it to `test_install_download_cache_dir_arguments_in_resulting_command`.
+  * 4f23a23ca8 Fixed the `test_install_download_cache_argument_in_resulting_command` to accomodate introduced cache directory argument fixes and renamed it to `test_install_download_cache_dir_arguments_in_resulting_command`.
 
   * 9d0f94eeba Fixed unnecessary API changes introduced with suggested changes.
 
