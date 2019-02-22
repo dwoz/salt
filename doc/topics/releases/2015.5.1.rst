@@ -959,7 +959,7 @@ Changelog for v2015.5.0..v2015.5.1
 
       * b39f50475d remove debugging output
 
-      * b6e15e295c fix grains.append in nested dictionary grains `#23411`_
+      * b6e15e295c fix grains.append in nested dictionnary grains `#23411`_
 
     * ab7e1aed8e Merge pull request `#23537`_ from t0rrant/patch-1
 
