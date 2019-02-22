@@ -744,7 +744,7 @@ Changelog for v2015.8.11..v2015.8.12
 
   * 9c803d05a5 Add output_file option to master config docs
 
-* **ISSUE** `saltstack/salt#32276`_: (`javicacheiro`_) pkg.installed using sources from master fails with file not found after first successful run (refs: `#34689`_)
+* **ISSUE** `saltstack/salt#32276`_: (`javicacheiro`_) pkg.installed using sources from master fails with file not found after first succesful run (refs: `#34689`_)
 
 * **PR** `#34689`_: (`Azidburn`_) fix second run problems with pkg.installed using sources
   @ *2016-07-15 21:19:39 UTC*

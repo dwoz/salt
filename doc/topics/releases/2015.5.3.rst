@@ -221,7 +221,7 @@ Changelog for v2015.5.2..v2015.5.3
 
   * a3c1063a37 fix deprecated pymongo usage causing errors in latest pymongo
 
-* **ISSUE** `#24862`_: (`dkatsanikakis`_) gpg.import_key returns error after successfully completed (refs: `#24994`_, `#24966`_)
+* **ISSUE** `#24862`_: (`dkatsanikakis`_) gpg.import_key returns error after succesfully completed (refs: `#24994`_, `#24966`_)
 
 * **PR** `#24994`_: (`garethgreenaway`_) Another Fix to gpg.py in 2015.5
   @ *2015-06-27 22:28:15 UTC*
@@ -273,7 +273,7 @@ Changelog for v2015.5.2..v2015.5.3
 
   * 6b544227ab Only warn about digital ocean deprecation if digital ocean is configured
 
-* **ISSUE** `#24862`_: (`dkatsanikakis`_) gpg.import_key returns error after successfully completed (refs: `#24994`_, `#24966`_)
+* **ISSUE** `#24862`_: (`dkatsanikakis`_) gpg.import_key returns error after succesfully completed (refs: `#24994`_, `#24966`_)
 
 * **PR** `#24966`_: (`garethgreenaway`_) Fixes to gpg.py in 2015.5
   @ *2015-06-25 19:58:49 UTC*
