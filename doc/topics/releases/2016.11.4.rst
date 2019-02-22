@@ -1414,9 +1414,9 @@ Changelog for v2016.11.3..v2016.11.4
 
   * 8dcffc7751 Merge pull request `#40018`_ from meaksh/2016.3-handling-timeouts-for-manage.up-runner
 
-    * 9f5c3b7dcd Allows one to set custom timeouts for 'manage.up' and 'manage.status'
+    * 9f5c3b7dcd Allows to set custom timeouts for 'manage.up' and 'manage.status'
 
-    * 2102d9c75c Allows one to set 'timeout' and 'gather_job_timeout' via kwargs
+    * 2102d9c75c Allows to set 'timeout' and 'gather_job_timeout' via kwargs
 
   * 22fc5299a2 Merge pull request `#40038`_ from velom/fix-pip-freeze-parsing
 
@@ -1444,9 +1444,9 @@ Changelog for v2016.11.3..v2016.11.4
 
   * e73a1d0e54 Merge pull request `#40072`_ from meaksh/2016.11-handling-timeouts-for-manage.up-runner
 
-  * 40246d3723 Allows one to set custom timeouts for 'manage.up' and 'manage.status'
+  * 40246d3723 Allows to set custom timeouts for 'manage.up' and 'manage.status'
 
-  * ad232fdc01 Allows one to set 'timeout' and 'gather_job_timeout' via kwargs
+  * ad232fdc01 Allows to set 'timeout' and 'gather_job_timeout' via kwargs
 
 * **PR** `#40045`_: (`terminalmage`_) Fix error when chhome is invoked by user.present state in Windows
   @ *2017-03-15 19:00:41 UTC*
@@ -1490,7 +1490,7 @@ Changelog for v2016.11.3..v2016.11.4
 
   * 0c61d064ad Merge pull request `#39980`_ from vutny/cmd-run-state-bg
 
-    * a81dc9dfc1 [2016.3] Allow using `bg` kwarg for `cmd.run` state function
+    * a81dc9dfc1 [2016.3] Allow to use `bg` kwarg for `cmd.run` state function
 
   * b042484455 Merge pull request `#39994`_ from rallytime/ulimits-dockerng-version
 

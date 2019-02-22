@@ -1143,14 +1143,14 @@ Changelog for v2015.8.10..v2015.8.11
 
   * 68d8050cb8 Fix diskusage beacon
 
-* **PR** `#33465`_: (`meaksh`_) jobs.exit_success allow checking if a job has executed and exit successfully
+* **PR** `#33465`_: (`meaksh`_) jobs.exit_success allow to check if a job has executed and exit successfully
   @ *2016-05-25 16:52:53 UTC*
 
   * 3bfb6bf719 Merge pull request `#33465`_ from meaksh/check-if-job-returns-successfully-2015.8
 
   * 9deb70fd8e jobs.exit_success() now works parsing the results of jobs.lookup_id()
 
-  * 7ba40c4f31 jobs.exit_success allow checking if a job has executed and exit successfully
+  * 7ba40c4f31 jobs.exit_success allow to check if a job has executed and exit successfully
 
   * **PR** `saltstack/salt-jenkins#175`_: (`justinta`_) Adding back shade to setup states (refs: `#33487`_)
 

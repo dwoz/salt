@@ -1992,7 +1992,7 @@ Changelog for v2017.7.1..v2017.7.2
 
     * 0a72e56f6b Merge pull request `#42356`_ from meaksh/2016.11-AliasesLoader-wrapper-fix
 
-      * 915d94219e Allow checking whether a function is available on the AliasesLoader wrapper
+      * 915d94219e Allow to check whether a function is available on the AliasesLoader wrapper
 
     * 10eb7b7a79 Merge pull request `#42368`_ from twangboy/win_fix_build_2016.11
 

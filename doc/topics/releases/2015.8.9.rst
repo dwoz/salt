@@ -194,7 +194,7 @@ Changelog for v2015.8.8.2..v2015.8.9
 
   * **PR** `#33142`_: (`cachedout`_) Hash fileclients by opts
 
-* **ISSUE** `#22142`_: (`multani`_) State `acl.present` doesn't allow setting "default" ACLs (refs: `#31769`_)
+* **ISSUE** `#22142`_: (`multani`_) State `acl.present` doesn't allow to set "default" ACLs (refs: `#31769`_)
 
   * **PR** `#33139`_: (`rallytime`_) Back-port `#31769`_ to 2015.8
 

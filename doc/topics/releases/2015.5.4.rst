@@ -86,12 +86,12 @@ Changelog for v2015.5.3..v2015.5.4
 
   * a1f90fa070 Only call convert_to_arn when action name is provided
 
-* **PR** `#26288`_: (`bbinet`_) allow deleting grains which value is False
+* **PR** `#26288`_: (`bbinet`_) allow to delete grains which value is False
   @ *2015-08-13 18:24:36 UTC*
 
   * c81dc0b62f Merge pull request `#26288`_ from bbinet/grains-absent-fix
 
-  * f46722aaeb allow deleting grains which value is False
+  * f46722aaeb allow to delete grains which value is False
 
 * **ISSUE** `#24882`_: (`nmadhok`_) salt.states.openstack_config.present and salt.states.openstack_config.absent make changes when test=True (refs: `#26263`_)
 

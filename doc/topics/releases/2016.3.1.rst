@@ -723,7 +723,7 @@ Changelog for v2016.3.0..v2016.3.1
 
     * 9deb70fd8e jobs.exit_success() now works parsing the results of jobs.lookup_id()
 
-    * 7ba40c4f31 jobs.exit_success allow checking if a job has executed and exit successfully
+    * 7ba40c4f31 jobs.exit_success allow to check if a job has executed and exit successfully
 
   * 70eb7b66f3 Merge pull request `#33487`_ from jtand/glance_doc_fixes
 

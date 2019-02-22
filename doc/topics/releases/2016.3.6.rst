@@ -188,9 +188,9 @@ Changelog for v2016.3.5..v2016.3.6
 
   * 8dcffc7751 Merge pull request `#40018`_ from meaksh/2016.3-handling-timeouts-for-manage.up-runner
 
-  * 9f5c3b7dcd Allows one to set custom timeouts for 'manage.up' and 'manage.status'
+  * 9f5c3b7dcd Allows to set custom timeouts for 'manage.up' and 'manage.status'
 
-  * 2102d9c75c Allows one to set 'timeout' and 'gather_job_timeout' via kwargs
+  * 2102d9c75c Allows to set 'timeout' and 'gather_job_timeout' via kwargs
 
 * **PR** `#40038`_: (`velom`_) correctly parse "pkg_name===version" from pip freeze
   @ *2017-03-15 19:30:03 UTC*
@@ -233,12 +233,12 @@ Changelog for v2016.3.5..v2016.3.6
 
   * 5d84b40bfd Attempt to fix failing grains tests in 2016.3
 
-* **PR** `#39980`_: (`vutny`_) [2016.3] Allow using `bg` kwarg for `cmd.run` state function
+* **PR** `#39980`_: (`vutny`_) [2016.3] Allow to use `bg` kwarg for `cmd.run` state function
   @ *2017-03-14 17:16:14 UTC*
 
   * 0c61d064ad Merge pull request `#39980`_ from vutny/cmd-run-state-bg
 
-  * a81dc9dfc1 [2016.3] Allow using `bg` kwarg for `cmd.run` state function
+  * a81dc9dfc1 [2016.3] Allow to use `bg` kwarg for `cmd.run` state function
 
 * **ISSUE** `#39942`_: (`Foxlik`_) Web Documentation not in sync with release 2016.11.3 (refs: `#39994`_)
 
