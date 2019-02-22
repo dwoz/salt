@@ -259,7 +259,7 @@ Changelog for v2015.5.10..v2015.5.11
 
   * **PR** `#32421`_: (`terminalmage`_) Ignore Raspbian in service.py __virtual__
 
-* **ISSUE** `#1409`_: (`twinshadow`_) module/network.py: Interfaces do not list multiple addresses
+* **ISSUE** `#1409`_: (`twinshadow`_) module/network.py: Interfaces do not list multiple addesses
 
 * **ISSUE** `saltstack/salt#28262`_: (`palica`_) FreeBSD pkgng provider raising error for minion (refs: `#32376`_)
 
