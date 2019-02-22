@@ -677,7 +677,7 @@ Changelog for v2015.8.8.2..v2015.8.9
 
 * **ISSUE** `#32229`_: (`seanjnkns`_) 2015.8.8.2: pkg.installed fails to update packages with epoch (refs: `#32563`_)
 
-  * **PR** `#32563`_: (`terminalmage`_) yumpkg: Ignore epoch in version comparison for explicit versions without an epoch
+  * **PR** `#32563`_: (`terminalmage`_) yumpkg: Ignore epoch in version comparison for explict versions without an epoch
 
   * **PR** `#32640`_: (`nmadhok`_) [2015.8] - Fixing critical bug to remove only the specified Host instead of the entire Host cluster
 

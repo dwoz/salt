@@ -1552,7 +1552,7 @@ Changelog for v2015.5.0..v2015.5.1
 
     * 02658b1e60 Merge pull request `#23344`_ from cachedout/issue_22742
 
-      * 5adc96ce7f Explicitly set file_client on master
+      * 5adc96ce7f Explicitely set file_client on master
 
     * ba7605d1cb Merge pull request `#23318`_ from cellscape/honor-seed-argument
 
