@@ -285,7 +285,7 @@ class TestFileState(TestCase, LoaderModuleMockMixin):
                                              'user.current': mock_user}),\
                 patch.dict(filestate.__opts__, {'test': False}),\
                 patch.object(os.path, 'isdir', mock_t),\
-                patch.object(os.path, 'exists', mock_f),\
+                patch.object(os.path, 'exists', mock_t),\
                 patch.object(os.path, 'lexists', mock_t),\
                 patch('salt.utils.win_functions.get_sid_from_name', return_value='test-sid'):
             comt = 'Symlink & backup dest exists and Force not set. {0} -> ' \
@@ -306,6 +306,7 @@ class TestFileState(TestCase, LoaderModuleMockMixin):
                                              'user.info': mock_empty,
                                              'user.current': mock_user}),\
                 patch.dict(filestate.__opts__, {'test': False}),\
+                patch.object(os.path, 'exists', mock_t),\
                 patch.object(os.path, 'isfile', mock_t), \
                 patch.object(os.path, 'isdir', mock_t),\
                 patch('salt.utils.win_functions.get_sid_from_name', return_value='test-sid'):
@@ -326,7 +327,7 @@ class TestFileState(TestCase, LoaderModuleMockMixin):
                                              'user.current': mock_user}),\
                 patch.dict(filestate.__opts__, {'test': False}),\
                 patch.object(os.path, 'isdir', mock_t),\
-                patch.object(os.path, 'exists', mock_f),\
+                patch.object(os.path, 'exists', mock_t),\
                 patch.object(os.path, 'isfile', mock_t),\
                 patch('salt.utils.win_functions.get_sid_from_name', return_value='test-sid'):
             comt = 'File exists where the symlink {0} should be'.format(name)
@@ -348,7 +349,7 @@ class TestFileState(TestCase, LoaderModuleMockMixin):
                 patch.dict(filestate.__opts__, {'test': False}),\
                 patch.object(os.path, 'isdir', MagicMock(side_effect=[True, False])),\
                 patch.object(os.path, 'isfile', mock_t),\
-                patch.object(os.path, 'exists', mock_f),\
+                patch.object(os.path, 'exists', mock_t),\
                 patch('salt.utils.win_functions.get_sid_from_name', return_value='test-sid'):
             comt = 'File exists where the symlink {0} should be'.format(name)
             ret = return_val({'comment': comt,
@@ -369,7 +370,7 @@ class TestFileState(TestCase, LoaderModuleMockMixin):
                 patch.dict(filestate.__opts__, {'test': False}),\
                 patch.object(os.path, 'isdir', MagicMock(side_effect=[True, False])),\
                 patch.object(os.path, 'isdir', mock_t),\
-                patch.object(os.path, 'exists', mock_f),\
+                patch.object(os.path, 'exists', mock_t),\
                 patch('salt.utils.win_functions.get_sid_from_name', return_value='test-sid'):
             comt = 'Directory exists where the symlink {0} should be'.format(name)
             ret = return_val({'comment': comt,
