@@ -10,6 +10,9 @@ from tornado.testing import AsyncTestCase
 
 import salt.utils.asynchronous as asynchronous
 
+import logging
+log = logging.getLogger(__name__)
+
 
 class HelperA(object):
     def __init__(self, io_loop=None):
@@ -47,6 +50,7 @@ class TestSyncWrapper(AsyncTestCase):
         hb = HelperB()
         ret = yield hb.sleep()
         self.assertFalse(ret)
+        hb.a.stop()
 
     def test_basic_wrap(self):
         '''
@@ -55,6 +59,18 @@ class TestSyncWrapper(AsyncTestCase):
         sync = asynchronous.SyncWrapper(HelperA)
         ret = sync.sleep()
         self.assertTrue(ret)
+        sync.stop()
+
+    def test_basic_wrap_multiple_calls(self):
+        '''
+        Test that we can wrap an asynchronous caller.
+        '''
+        sync = asynchronous.SyncWrapper(HelperA)
+        ret = sync.sleep()
+        self.assertTrue(ret)
+        ret = sync.sleep()
+        self.assertTrue(ret)
+        sync.stop()
 
     def test_double(self):
         '''
@@ -66,6 +82,19 @@ class TestSyncWrapper(AsyncTestCase):
         sync = asynchronous.SyncWrapper(HelperB)
         ret = sync.sleep()
         self.assertFalse(ret)
+        sync.a.stop()
+        sync.stop()
+
+    def test_double_multiple_calls(self):
+        sync = asynchronous.SyncWrapper(HelperB)
+        ret = sync.sleep()
+        self.assertFalse(ret)
+        ret = sync.sleep()
+        self.assertFalse(ret)
+        ret = sync.sleep()
+        self.assertFalse(ret)
+        sync.a.stop()
+        sync.stop()
 
     def test_double_sameloop(self):
         '''
@@ -76,3 +105,5 @@ class TestSyncWrapper(AsyncTestCase):
         sync = asynchronous.SyncWrapper(HelperB, (a,))
         ret = sync.sleep()
         self.assertFalse(ret)
+        sync.a.stop()
+        sync.stop()

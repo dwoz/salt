@@ -7,9 +7,18 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import tornado.ioloop
 import tornado.concurrent
+import tornado.gen
 import contextlib
-from salt.utils import zeromq
+import threading
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 
+from salt.utils import zeromq
+import logging
+
+log = logging.getLogger(__name__)
 
 @contextlib.contextmanager
 def current_ioloop(io_loop):
@@ -89,3 +98,88 @@ class SyncWrapper(object):
         elif hasattr(self, 'io_loop'):
             self.io_loop.close()
             del self.io_loop
+
+
+class SyncClassMultiWrapper(object):
+
+    def __init__(self, cls, args=None, kwargs=None):
+        if args is None:
+            args = []
+        if kwargs is None:
+            kwargs = {}
+        self.args = args
+        self.kwargs = kwargs
+        self.cls = cls
+        self._async_methods = []
+        for name in dir(cls):
+            if tornado.gen.is_coroutine_function(getattr(cls, name)):
+                self._async_methods.append(name)
+        self._req = queue.Queue()
+        self._res = queue.Queue()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._target,
+            args=(cls, args, kwargs, self._req, self._res, self._stop, self.stop),
+        )
+        self.start()
+
+    def __repr__(self):
+        return '<SyncWrapper(cls={})'.format(self.cls)
+
+    def start(self):
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self._thread.join()
+
+    def __getattribute__(self, key):
+        ex = None
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError as ex:
+            if key == 'obj':
+                raise ex
+        if key in self._async_methods:
+            def wrap(*args, **kwargs):
+                self._req.put((key, args, kwargs,))
+                success, result = self._res.get()
+                if not success:
+                    raise result
+                return result
+            return wrap
+        return getattr(self.obj, key)
+
+    def _target(self, cls, args, kwargs, requests, responses, stop, stop_class):
+        from salt.utils.zeromq import zmq, ZMQDefaultLoop, install_zmq
+        tornado.ioloop.IOLoop.clear_current()
+        io_loop = tornado.ioloop.IOLoop()
+        io_loop.make_current()
+        #install_zmq()
+        #kwargs['io_loop'] = io_loop
+        self.obj = obj = cls(*args, **kwargs)
+        def callback(future):
+            io_loop.stop()
+        io_loop.add_future(self.arg_handler(io_loop, stop, requests, responses, obj), callback)
+        io_loop.start()
+
+    @staticmethod
+    @tornado.gen.coroutine
+    def arg_handler(io_loop, stop, requests, responses, obj):
+        while not stop.is_set():
+            try:
+                attr_name, call_args, call_kwargs = requests.get(block=False)
+            except queue.Empty:
+                yield
+                continue
+            else:
+                attr = getattr(obj, attr_name)
+                ret = attr(*call_args, **call_kwargs)
+                def callback(future):
+                    res = future.result()
+                    responses.put((True, res,))
+                io_loop.add_future(ret, callback)
+                yield
+        raise tornado.gen.Return(True)
+
+SyncWrapper = SyncClassMultiWrapper
