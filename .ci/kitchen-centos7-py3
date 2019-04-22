@@ -6,6 +6,7 @@ timeout(time: 6, unit: 'HOURS') {
                     'SALT_KITCHEN_PLATFORMS=/var/jenkins/workspace/nox-platforms.yml',
                     'SALT_KITCHEN_VERIFIER=/var/jenkins/workspace/nox-verifier.yml',
                     'SALT_KITCHEN_DRIVER=/var/jenkins/workspace/driver.yml',
+                    'KITCHEN_TARGET=FOO',
                     'NOX_ENV_NAME=runtests-zeromq-3.4',
                     'NOX_PASSTHROUGH_OPTS=--ssh-tests',
                     'NOX_ENABLE_FROM_FILENAMES=true',
