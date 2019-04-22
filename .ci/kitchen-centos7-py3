@@ -73,6 +73,7 @@ timeout(time: 6, unit: 'HOURS') {
                             */
                         }
                     } catch (Exception e) {
+                        e.printStackTrace()
                         currentBuild.result = 'FAILURE'
                     } finally {
                         try {
