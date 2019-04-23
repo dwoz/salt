@@ -35,7 +35,7 @@ timeout(time: 6, unit: 'HOURS') {
                         }
                         stage('setup-bundle') {
                             sh 'bundle install --with ec2 windows --without opennebula docker'
-                            env
+                            sh 'env'
                         }
                         try {
                             stage('run kitchen') {
