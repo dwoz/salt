@@ -24,7 +24,7 @@ timeout(time: 6, unit: 'HOURS') {
                     }
                     try {
                         stage('github-pending') {
-                            githubNotify credentialsId: 'test-jenkins-credentials',
+                            githubNotify credentialsId: 'dwoz',
                                 description: "running ${TEST_SUITE}-${TEST_PLATFORM}...",
                                 status: 'PENDING',
                                 context: "jenkins/pr/${TEST_SUITE}-${TEST_PLATFORM}"
