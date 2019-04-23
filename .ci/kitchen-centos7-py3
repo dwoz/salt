@@ -1,3 +1,14 @@
+properties([
+    [
+        $class: 'ScannerJobProperty', doNotScan: false
+    ],
+    [
+        $class: 'RebuildSettings', autoRebuild: false, rebuildDisabled: false
+    ],
+    parameters([
+        booleanParam(defaultValue: false, description: 'Run full test suite', name: 'runFull')
+    ])
+])
 timeout(time: 6, unit: 'HOURS') {
     node('kitchen-slave') {
         timestamps {
@@ -6,6 +17,7 @@ timeout(time: 6, unit: 'HOURS') {
                     'SALT_KITCHEN_PLATFORMS=/var/jenkins/workspace/nox-platforms.yml',
                     'SALT_KITCHEN_VERIFIER=/var/jenkins/workspace/nox-verifier.yml',
                     'SALT_KITCHEN_DRIVER=/var/jenkins/workspace/driver.yml',
+                    'KITCHEN_TARGET=FOO',
                     'NOX_ENV_NAME=runtests-zeromq-3.4',
                     'NOX_PASSTHROUGH_OPTS=--ssh-tests',
                     'NOX_ENABLE_FROM_FILENAMES=true',
@@ -16,6 +28,7 @@ timeout(time: 6, unit: 'HOURS') {
                     'TEST_SUITE=py3',
                     'TEST_PLATFORM=centos-7',
                     'PY_COLORS=1',
+                    "FORCE_FULL=${params.runFull}"
                 ]) {
                     stage('checkout-scm') {
                         cleanWs notFailBuild: true
@@ -23,13 +36,14 @@ timeout(time: 6, unit: 'HOURS') {
                     }
                     try {
                         stage('github-pending') {
-                            githubNotify credentialsId: 'test-jenkins-credentials',
+                            githubNotify credentialsId: 'dwoz',
                                 description: "running ${TEST_SUITE}-${TEST_PLATFORM}...",
                                 status: 'PENDING',
                                 context: "jenkins/pr/${TEST_SUITE}-${TEST_PLATFORM}"
                         }
                         stage('setup-bundle') {
                             sh 'bundle install --with ec2 windows --without opennebula docker'
+                            sh 'env'
                         }
                         try {
                             stage('run kitchen') {
@@ -72,6 +86,7 @@ timeout(time: 6, unit: 'HOURS') {
                             */
                         }
                     } catch (Exception e) {
+                        e.printStackTrace()
                         currentBuild.result = 'FAILURE'
                     } finally {
                         try {
@@ -80,12 +95,12 @@ timeout(time: 6, unit: 'HOURS') {
                             cleanWs notFailBuild: true
                             def currentResult = currentBuild.result ?: 'SUCCESS'
                             if (currentResult == 'SUCCESS') {
-                                githubNotify credentialsId: 'test-jenkins-credentials',
+                                githubNotify credentialsId: 'dwoz',
                                     description: "The ${TEST_SUITE}-${TEST_PLATFORM} job has passed",
                                     status: 'SUCCESS',
                                     context: "jenkins/pr/${TEST_SUITE}-${TEST_PLATFORM}"
                             } else {
-                                githubNotify credentialsId: 'test-jenkins-credentials',
+                                githubNotify credentialsId: 'dwoz',
                                     description: "The ${TEST_SUITE}-${TEST_PLATFORM} job has failed",
                                     status: 'FAILURE',
                                     context: "jenkins/pr/${TEST_SUITE}-${TEST_PLATFORM}"

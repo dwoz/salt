@@ -26,6 +26,9 @@ from salt.ext.six.moves import range  # pylint: disable=redefined-builtin
 log = logging.getLogger(__name__)
 
 
+def foo():
+    return
+
 @jinja_filter('to_bytes')
 def to_bytes(s, encoding=None, errors='strict'):
     '''
