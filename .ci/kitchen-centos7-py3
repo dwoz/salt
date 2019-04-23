@@ -20,7 +20,7 @@ timeout(time: 6, unit: 'HOURS') {
                     'TEST_SUITE=py3',
                     'TEST_PLATFORM=centos-7',
                     'PY_COLORS=1',
-                    'FORCE_FULL=${params.runFull}'
+                    "FORCE_FULL=${params.runFull}"
                 ]) {
                     stage('checkout-scm') {
                         cleanWs notFailBuild: true
