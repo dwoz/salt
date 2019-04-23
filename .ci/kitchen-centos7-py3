@@ -1,6 +1,10 @@
-parameters {
-    booleanParam(defaultValue: false, description: 'Full test run', name: 'runFull')
-}
+properties(
+  [
+    [$class: 'ScannerJobProperty', doNotScan: false],
+    [$class: 'RebuildSettings', autoRebuild: false, rebuildDisabled: false],
+     parameters([booleanParam(defaultValue: true, description: 'run full test suite', name: 'runFull')])
+  ]
+)
 timeout(time: 6, unit: 'HOURS') {
     node('kitchen-slave') {
         timestamps {
