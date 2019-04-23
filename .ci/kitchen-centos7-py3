@@ -20,6 +20,7 @@ timeout(time: 6, unit: 'HOURS') {
                     'TEST_SUITE=py3',
                     'TEST_PLATFORM=centos-7',
                     'PY_COLORS=1',
+                    'FORCE_FULL=${params.runFull}'
                 ]) {
                     stage('checkout-scm') {
                         cleanWs notFailBuild: true
@@ -34,6 +35,7 @@ timeout(time: 6, unit: 'HOURS') {
                         }
                         stage('setup-bundle') {
                             sh 'bundle install --with ec2 windows --without opennebula docker'
+                            env
                         }
                         try {
                             stage('run kitchen') {
