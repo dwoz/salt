@@ -1,7 +1,9 @@
-timeout(time: 6, unit: 'HOURS') {
+properties {
     parameters {
         booleanParam(defaultValue: false, description: 'Full test run', name: 'runFull')
     }
+}
+timeout(time: 6, unit: 'HOURS') {
     node('kitchen-slave') {
         timestamps {
             ansiColor('xterm') {
