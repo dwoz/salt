@@ -41,16 +41,15 @@ def list_(saltenv='base', test=None):
 
         salt-run reactor.list
     '''
-    sevent = salt.utils.event.get_event(
+    __jid_event__.fire_event({}, 'salt/reactors/manage/list')
+
+    with salt.utils.event.get_event(
             'master',
             __opts__['sock_dir'],
             __opts__['transport'],
             opts=__opts__,
-            listen=True)
-
-    __jid_event__.fire_event({}, 'salt/reactors/manage/list')
-
-    results = sevent.get_event(wait=30, tag='salt/reactors/manage/list-results')
+            listen=True) as sevent:
+        results = sevent.get_event(wait=30, tag='salt/reactors/manage/list-results')
     reactors = results['reactors']
     return reactors
 
@@ -68,18 +67,17 @@ def add(event, reactors, saltenv='base', test=None):
     if isinstance(reactors, string_types):
         reactors = [reactors]
 
-    sevent = salt.utils.event.get_event(
-            'master',
-            __opts__['sock_dir'],
-            __opts__['transport'],
-            opts=__opts__,
-            listen=True)
-
     __jid_event__.fire_event({'event': event,
                               'reactors': reactors},
                              'salt/reactors/manage/add')
 
-    res = sevent.get_event(wait=30, tag='salt/reactors/manage/add-complete')
+    with salt.utils.event.get_event(
+            'master',
+            __opts__['sock_dir'],
+            __opts__['transport'],
+            opts=__opts__,
+            listen=True) as sevent:
+        res = sevent.get_event(wait=30, tag='salt/reactors/manage/add-complete')
     return res['result']
 
 
@@ -93,14 +91,14 @@ def delete(event, saltenv='base', test=None):
 
         salt-run reactor.delete 'salt/cloud/*/destroyed'
     '''
-    sevent = salt.utils.event.get_event(
+
+    __jid_event__.fire_event({'event': event}, 'salt/reactors/manage/delete')
+
+    with salt.utils.event.get_event(
             'master',
             __opts__['sock_dir'],
             __opts__['transport'],
             opts=__opts__,
-            listen=True)
-
-    __jid_event__.fire_event({'event': event}, 'salt/reactors/manage/delete')
-
-    res = sevent.get_event(wait=30, tag='salt/reactors/manage/delete-complete')
+            listen=True) as sevent:
+        res = sevent.get_event(wait=30, tag='salt/reactors/manage/delete-complete')
     return res['result']

@@ -2351,20 +2351,20 @@ class Events(object):
             '''
             An iterator to yield Salt events
             '''
-            event = salt.utils.event.get_event(
+            with salt.utils.event.get_event(
                     'master',
                     sock_dir=self.opts['sock_dir'],
                     transport=self.opts['transport'],
                     opts=self.opts,
-                    listen=True)
-            stream = event.iter_events(full=True, auto_reconnect=True)
+                    listen=True) as event:
+                stream = event.iter_events(full=True, auto_reconnect=True)
 
-            yield str('retry: 400\n')  # future lint: disable=blacklisted-function
+                yield str('retry: 400\n')  # future lint: disable=blacklisted-function
 
-            while True:
-                data = next(stream)
-                yield str('tag: {0}\n').format(data.get('tag', ''))  # future lint: disable=blacklisted-function
-                yield str('data: {0}\n\n').format(salt.utils.json.dumps(data))  # future lint: disable=blacklisted-function
+                while True:
+                    data = next(stream)
+                    yield str('tag: {0}\n').format(data.get('tag', ''))  # future lint: disable=blacklisted-function
+                    yield str('data: {0}\n\n').format(salt.utils.json.dumps(data))  # future lint: disable=blacklisted-function
 
         return listen()
 
@@ -2524,35 +2524,35 @@ class WebsocketEndpoint(object):
             # blocks until send is called on the parent end of this pipe.
             pipe.recv()
 
-            event = salt.utils.event.get_event(
+            with salt.utils.event.get_event(
                     'master',
                     sock_dir=self.opts['sock_dir'],
                     transport=self.opts['transport'],
                     opts=self.opts,
-                    listen=True)
-            stream = event.iter_events(full=True, auto_reconnect=True)
-            SaltInfo = event_processor.SaltInfo(handler)
+                    listen=True) as event:
+                stream = event.iter_events(full=True, auto_reconnect=True)
+                SaltInfo = event_processor.SaltInfo(handler)
 
-            def signal_handler(signal, frame):
-                os._exit(0)
+                def signal_handler(signal, frame):
+                    os._exit(0)
 
-            signal.signal(signal.SIGTERM, signal_handler)
+                signal.signal(signal.SIGTERM, signal_handler)
 
-            while True:
-                data = next(stream)
-                if data:
-                    try:  # work around try to decode catch unicode errors
-                        if 'format_events' in kwargs:
-                            SaltInfo.process(data, salt_token, self.opts)
-                        else:
-                            handler.send(
-                                str('data: {0}\n\n').format(salt.utils.json.dumps(data)),  # future lint: disable=blacklisted-function
-                                False
-                            )
-                    except UnicodeDecodeError:
-                        logger.error(
-                                "Error: Salt event has non UTF-8 data:\n{0}"
-                                .format(data))
+                while True:
+                    data = next(stream)
+                    if data:
+                        try:  # work around try to decode catch unicode errors
+                            if 'format_events' in kwargs:
+                                SaltInfo.process(data, salt_token, self.opts)
+                            else:
+                                handler.send(
+                                    str('data: {0}\n\n').format(salt.utils.json.dumps(data)),  # future lint: disable=blacklisted-function
+                                    False
+                                )
+                        except UnicodeDecodeError:
+                            logger.error(
+                                    "Error: Salt event has non UTF-8 data:\n{0}"
+                                    .format(data))
 
         parent_pipe, child_pipe = Pipe()
         handler.pipe = parent_pipe
@@ -2620,12 +2620,6 @@ class Webhook(object):
 
     def __init__(self):
         self.opts = cherrypy.config['saltopts']
-        self.event = salt.utils.event.get_event(
-                'master',
-                sock_dir=self.opts['sock_dir'],
-                transport=self.opts['transport'],
-                opts=self.opts,
-                listen=False)
 
         if cherrypy.config['apiopts'].get('webhook_disable_auth'):
             self._cp_config['tools.salt_auth.on'] = False
@@ -2721,11 +2715,17 @@ class Webhook(object):
         raw_body = getattr(cherrypy.serving.request, 'raw_body', '')
         headers = dict(cherrypy.request.headers)
 
-        ret = self.event.fire_event({
-            'body': raw_body,
-            'post': data,
-            'headers': headers,
-        }, tag)
+        with salt.utils.event.get_event(
+                'master',
+                sock_dir=self.opts['sock_dir'],
+                transport=self.opts['transport'],
+                opts=self.opts,
+                listen=False) as event:
+            ret = event.fire_event({
+                'body': raw_body,
+                'post': data,
+                'headers': headers,
+            }, tag)
         return {'success': ret}
 
 
