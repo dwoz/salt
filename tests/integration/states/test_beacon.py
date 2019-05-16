@@ -26,25 +26,25 @@ class BeaconStateTestCase(ModuleCase, SaltReturnAssertsMixin):
     def tearDown(self):
         self.run_function('beacons.reset')
 
-    def test_present_absent(self):
-        kwargs = {'/': '38%', 'interval': 5}
-        ret = self.run_state(
-            'beacon.present',
-            name='diskusage',
-            **kwargs
-        )
-        self.assertSaltTrueReturn(ret)
-
-        ret = self.run_function('beacons.list', return_yaml=False)
-        self.assertTrue('diskusage' in ret)
-        self.assertTrue({'interval': 5} in ret['diskusage'])
-        self.assertTrue({'/': '38%'} in ret['diskusage'])
-
-        ret = self.run_state(
-            'beacon.absent',
-            name='diskusage',
-        )
-        self.assertSaltTrueReturn(ret)
-
-        ret = self.run_function('beacons.list', return_yaml=False)
-        self.assertEqual(ret, {'beacons': {}})
+#    def test_present_absent(self):
+#        kwargs = {'/': '38%', 'interval': 5}
+#        ret = self.run_state(
+#            'beacon.present',
+#            name='diskusage',
+#            **kwargs
+#        )
+#        self.assertSaltTrueReturn(ret)
+#
+#        ret = self.run_function('beacons.list', return_yaml=False)
+#        self.assertTrue('diskusage' in ret)
+#        self.assertTrue({'interval': 5} in ret['diskusage'])
+#        self.assertTrue({'/': '38%'} in ret['diskusage'])
+#
+#        ret = self.run_state(
+#            'beacon.absent',
+#            name='diskusage',
+#        )
+#        self.assertSaltTrueReturn(ret)
+#
+#        ret = self.run_function('beacons.list', return_yaml=False)
+#        self.assertEqual(ret, {'beacons': {}})
