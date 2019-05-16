@@ -183,24 +183,20 @@ class SyncWrapper(object):
             time.sleep(.01)
 
     def stop(self):
-        log.error("STOP - begin %r", self)
         for method in self._stop_methods:
-            log.error("run close method %s %r", method, self.obj)
             try:
                 method = getattr(self, method)
             except AttributeError:
                 log.error("No method %s on object %r", method, self.obj)
                 continue
-            log.error("*** Got method %s", method)
-            method()
-        log.error("STOP - after methods %r", self.obj)
+            try:
+                method()
+            except Exception:
+                log.exception("Exception encountered while running stop method")
         if self._current_future:
             self._current_future.cancel()
-        log.error("STOP - set event %r", self)
         self._stop.set()
-        log.error("STOP - join %r", self)
         self._thread.join()
-        log.error("STOP - end %r", self)
 
     def __getattribute__(self, key):
         ex = None

@@ -202,7 +202,7 @@ class IPCServer(object):
         raise tornado.gen.Return(None)
 
     def handle_connection(self, connection, address):
-        log.error('IPCServer: Handling connection '
+        log.trace('IPCServer: Handling connection '
                   'to address: %s', address)
         try:
             with salt.utils.asynchronous.current_ioloop(self.io_loop):

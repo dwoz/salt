@@ -2687,7 +2687,6 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
-        log.error("HANDLE PAYLOAD %r", payload)
         if payload is not None and payload['enc'] == 'aes':
             if self._target_load(payload['load']):
                 self._handle_decoded_payload(payload['load'])
