@@ -479,7 +479,7 @@ class IPCMessagePublisher(object):
         # Placeholders for attributes to be populated by method calls
         self.sock = None
         #self.io_loop = io_loop or IOLoop.current()
-        self.io_loop = io_loop or  salt.utils.asynchronous.IOLoop()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self._closing = False
         self.streams = set()
 
@@ -721,6 +721,7 @@ class IPCMessageSubscriber(IPCClient):
             exc = self._read_stream_future.exception()
             if exc and not isinstance(exc, StreamClosedError):
                 log.error("Read future returned exception %r", exc)
+        self.stream.close()
 
     def __del__(self):
         if IPCMessageSubscriber in globals():
