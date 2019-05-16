@@ -14,6 +14,7 @@ import hashlib
 import logging
 import weakref
 import threading
+import traceback
 from random import randint
 
 # Import Salt Libs
@@ -125,7 +126,9 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
         io_loop = kwargs.get('io_loop')
         if io_loop is None:
             install_zmq()
-            io_loop = ZMQDefaultLoop.current()
+            #io_loop = ZMQDefaultLoop.current()
+            io_loop = salt.utils.asynchronous.IOLoop()
+            #log.error("ReqChan Loop %s", io_loop)
         if io_loop not in cls.instance_map:
             cls.instance_map[io_loop] = weakref.WeakValueDictionary()
         loop_instance_map = cls.instance_map[io_loop]
@@ -133,7 +136,7 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
         key = cls.__key(opts, **kwargs)
         obj = loop_instance_map.get(key)
         if obj is None:
-            log.debug('Initializing new AsyncZeroMQReqChannel for %s', key)
+            log.debug('Initializing new AsyncZeroMQReqChannel for %s %s', key, '\n'.join(traceback.format_stack()))
             # we need to make a local variable for this, as we are going to store
             # it in a WeakValueDictionary-- which will remove the item if no one
             # references it-- this forces a reference while we return to the caller
@@ -194,7 +197,9 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
         self._io_loop = kwargs.get('io_loop')
         if self._io_loop is None:
             install_zmq()
-            self._io_loop = ZMQDefaultLoop.current()
+            #self._io_loop = ZMQDefaultLoop.current()
+            self._io_loop = salt.utils.asynchronous.IOLoop()
+            #log.error("AsyncReq singleton loop %s", self._io_loop)
 
         if self.crypt != 'clear':
             # we don't need to worry about auth as a kwarg, since its a singleton
@@ -204,13 +209,16 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
                                                         args=(self.opts, self.master_uri,),
                                                         kwargs={'io_loop': self._io_loop})
 
+    def close(self):
+        if hasattr(self, 'message_client'):
+            self.message_client.destroy()
+
     def __del__(self):
         '''
         Since the message_client creates sockets and assigns them to the IOLoop we have to
         specifically destroy them, since we aren't the only ones with references to the FDs
         '''
-        if hasattr(self, 'message_client'):
-            self.message_client.destroy()
+        self.close()
 
     @property
     def master_uri(self):
@@ -353,6 +361,7 @@ class AsyncZeroMQPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.t
         if self.io_loop is None:
             install_zmq()
             self.io_loop = ZMQDefaultLoop.current()
+            #self.io_loop = salt.utils.asynchronous.IOLoop()
 
         self.hexid = hashlib.sha1(salt.utils.stringutils.to_bytes(self.opts['id'])).hexdigest()
         self.auth = salt.crypt.AsyncAuth(self.opts, io_loop=self.io_loop)
@@ -619,28 +628,32 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
                                      they are picked up off the wire
         :param IOLoop io_loop: An instance of a Tornado IOLoop, to handle event scheduling
         '''
-        self.payload_handler = payload_handler
-        self.io_loop = io_loop
+        try:
+            self.payload_handler = payload_handler
+            self.io_loop = io_loop
 
-        self.context = zmq.Context(1)
-        self._socket = self.context.socket(zmq.REP)
-        self._start_zmq_monitor()
+            self.context = zmq.Context(1)
+            self._socket = self.context.socket(zmq.REP)
+            self._start_zmq_monitor()
 
-        if self.opts.get('ipc_mode', '') == 'tcp':
-            self.w_uri = 'tcp://127.0.0.1:{0}'.format(
-                self.opts.get('tcp_master_workers', 4515)
-                )
-        else:
-            self.w_uri = 'ipc://{0}'.format(
-                os.path.join(self.opts['sock_dir'], 'workers.ipc')
-                )
-        log.info('Worker binding to socket %s', self.w_uri)
-        self._socket.connect(self.w_uri)
+            if self.opts.get('ipc_mode', '') == 'tcp':
+                self.w_uri = 'tcp://127.0.0.1:{0}'.format(
+                    self.opts.get('tcp_master_workers', 4515)
+                    )
+            else:
+                self.w_uri = 'ipc://{0}'.format(
+                    os.path.join(self.opts['sock_dir'], 'workers.ipc')
+                    )
+            log.info('Worker binding to socket %s', self.w_uri)
+            self._socket.connect(self.w_uri)
 
-        salt.transport.mixins.auth.AESReqServerMixin.post_fork(self, payload_handler, io_loop)
+            salt.transport.mixins.auth.AESReqServerMixin.post_fork(self, payload_handler, io_loop)
 
-        self.stream = zmq.eventloop.zmqstream.ZMQStream(self._socket, io_loop=self.io_loop)
-        self.stream.on_recv_stream(self.handle_message)
+            self.stream = zmq.eventloop.zmqstream.ZMQStream(self._socket, io_loop=self.io_loop)
+            self.stream.on_recv_stream(self.handle_message)
+        except:
+            log.exception("REQ POST FORK")
+            raise
 
     @tornado.gen.coroutine
     def handle_message(self, stream, payload):
@@ -1025,7 +1038,8 @@ class AsyncReqMessageClient(object):
         self.linger = linger
         if io_loop is None:
             install_zmq()
-            ZMQDefaultLoop.current()
+            self.io_loop = ZMQDefaultLoop.current()
+            #self.io_loop = salt.utils.asynchronous.IOLoop()
         else:
             self.io_loop = io_loop
 

@@ -157,42 +157,42 @@ class ClearReqTestCases(BaseZMQReqCase, ReqChannelMixin):
         del channel
 
 
-@flaky
-@skipIf(ON_SUSE, 'Skipping until https://github.com/saltstack/salt/issues/32902 gets fixed')
-class AESReqTestCases(BaseZMQReqCase, ReqChannelMixin):
-    def setUp(self):
-        self.channel = salt.transport.client.ReqChannel.factory(self.minion_config)
-
-    def tearDown(self):
-        del self.channel
-
-    @classmethod
-    @tornado.gen.coroutine
-    def _handle_payload(cls, payload):
-        '''
-        TODO: something besides echo
-        '''
-        raise tornado.gen.Return((payload, {'fun': 'send'}))
-
-    # TODO: make failed returns have a specific framing so we can raise the same exception
-    # on encrypted channels
-    #
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    #
-    # WARNING: This test will fail randomly on any system with > 1 CPU core!!!
-    #
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    def test_badload(self):
-        '''
-        Test a variety of bad requests, make sure that we get some sort of error
-        '''
-        # TODO: This test should be re-enabled when Jenkins moves to C7.
-        # Once the version of salt-testing is increased to something newer than the September
-        # release of salt-testing, the @flaky decorator should be applied to this test.
-        msgs = ['', [], tuple()]
-        for msg in msgs:
-            with self.assertRaises(salt.exceptions.AuthenticationError):
-                ret = self.channel.send(msg, timeout=5)
+#@flaky
+#@skipIf(ON_SUSE, 'Skipping until https://github.com/saltstack/salt/issues/32902 gets fixed')
+#class AESReqTestCases(BaseZMQReqCase, ReqChannelMixin):
+#    def setUp(self):
+#        self.channel = salt.transport.client.ReqChannel.factory(self.minion_config)
+#
+#    def tearDown(self):
+#        del self.channel
+#
+#    @classmethod
+#    @tornado.gen.coroutine
+#    def _handle_payload(cls, payload):
+#        '''
+#        TODO: something besides echo
+#        '''
+#        raise tornado.gen.Return((payload, {'fun': 'send'}))
+#
+#    # TODO: make failed returns have a specific framing so we can raise the same exception
+#    # on encrypted channels
+#    #
+#    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#    #
+#    # WARNING: This test will fail randomly on any system with > 1 CPU core!!!
+#    #
+#    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#    def test_badload(self):
+#        '''
+#        Test a variety of bad requests, make sure that we get some sort of error
+#        '''
+#        # TODO: This test should be re-enabled when Jenkins moves to C7.
+#        # Once the version of salt-testing is increased to something newer than the September
+#        # release of salt-testing, the @flaky decorator should be applied to this test.
+#        msgs = ['', [], tuple()]
+#        for msg in msgs:
+#            with self.assertRaises(salt.exceptions.AuthenticationError):
+#                ret = self.channel.send(msg, timeout=5)
 
 
 class BaseZMQPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):

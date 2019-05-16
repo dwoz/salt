@@ -14,10 +14,12 @@
 
 # Import python libs
 from __future__ import absolute_import, print_function, unicode_literals
+import os
 import sys
 import errno
 import socket
 import logging
+import threading
 
 # Import salt libs
 import salt.utils.event
@@ -28,6 +30,7 @@ from tornado import gen
 from tornado import ioloop
 from tornado import netutil
 from tornado import iostream
+import asyncio
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +50,17 @@ class PyTestEngine(object):
     def __init__(self, opts):
         self.opts = opts
         self.sock = None
+        self.thread = None
 
     def start(self):
+        # Wrap the real enging start in a thread. This is needed to play nice
+        # with asyncio when the Python version is < 3.6.
+        self.thread = threading.Thread(target=self.start_target)
+        self.thread.start()
+        self.thread.join()
+
+    def start_target(self):
+        import asyncio.events
         self.io_loop = ioloop.IOLoop()
         self.io_loop.make_current()
         self.io_loop.add_callback(self._start)

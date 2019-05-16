@@ -22,8 +22,12 @@ class ReqChannel(object):
     @staticmethod
     def factory(opts, **kwargs):
         # All Sync interfaces are just wrappers around the Async ones
-        sync = SyncWrapper(AsyncReqChannel.factory, (opts,), kwargs)
-        return sync
+        return SyncWrapper(
+            AsyncReqChannel.factory,
+            (opts,),
+            kwargs,
+            stop_methods=['close',]
+        )
 
     def send(self, load, tries=3, timeout=60, raw=False):
         '''

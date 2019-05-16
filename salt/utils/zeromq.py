@@ -8,6 +8,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import tornado.ioloop
 from salt.exceptions import SaltSystemExit
+import salt.utils.asynchronous
 from salt._compat import ipaddress
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ if ZMQDefaultLoop is None:
     if ZMQDefaultLoop is None:
         ZMQDefaultLoop = tornado.ioloop.IOLoop
 
+#ZMQDefaultLoop = salt.utils.asynchronous.IOLoop
 
 def install_zmq():
     '''

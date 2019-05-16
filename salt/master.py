@@ -1021,24 +1021,32 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
 
         :param dict payload: The payload route to the appropriate handler
         '''
-        key = payload['enc']
-        load = payload['load']
-        ret = {'aes': self._handle_aes,
-               'clear': self._handle_clear}[key](load)
+        try:
+            key = payload['enc']
+            load = payload['load']
+            ret = {'aes': self._handle_aes,
+                   'clear': self._handle_clear}[key](load)
+        except Exception as exc:
+            log.error("HANLDE PAYLOAD")
+            raise
         raise tornado.gen.Return(ret)
 
     def _post_stats(self, start, cmd):
         '''
         Calculate the master stats and fire events with stat info
         '''
-        end = time.time()
-        duration = end - start
-        self.stats[cmd]['mean'] = (self.stats[cmd]['mean'] * (self.stats[cmd]['runs'] - 1) + duration) / self.stats[cmd]['runs']
-        if end - self.stat_clock > self.opts['master_stats_event_iter']:
-            # Fire the event with the stats and wipe the tracker
-            self.aes_funcs.event.fire_event({'time': end - self.stat_clock, 'worker': self.name, 'stats': self.stats}, tagify(self.name, 'stats'))
-            self.stats = collections.defaultdict(lambda: {'mean': 0, 'runs': 0})
-            self.stat_clock = end
+        try:
+            end = time.time()
+            duration = end - start
+            self.stats[cmd]['mean'] = (self.stats[cmd]['mean'] * (self.stats[cmd]['runs'] - 1) + duration) / self.stats[cmd]['runs']
+            if end - self.stat_clock > self.opts['master_stats_event_iter']:
+                # Fire the event with the stats and wipe the tracker
+                self.aes_funcs.event.fire_event({'time': end - self.stat_clock, 'worker': self.name, 'stats': self.stats}, tagify(self.name, 'stats'))
+                self.stats = collections.defaultdict(lambda: {'mean': 0, 'runs': 0})
+                self.stat_clock = end
+        except Exception as exc:
+             log.exception("HANDLE STATS")
+             raise
 
     def _handle_clear(self, load):
         '''
@@ -1087,14 +1095,18 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         '''
         Start a Master Worker
         '''
-        salt.utils.process.appendproctitle(self.name)
-        self.clear_funcs = ClearFuncs(
-           self.opts,
-           self.key,
-           )
-        self.aes_funcs = AESFuncs(self.opts)
-        salt.utils.crypt.reinit_crypto()
-        self.__bind()
+        try:
+            salt.utils.process.appendproctitle(self.name)
+            self.clear_funcs = ClearFuncs(
+               self.opts,
+               self.key,
+               )
+            self.aes_funcs = AESFuncs(self.opts)
+            salt.utils.crypt.reinit_crypto()
+            self.__bind()
+        except Exception as exc:
+            log.exception("MWorker")
+            raise
 
 
 # TODO: rename? No longer tied to "AES", just "encrypted" or "private" requests

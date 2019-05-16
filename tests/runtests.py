@@ -87,12 +87,12 @@ except OSError as err:
 # Soft and hard limits on max open filehandles
 MAX_OPEN_FILES = {
     'integration': {
-        'soft_limit': 3072,
-        'hard_limit': 4096,
+        'soft_limit': 33072,
+        'hard_limit': 34096,
     },
     'unit': {
-        'soft_limit': 1024,
-        'hard_limit': 2048,
+        'soft_limit': 31024,
+        'hard_limit': 32048,
     },
 }
 

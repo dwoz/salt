@@ -9,6 +9,7 @@ import errno
 import logging
 import socket
 import time
+import traceback
 
 # Import 3rd-party libs
 import msgpack
@@ -24,6 +25,7 @@ from tornado.iostream import IOStream, StreamClosedError
 # Import Salt libs
 import salt.transport.client
 import salt.transport.frame
+import salt.utils.asynchronous
 from salt.ext import six
 
 log = logging.getLogger(__name__)
@@ -109,7 +111,8 @@ class IPCServer(object):
 
         # Placeholders for attributes to be populated by method calls
         self.sock = None
-        self.io_loop = io_loop or IOLoop.current()
+        #self.io_loop = io_loop or IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self._closing = False
 
     def start(self):
@@ -119,7 +122,7 @@ class IPCServer(object):
         Blocks until socket is established
         '''
         # Start up the ioloop
-        log.trace('IPCServer: binding to socket: %s', self.socket_path)
+        log.error('IPCServer: binding to socket: %s', self.socket_path)
         if isinstance(self.socket_path, int):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -147,6 +150,8 @@ class IPCServer(object):
         See https://tornado.readthedocs.io/en/latest/iostream.html#tornado.iostream.IOStream
         for additional details.
         '''
+        log.error("handle stream %r", self.io_loop)
+        #yield tornado.gen.moment
         @tornado.gen.coroutine
         def _null(msg):
             raise tornado.gen.Return(None)
@@ -155,12 +160,14 @@ class IPCServer(object):
             if header.get('mid'):
                 @tornado.gen.coroutine
                 def return_message(msg):
+                    log.error("return message")
                     pack = salt.transport.frame.frame_msg_ipc(
                         msg,
                         header={'mid': header['mid']},
                         raw_body=True,
                     )
                     yield stream.write(pack)
+                    raise tornado.gen.Return(None)
                 return return_message
             else:
                 return _null
@@ -170,6 +177,7 @@ class IPCServer(object):
             encoding = 'utf-8'
         unpacker = msgpack.Unpacker(encoding=encoding)
         while not stream.closed():
+            #yield tornado.gen.moment
             try:
                 wire_bytes = yield stream.read_bytes(4096, partial=True)
                 unpacker.feed(wire_bytes)
@@ -191,9 +199,10 @@ class IPCServer(object):
             except Exception as exc:
                 log.error('Exception occurred while '
                           'handling stream: %s', exc)
+        raise tornado.gen.Return(None)
 
     def handle_connection(self, connection, address):
-        log.trace('IPCServer: Handling connection '
+        log.error('IPCServer: Handling connection '
                   'to address: %s', address)
         try:
             with salt.utils.asynchronous.current_ioloop(self.io_loop):
@@ -245,7 +254,8 @@ class IPCClient(object):
         to the server.
 
         '''
-        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        #self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self.socket_path = socket_path
         self._closing = False
         self.stream = None
@@ -262,6 +272,7 @@ class IPCClient(object):
         '''
         Connect to the IPC socket
         '''
+        #log.error("begin connect")
         if hasattr(self, '_connecting_future') and not self._connecting_future.done():  # pylint: disable=E0203
             future = self._connecting_future  # pylint: disable=E0203
         else:
@@ -278,6 +289,7 @@ class IPCClient(object):
                 self.io_loop.add_callback(callback, response)
             future.add_done_callback(handle_future)
 
+        #log.error("end connect")
         return future
 
     @tornado.gen.coroutine
@@ -291,12 +303,12 @@ class IPCClient(object):
         else:
             sock_type = socket.AF_UNIX
             sock_addr = self.socket_path
-
         self.stream = None
         if timeout is not None:
             timeout_at = time.time() + timeout
 
         while True:
+            #yield tornado.gen.moment
             if self._closing:
                 break
 
@@ -306,11 +318,12 @@ class IPCClient(object):
                         socket.socket(sock_type, socket.SOCK_STREAM)
                     )
             try:
-                log.trace('IPCClient: Connecting to socket: %s', self.socket_path)
+                log.trace('IPCClient: Connecting to socket: %s %r', self.socket_path, self.io_loop)
                 yield self.stream.connect(sock_addr)
                 self._connecting_future.set_result(True)
                 break
-            except Exception as e:
+            except tornado.iostream.StreamClosedError as exc:
+                #log.exception("IPCClient exception")
                 if self.stream.closed():
                     self.stream = None
 
@@ -318,10 +331,15 @@ class IPCClient(object):
                     if self.stream is not None:
                         self.stream.close()
                         self.stream = None
-                    self._connecting_future.set_exception(e)
+                    self._connecting_future.set_exception(exc)
                     break
 
                 yield tornado.gen.sleep(1)
+            except Exception as exc:
+                log.exception("Unhandled IPCClient exception")
+                self._connecting_future.set_exception(exc)
+        #log.error("end _connect")
+        raise tornado.gen.Return(None)
 
     def __del__(self):
         try:
@@ -344,7 +362,8 @@ class IPCClient(object):
         if self._closing:
             return
         self._closing = True
-        if self.stream is not None and not self.stream.closed():
+        is_running = self.io_loop.is_running()
+        if self.stream is not None and not self.stream.closed() and is_running:
             self.stream.close()
 
 
@@ -366,7 +385,8 @@ class IPCMessageClient(IPCClient):
     import salt.config
     import salt.transport.ipc
 
-    io_loop = tornado.ioloop.IOLoop.current()
+    #io_loop = tornado.ioloop.IOLoop.current()
+    io_loop = salt.utils.asynchronous.IOLoop()
 
     ipc_server_socket_path = '/var/run/ipc_server.ipc'
 
@@ -458,7 +478,8 @@ class IPCMessagePublisher(object):
 
         # Placeholders for attributes to be populated by method calls
         self.sock = None
-        self.io_loop = io_loop or IOLoop.current()
+        #self.io_loop = io_loop or IOLoop.current()
+        self.io_loop = io_loop or  salt.utils.asynchronous.IOLoop()
         self._closing = False
         self.streams = set()
 

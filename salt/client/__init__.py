@@ -174,6 +174,27 @@ class LocalClient(object):
         self.utils = salt.loader.utils(self.opts)
         self.functions = salt.loader.minion_mods(self.opts, utils=self.utils)
         self.returners = salt.loader.returners(self.opts, self.functions)
+        self._sync_channel = None
+        self._async_channel = None
+
+    def sync_channel(self):
+        if self._sync_channel is None:
+            self._sync_channel = salt.transport.Channel.factory(
+                self.opts,
+                crypt='clear',
+                master_uri=master_uri,
+            )
+        return self._sync_channel
+
+    def async_channel(self):
+        if self._async_channel is None:
+            self._async_channel = salt.transport.client.AsyncReqChannel.factory(
+                self.opts,
+                io_loop=io_loop,
+                crypt='clear',
+                master_uri=master_uri,
+            )
+        return self._async_channel
 
     def __read_master_key(self):
         '''
@@ -1838,6 +1859,7 @@ class LocalClient(object):
         channel = salt.transport.Channel.factory(self.opts,
                                                  crypt='clear',
                                                  master_uri=master_uri)
+        #channel = self.sync_channel()
 
         try:
             # Ensure that the event subscriber is connected.
@@ -1881,8 +1903,9 @@ class LocalClient(object):
         if not payload:
             return payload
 
+        channel.stop()
         # We have the payload, let's get rid of the channel fast(GC'ed faster)
-        del channel
+        #del channel
 
         return {'jid': payload['load']['jid'],
                 'minions': payload['load']['minions']}
@@ -1955,6 +1978,7 @@ class LocalClient(object):
                                                                 io_loop=io_loop,
                                                                 crypt='clear',
                                                                 master_uri=master_uri)
+        #channel = self.async_channel()
 
         try:
             # Ensure that the event subscriber is connected.

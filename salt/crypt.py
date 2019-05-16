@@ -63,6 +63,7 @@ import salt.payload
 import salt.transport.client
 import salt.transport.frame
 import salt.utils.crypt
+import salt.utils.asynchronous
 import salt.utils.decorators
 import salt.utils.event
 import salt.utils.files
@@ -453,7 +454,8 @@ class AsyncAuth(object):
         Only create one instance of AsyncAuth per __key()
         '''
         # do we have any mapping for this io_loop
-        io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        #io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         if io_loop not in AsyncAuth.instance_map:
             AsyncAuth.instance_map[io_loop] = weakref.WeakValueDictionary()
         loop_instance_map = AsyncAuth.instance_map[io_loop]
@@ -507,7 +509,8 @@ class AsyncAuth(object):
         if not os.path.isfile(self.pub_path):
             self.get_keys()
 
-        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        #self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        self.io_loop = salt.utils.asynchronous.IOLoop()
 
         salt.utils.crypt.reinit_crypto()
         key = self.__key(self.opts)
