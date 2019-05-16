@@ -4,34 +4,57 @@ Helpers/utils for working with tornado asynchronous stuff
 '''
 
 from __future__ import absolute_import, print_function, unicode_literals
+import contextlib
+import functools
 import logging
-import sys
 import os
+import sys
+import threading
+import time
 import traceback
 
 import tornado.ioloop
 import tornado.concurrent
-import contextlib
-from multiprocessing.pool import ThreadPool
-from concurrent.futures import ThreadPoolExecutor
 import tornado.gen
-import functools
-from salt.ext.six.moves import queue
-import threading
-import time
 
-import asyncio
-from tornado.platform.asyncio import AsyncIOMainLoop
+from salt.ext.six.moves import queue
 from salt.ext.six import reraise
 
-AsyncIOMainLoop().install()
-loop = asyncio.get_event_loop()
+try:
+    import asyncio
+    from tornado.platform.asyncio import AsyncIOMainLoop
+    HAS_ASYNCIO = True
+except ImportError:
+    HAS_ASYNCIO = False
+
+
+if HAS_ASYNCIO:
+    # TODO: Is this really needed?
+    AsyncIOMainLoop().install()
+
 
 log = logging.getLogger(__name__)
 
-_IOLoop = tornado.ioloop.IOLoop
-loop_cache = {}
-_workers = ThreadPoolExecutor(10)
+
+@contextlib.contextmanager
+def current_ioloop(io_loop):
+    '''
+    A context manager that will set the current ioloop to io_loop for the context
+    '''
+    # TODO: Remove current_ioloop calls
+    yield
+    #orig_loop = tornado.ioloop.IOLoop.current()
+    #io_loop.make_current()
+    #try:
+    #    yield
+    #finally:
+    #    orig_loop.make_current()
+
+
+# TODO: Remove this.
+def stack(length=4):
+    return '\n'.join(traceback.format_stack()[-(length+1):-1])
+
 
 class ThreadedSyncRunner(object):
     '''
@@ -77,10 +100,6 @@ class ThreadedSyncRunner(object):
             return result
 
 
-def stack(length=4):
-    return '\n'.join(traceback.format_stack()[-(length+1):-1])
-
-
 class IOLoop(object):
     '''
     A wrapper around an existing IOLoop implimentation.
@@ -111,6 +130,9 @@ class IOLoop(object):
         log.trace("IOLoop.close called %s", stack())
         pass
 
+    def real_close(self, *args, **kwargs):
+        self._ioloop.close()
+
     def run_sync(self, func, timeout=None):
         asyncio_loop = asyncio.get_event_loop()
         if self.is_running() or (asyncio_loop and asyncio_loop.is_running()):
@@ -127,20 +149,6 @@ class IOLoop(object):
             pass
         return self._ioloop.asyncio_loop.is_running()
 
-
-@contextlib.contextmanager
-def current_ioloop(io_loop):
-    '''
-    A context manager that will set the current ioloop to io_loop for the context
-    '''
-    # TODO: Remove current_ioloop calls
-    yield
-    #orig_loop = tornado.ioloop.IOLoop.current()
-    #io_loop.make_current()
-    #try:
-    #    yield
-    #finally:
-    #    orig_loop.make_current()
 
 class SyncWrapper(object):
 
