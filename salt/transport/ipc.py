@@ -717,7 +717,8 @@ class IPCMessageSubscriber(IPCClient):
             exc = self._read_stream_future.exception()
             if exc and not isinstance(exc, StreamClosedError):
                 log.error("Read future returned exception %r", exc)
-        self.stream.close()
+        if self.stream:
+            self.stream.close()
 
     def __del__(self):
         if IPCMessageSubscriber in globals():
