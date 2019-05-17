@@ -1730,6 +1730,8 @@ class LocalClient(object):
                 raise SaltReqTimeoutError()
             payload = channel.send(payload_kwargs, timeout=timeout)
         except SaltReqTimeoutError:
+            channel.stop()
+            del channel
             raise SaltReqTimeoutError(
                 'Salt request timed out. The master is not responding. You '
                 'may need to run your command with `--async` in order to '
@@ -1745,6 +1747,8 @@ class LocalClient(object):
             # and try again if the key has changed
             key = self.__read_master_key()
             if key == self.key:
+                channel.stop()
+                del channel
                 return payload
             self.key = key
             payload_kwargs['key'] = self.key
@@ -1753,6 +1757,8 @@ class LocalClient(object):
         error = payload.pop('error', None)
         if error is not None:
             if isinstance(error, dict):
+                channel.stop()
+                del channel
                 err_name = error.get('name', '')
                 err_msg = error.get('message', '')
                 if err_name == 'AuthenticationError':
@@ -1762,11 +1768,10 @@ class LocalClient(object):
 
             raise PublishError(error)
 
+        channel.stop()
+
         if not payload:
             return payload
-
-        # We have the payload, let's get rid of the channel fast(GC'ed faster)
-        channel.close()
 
         return {'jid': payload['load']['jid'],
                 'minions': payload['load']['minions']}
@@ -1870,11 +1875,11 @@ class LocalClient(object):
 
             raise PublishError(error)
 
-        if not payload:
-            raise tornado.gen.Return(payload)
-
         # We have the payload, let's get rid of the channel fast(GC'ed faster)
         channel.close()
+
+        if not payload:
+            raise tornado.gen.Return(payload)
 
         raise tornado.gen.Return({'jid': payload['load']['jid'],
                                   'minions': payload['load']['minions']})
