@@ -150,8 +150,6 @@ class IPCServer(object):
         See https://tornado.readthedocs.io/en/latest/iostream.html#tornado.iostream.IOStream
         for additional details.
         '''
-        log.error("handle stream %r", self.io_loop)
-        #yield tornado.gen.moment
         @tornado.gen.coroutine
         def _null(msg):
             raise tornado.gen.Return(None)
@@ -177,7 +175,6 @@ class IPCServer(object):
             encoding = 'utf-8'
         unpacker = msgpack.Unpacker(encoding=encoding)
         while not stream.closed():
-            #yield tornado.gen.moment
             try:
                 wire_bytes = yield stream.read_bytes(4096, partial=True)
                 unpacker.feed(wire_bytes)
@@ -362,8 +359,7 @@ class IPCClient(object):
         if self._closing:
             return
         self._closing = True
-        is_running = self.io_loop.is_running()
-        if self.stream is not None and not self.stream.closed() and is_running:
+        if self.stream is not None and not self.stream.closed():
             self.stream.close()
 
 

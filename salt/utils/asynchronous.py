@@ -68,7 +68,7 @@ class ThreadedSyncRunner(object):
            self.io_loop = tornado.ioloop.IOLoop()
        else:
            self.io_loop = io_loop
-       if io_loop is None:
+       if lock is None:
            self.lock = threading.Semaphore()
        else:
            self.lock = lock
@@ -152,7 +152,7 @@ class IOLoop(object):
 
 class SyncWrapper(object):
 
-    def __init__(self, cls, args=None, kwargs=None, async_methods=None, stop_methods=None):
+    def __init__(self, cls, args=None, kwargs=None, async_methods=None, stop_methods=None, loop_kwarg=None):
         #log.error("WTF %s %s", cls, '\n'.join(traceback.format_stack()))
         if args is None:
             args = []
@@ -166,6 +166,7 @@ class SyncWrapper(object):
         self.kwargs = kwargs
         self.cls = cls
         self.obj = None
+        self.loop_kwarg = loop_kwarg
         self._async_methods = async_methods
         for name in dir(cls):
             if tornado.gen.is_coroutine_function(getattr(cls, name)):
@@ -177,8 +178,11 @@ class SyncWrapper(object):
         self._thread = threading.Thread(
             target=self._target,
             args=(cls, args, kwargs, self._req, self._res, self._stop, self.stop),
-            daemon=True,
+            #daemon=True,
         )
+        # TODO: Daemon should be an argument to the initializer when we drop
+        # support for py2.
+        self._thread.daemon = True
         self._current_future = None
         self.start()
 
@@ -226,6 +230,9 @@ class SyncWrapper(object):
     def _target(self, cls, args, kwargs, requests, responses, stop, stop_class):
         from salt.utils.zeromq import zmq, ZMQDefaultLoop, install_zmq
         io_loop = tornado.ioloop.IOLoop()
+        io_loop.make_current()
+        if self.loop_kwarg:
+            kwargs[self.loop_kwarg] = io_loop
         obj = cls(*args, **kwargs)
         for name in dir(obj):
             if tornado.gen.is_coroutine_function(getattr(obj, name)):
@@ -234,7 +241,10 @@ class SyncWrapper(object):
         def callback(future):
             io_loop.stop()
         io_loop.add_future(self.arg_handler(io_loop, stop, requests, responses, obj), callback)
-        io_loop.start()
+        try:
+            io_loop.start()
+        finally:
+            io_loop.close()
 
     @tornado.gen.coroutine
     def arg_handler(self, io_loop, stop, requests, responses, obj):

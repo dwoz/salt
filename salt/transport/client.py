@@ -26,7 +26,8 @@ class ReqChannel(object):
             AsyncReqChannel.factory,
             (opts,),
             kwargs,
-            stop_methods=['close',]
+            stop_methods=['close',],
+            loop_kwarg='io_loop',
         )
 
     def send(self, load, tries=3, timeout=60, raw=False):

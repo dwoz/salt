@@ -1859,7 +1859,6 @@ class LocalClient(object):
         channel = salt.transport.Channel.factory(self.opts,
                                                  crypt='clear',
                                                  master_uri=master_uri)
-        #channel = self.sync_channel()
 
         try:
             # Ensure that the event subscriber is connected.
@@ -1900,12 +1899,13 @@ class LocalClient(object):
 
             raise PublishError(error)
 
+        channel.stop()
+        # We have the payload, let's get rid of the channel fast(GC'ed faster)
+        del channel
+
         if not payload:
             return payload
 
-        channel.stop()
-        # We have the payload, let's get rid of the channel fast(GC'ed faster)
-        #del channel
 
         return {'jid': payload['load']['jid'],
                 'minions': payload['load']['minions']}
@@ -2019,11 +2019,11 @@ class LocalClient(object):
 
             raise PublishError(error)
 
-        if not payload:
-            raise tornado.gen.Return(payload)
-
         # We have the payload, let's get rid of the channel fast(GC'ed faster)
         del channel
+
+        if not payload:
+            raise tornado.gen.Return(payload)
 
         raise tornado.gen.Return({'jid': payload['load']['jid'],
                                   'minions': payload['load']['minions']})
