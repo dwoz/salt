@@ -224,6 +224,12 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
     # This class is only a singleton per minion/master pair
     # mapping of io_loop -> {key -> channel}
     instance_map = weakref.WeakKeyDictionary()
+    _coroutines = [
+        'crypted_transfer_decode_dictentry',
+        '_crypted_transfer',
+        '_uncrypted_transfer',
+        'send',
+    ]
 
     def __new__(cls, opts, **kwargs):
         '''
@@ -526,7 +532,12 @@ class AsyncTCPPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.tran
                     'data': data,
                     'tag': tag}
             req_channel = salt.utils.asynchronous.SyncWrapper(
-                AsyncTCPReqChannel, (self.opts,)
+                AsyncTCPReqChannel,
+                (self.opts,),
+                stop_methods=[
+                    'close',
+                ],
+                loop_kwarg='io_loop',
             )
             try:
                 req_channel.send(load, timeout=60)
@@ -535,8 +546,7 @@ class AsyncTCPPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.tran
             except Exception:  # pylint: disable=broad-except
                 log.info('fire_master failed: %s', traceback.format_exc())
             finally:
-                # SyncWrapper will call either close() or destroy(), whichever is available
-                del req_channel
+                req_channel.stop()
         else:
             self._reconnected = True
 
@@ -628,8 +638,10 @@ class TCPReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin, salt.tra
             self._socket = None
         if hasattr(self.req_server, 'shutdown'):
             try:
-                self.req_server.shutdown()
-            except Exception as exc:  # pylint: disable=broad-except
+                self.req_server.stop()
+            except socket.error as exc:
+                log.debug('TCPReqServerChannel close generated an exception: %s', str(exc))
+            except Exception as exc:
                 log.exception('TCPReqServerChannel close generated an exception: %s', str(exc))
         elif hasattr(self.req_server, 'stop'):
             try:
@@ -1003,9 +1015,11 @@ class SaltMessageClient(object):
                         self._read_until_future.exception()
                     if (self.io_loop != salt.ext.tornado.ioloop.IOLoop.current(instance=False)
                             or not self._stream_return_future.done()):
+                        def null_cb(future):
+                            pass
                         self.io_loop.add_future(
                             self._stream_return_future,
-                            lambda future: self._stop_io_loop()
+                            null_cb,
                         )
                         self.io_loop.start()
             except Exception as e:  # pylint: disable=broad-except
@@ -1544,24 +1558,27 @@ class TCPPubServerChannel(salt.transport.server.PubServerChannel):
         #pub_sock = salt.transport.ipc.IPCMessageClient(self.opts, io_loop=self.io_loop)
         pub_sock = salt.utils.asynchronous.SyncWrapper(
             salt.transport.ipc.IPCMessageClient,
-            (pull_uri,)
+            [pull_uri,],
+            async_methods=['connect',],
+            stop_methods=['close',],
+            loop_kwarg='io_loop',
         )
-        pub_sock.connect()
-
-        int_payload = {'payload': self.serial.dumps(payload)}
-
-        # add some targeting stuff for lists only (for now)
-        if load['tgt_type'] == 'list' and not self.opts.get("order_masters", False):
-            if isinstance(load['tgt'], six.string_types):
-                # Fetch a list of minions that match
-                _res = self.ckminions.check_minions(load['tgt'],
-                                                    tgt_type=load['tgt_type'])
-                match_ids = _res['minions']
-
-                log.debug("Publish Side Match: %s", match_ids)
-                # Send list of miions thru so zmq can target them
-                int_payload['topic_lst'] = match_ids
-            else:
-                int_payload['topic_lst'] = load['tgt']
-        # Send it over IPC!
-        pub_sock.send(int_payload)
+        try:
+            pub_sock.connect()
+            int_payload = {'payload': self.serial.dumps(payload)}
+            # add some targeting stuff for lists only (for now)
+            if load['tgt_type'] == 'list' and not self.opts.get("order_masters", False):
+                if isinstance(load['tgt'], six.string_types):
+                    # Fetch a list of minions that match
+                    _res = self.ckminions.check_minions(load['tgt'],
+                                                        tgt_type=load['tgt_type'])
+                    match_ids = _res['minions']
+                    log.debug("Publish Side Match: %s", match_ids)
+                    # Send list of miions thru so zmq can target them
+                    int_payload['topic_lst'] = match_ids
+                else:
+                    int_payload['topic_lst'] = load['tgt']
+            # Send it over IPC!
+            pub_sock.send(int_payload)
+        finally:
+            pub_sock.stop()

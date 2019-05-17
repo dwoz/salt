@@ -3,6 +3,7 @@ msgpack>=0.5,!=0.5.5,<1.0.0
 PyYAML
 MarkupSafe
 requests>=1.0.0
+
 # Requirements for Tornado 4.5.3 (vendored as salt.ext.tornado)
 backports-abc==0.5; python_version < '3.0'
 singledispatch==3.4.0.3; python_version < '3.4'
