@@ -568,7 +568,7 @@ class SaltEvent(object):
                 if not self.cpub and not self.connect_pub(timeout=wait):
                     break
 
-                raw = self.subscriber._read(timeout=wait)
+                raw = self.subscriber.read(timeout=wait)
                 if raw is None:
                     break
                 mtag, data = self.unpack(raw, self.serial)
@@ -817,7 +817,6 @@ class SaltEvent(object):
             self.pusher = None
         if self._run_io_loop_sync and not self.keep_loop:
            self.io_loop.close()
-           pass
 
     def _fire_ret_load_specific_fun(self, load, fun_index=0):
         '''
@@ -1206,7 +1205,8 @@ class EventPublisher(salt.utils.process.SignalHandlingMultiprocessingProcess):
         if hasattr(self, 'puller'):
             self.puller.close()
         if hasattr(self, 'io_loop'):
-            #self.io_loop.close()
+            self.io_loop.close()
+            #self.io_loop.real_close()
             pass
 
     def _handle_signals(self, signum, sigframe):
@@ -1383,6 +1383,8 @@ class StateFire(object):
             channel.send(load)
         except Exception:
             pass
+        finally:
+            channel.stopo()
         return True
 
     def fire_running(self, running):
@@ -1413,4 +1415,6 @@ class StateFire(object):
             channel.send(load)
         except Exception:
             pass
+        finally:
+            channel.stop()
         return True

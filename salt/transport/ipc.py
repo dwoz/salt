@@ -703,6 +703,25 @@ class IPCMessageSubscriber(IPCClient):
                 yield tornado.gen.sleep(1)
         yield self._read(None, callback)
 
+    @tornado.gen.coroutine
+    def read(self, timeout):
+        '''
+        Asynchronously read messages and invoke a callback when they are ready.
+
+        :param callback: A callback with the received data
+        '''
+        while not self.connected():
+            try:
+                yield self.connect(timeout=5)
+            except StreamClosedError:
+                log.trace('Subscriber closed stream on IPC %s before connect', self.socket_path)
+                yield tornado.gen.sleep(1)
+            except Exception as exc:
+                log.error('Exception occurred while Subscriber connecting: %s', exc)
+                yield tornado.gen.sleep(1)
+        res = yield self._read(timeout)
+        raise tornado.gen.Return(res)
+
     def close(self):
         '''
         Routines to handle any cleanup before the instance shuts down.
