@@ -293,7 +293,7 @@ class AsyncPubChannelTest(BaseZMQPubCase, PubChannelMixin):
     '''
     def get_new_ioloop(self):
         return zmq.eventloop.ioloop.ZMQIOLoop()
-
+    
 
 class AsyncReqMessageClientPoolTest(TestCase):
     def setUp(self):
