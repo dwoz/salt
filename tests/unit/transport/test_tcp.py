@@ -206,8 +206,8 @@ class BaseTCPPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
 
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls._server_io_loop)
 
-        def run_loop_in_thread(loop):
-            loop.make_current()
+        def run_loop_in_thread(cls):
+            #loop.make_current()
             loop.start()
 
         cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls._server_io_loop,))
