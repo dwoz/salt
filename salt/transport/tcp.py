@@ -933,13 +933,20 @@ class SaltMessageClient(object):
                     if self._read_until_future.done():
                         self._read_until_future.exception()
                     elif self.io_loop != tornado.ioloop.IOLoop.current(instance=False):
+                        def cb(future):
+                            pass
                         self.io_loop.add_future(
                             self._stream_return_future,
-                            lambda future: self.io_loop.stop()
+                            cb
+                            #lambda future: self.io_loop.stop()
                         )
-                        self.io_loop.start()
+                        #self.io_loop.start()
             finally:
                 orig_loop.make_current()
+        #if hasattr(self, '_stream') and not self._stream.closed():
+        #    self._stream.close()
+        #    if self._read_until_future.done():
+        #        self._read_until_future.exception()
         self._tcp_client.close()
         # Clear callback references to allow the object that they belong to
         # to be deleted.
