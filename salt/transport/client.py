@@ -131,6 +131,7 @@ class AsyncReqChannel(AsyncChannel):
             import salt.transport.tcp
             return salt.transport.tcp.AsyncTCPReqChannel(opts, **kwargs)
         elif ttype == 'local':
+            # TODO: AsyncLocalChannel does not exist
             import salt.transport.local
             return salt.transport.local.AsyncLocalChannel(opts, **kwargs)
         else:

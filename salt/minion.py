@@ -2255,8 +2255,8 @@ class Minion(MinionBase):
             try:
                 self.opts['pillar'] = yield async_pillar.compile_pillar()
                 if notify:
-                    evt = salt.utils.event.get_event('minion', opts=self.opts, listen=False)
-                    evt.fire_event({'complete': True}, tag=salt.defaults.events.MINION_PILLAR_COMPLETE)
+                    with salt.utils.event.get_event('minion', opts=self.opts, listen=False) as evt:
+                        evt.fire_event({'complete': True}, tag=salt.defaults.events.MINION_PILLAR_COMPLETE)
             except SaltClientError:
                 # Do not exit if a pillar refresh fails.
                 log.error('Pillar data could not be refreshed. '

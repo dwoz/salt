@@ -89,6 +89,10 @@ class IPCServer(object):
     A Tornado IPC server very similar to Tornado's TCPServer class
     but using either UNIX domain sockets or TCP sockets
     '''
+    _coroutines = [
+        'handle_stream',
+    ]
+
     def __init__(self, opts, socket_path, io_loop=None, payload_handler=None):
         '''
         Create a new Tornado IPC server
@@ -409,6 +413,12 @@ class IPCMessageClient(IPCClient):
     # Send some data
     ipc_client.send('Hello world')
     '''
+    _coroutines = [
+        'send',
+        'connect',
+        '_connect',
+    ]
+
     # FIXME timeout unimplemented
     # FIXME tries unimplemented
     @tornado.gen.coroutine
@@ -623,6 +633,15 @@ class IPCMessageSubscriber(IPCClient):
     # Wait for some data
     package = ipc_subscriber.read_sync()
     '''
+    _coroutines = [
+        'send',
+        'connect',
+        '_connect',
+        '_read',
+        'read_async',
+        'read',
+    ]
+
     def __init__(self, socket_path, io_loop=None):
         super(IPCMessageSubscriber, self).__init__(
             socket_path, io_loop=io_loop)

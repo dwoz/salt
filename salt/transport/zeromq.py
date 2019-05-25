@@ -127,6 +127,13 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
     # This class is only a singleton per minion/master pair
     # mapping of io_loop -> {key -> channel}
     instance_map = weakref.WeakKeyDictionary()
+    _coroutines = [
+        'crypted_transfer_decode_dictentry',
+        '_crypted_transfer',
+        '_do_transfer',
+        '_uncrypted_transfer',
+        'send',
+    ]
 
     def __new__(cls, opts, **kwargs):
         '''

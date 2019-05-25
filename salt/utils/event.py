@@ -928,13 +928,13 @@ class SaltEvent(object):
         return self.subscriber.read_async()
 
     # TODO: This should no longer be needed.
-    #def __del__(self):
-    #    # skip exceptions in destroy-- since destroy() doesn't cover interpreter
-    #    # shutdown-- where globals start going missing
-    #    try:
-    #        self.destroy()
-    #    except Exception:
-    #        pass
+    def __del__(self):
+        # skip exceptions in destroy-- since destroy() doesn't cover interpreter
+        # shutdown-- where globals start going missing
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
     def __enter__(self):
         return self

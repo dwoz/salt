@@ -13,16 +13,16 @@ import threading
 import time
 import traceback
 
-import sys
-
+import tornado
+import tornado.gen
 import tornado.ioloop
 import tornado.concurrent
-import contextlib
-from salt.ext import six
-import tornado.gen
 
+from salt.ext import six
+import salt.utils.versions
 from salt.ext.six.moves import queue
 from salt.ext.six import reraise
+import salt.utils.zeromq
 
 try:
     import asyncio
@@ -32,10 +32,18 @@ except ImportError:
     HAS_ASYNCIO = False
 
 
-if HAS_ASYNCIO:
-    # TODO: Is this really needed?
-    AsyncIOMainLoop().install()
+#if HAS_ASYNCIO:
+#    # TODO: Is this really needed?
+#    AsyncIOMainLoop().initialized()
+#    AsyncIOMainLoop().install()
 
+
+USES_ASYNCIO = (
+    HAS_ASYNCIO and
+    salt.utils.versions.LooseVersion(tornado.version) >=
+    salt.utils.versions.LooseVersion('5.0')
+)
+salt.utils.zeromq.install_zmq()
 
 log = logging.getLogger(__name__)
 
@@ -115,7 +123,7 @@ class IOLoop(object):
         if not hasattr(loop, '_salt_started_called'):
             loop._salt_started_called = False
             loop._salt_pid = os.getpid()
-        if not HAS_ASYNCIO:
+        if not USES_ASYNCIO:
             if loop._salt_pid != os.getpid():  # or loop._pid != loop._salt_pid:
                 tornado.ioloop.IOLoop.clear_current()
                 if hasattr(loop, '_impl'):
@@ -167,7 +175,7 @@ class IOLoop(object):
             self.sync_runner = None
 
     def run_sync(self, func, timeout=None):
-        if HAS_ASYNCIO:
+        if USES_ASYNCIO:
             asyncio_loop = asyncio.get_event_loop()
         else:
             asyncio_loop = False
@@ -181,7 +189,7 @@ class IOLoop(object):
             return self._ioloop.run_sync(func)
 
     def is_running(self):
-        if HAS_ASYNCIO:
+        if USES_ASYNCIO:
             try:
                 return self._ioloop.is_running()
             except AttributeError:
@@ -212,10 +220,21 @@ class SyncWrapper(object):
             self.kwargs[self.loop_kwarg] = self.io_loop
         self.obj = cls(*args, **self.kwargs)
         self._async_methods = async_methods
-        for name in dir(self.obj):
-            if tornado.gen.is_coroutine_function(getattr(self.obj, name)):
-                self._async_methods.append(name)
         self._stop_methods = stop_methods
+        self._populate_async_methods()
+
+    def _populate_async_methods(self):
+        '''
+        We need the '_coroutines' attribute on classes until we can depricate
+        tornado<4.5. After that 'is_coroutine_fuction' will always be
+        available.
+        '''
+        if hasattr(self.obj, '_coroutines'):
+            self._async_methods += self.obj._coroutines
+        if hasattr(tornado.gen, 'is_coroutine_function'):
+            for name in dir(self.obj):
+                if tornado.gen.is_coroutine_function(getattr(self.obj, name)):
+                    self._async_methods.append(name)
 
     def __repr__(self):
         return '<SyncWrapper(cls={})'.format(self.cls)
@@ -255,8 +274,8 @@ class SyncWrapper(object):
             result = io_loop.run_sync(
                 lambda: getattr(self.obj, key)(*args, **kwargs)
             )
+            results.append(True)
+            results.append(result)
         except Exception as exc:
             results.append(False)
             results.append(sys.exc_info())
-        results.append(True)
-        results.append(result)
