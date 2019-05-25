@@ -710,6 +710,9 @@ class IPCMessageSubscriber(IPCClient):
 
         :param callback: A callback with the received data
         '''
+        if self._saved_data:
+            res = self._saved_data.pop(0)
+            raise tornado.gen.Return(res)
         while not self.connected():
             try:
                 yield self.connect(timeout=5)
