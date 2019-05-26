@@ -190,6 +190,11 @@ class IOLoop(object):
         else:
             return self._ioloop._running
 
+    def add_handler(self, fd, handler, events):
+        if hasattr(fd, 'FD'):
+            fd = fd.FD
+        self._ioloop.add_handler(fd, handler, events)
+
 
 class SyncWrapper(object):
 
@@ -212,10 +217,21 @@ class SyncWrapper(object):
             self.kwargs[self.loop_kwarg] = self.io_loop
         self.obj = cls(*args, **self.kwargs)
         self._async_methods = async_methods
-        for name in dir(self.obj):
-            if tornado.gen.is_coroutine_function(getattr(self.obj, name)):
-                self._async_methods.append(name)
         self._stop_methods = stop_methods
+        self._populate_async_methods()
+
+    def _populate_async_methods(self):
+        '''
+        We need the '_coroutines' attribute on classes until we can depricate
+        tornado<4.5. After that 'is_coroutine_fuction' will always be
+        available.
+        '''
+        if hasattr(self.cls, '_coroutines'):
+            self._async_methods += self.cls._coroutines
+        if hasattr(tornado.gen, 'is_coroutine_function'):
+            for name in dir(self.obj):
+                if tornado.gen.is_coroutine_function(getattr(self.obj, name)):
+                    self._async_methods.append(name)
 
     def __repr__(self):
         return '<SyncWrapper(cls={})'.format(self.cls)

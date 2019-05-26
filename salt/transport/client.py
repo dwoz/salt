@@ -134,6 +134,7 @@ class AsyncReqChannel(AsyncChannel):
             import salt.transport.raet
             return salt.transport.raet.RAETReqChannel(opts, **kwargs)
         elif ttype == 'local':
+            # TODO: AsyncLocalChannel does not exist
             import salt.transport.local
             return salt.transport.local.AsyncLocalChannel(opts, **kwargs)
         else:
