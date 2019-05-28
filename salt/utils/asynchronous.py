@@ -230,8 +230,8 @@ class SyncWrapper(object):
         tornado<4.5. After that 'is_coroutine_fuction' will always be
         available.
         '''
-        if hasattr(self.cls, '_coroutines'):
-            self._async_methods += self.cls._coroutines
+        if hasattr(self.obj, '_coroutines'):
+            self._async_methods += self.obj._coroutines
         if hasattr(tornado.gen, 'is_coroutine_function'):
             for name in dir(self.obj):
                 if tornado.gen.is_coroutine_function(getattr(self.obj, name)):
