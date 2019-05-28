@@ -8,7 +8,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import tornado.ioloop
 from salt.exceptions import SaltSystemExit
-import salt.utils.asynchronous
+#import salt.utils.asynchronous
 from salt._compat import ipaddress
 
 log = logging.getLogger(__name__)
