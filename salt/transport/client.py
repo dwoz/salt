@@ -182,7 +182,8 @@ class AsyncPubChannel(AsyncChannel):
                 AsyncChannel._config_resolver()
             import salt.transport.tcp
             return salt.transport.tcp.AsyncTCPPubChannel(opts, **kwargs)
-        elif ttype == 'local':  # TODO:
+        elif ttype == 'local':
+            # TODO: AsyncLocalPubChannel does not exist
             import salt.transport.local
             return salt.transport.local.AsyncLocalPubChannel(opts, **kwargs)
         else:

@@ -9,8 +9,42 @@ import salt.transport.client
 # Import 3rd-party libs
 from salt.ext import six
 
+import tornado.ioloop
+import tornado.gen
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class ReqChannelMixin(object):
+
+    @staticmethod
+    def _post_fork_thread(channel, handler, evt):
+        loop = tornado.ioloop.IOLoop()
+        loop.make_current()
+        channel.post_fork(handler, io_loop=loop)
+        @tornado.gen.coroutine
+        def stopper():
+            while True:
+                if evt.is_set():
+                    loop.stop()
+                    break
+                yield tornado.gen.sleep(.3)
+        loop.add_callback(stopper)
+        try:
+            log.debug("ReqChannelMixin ioloop start")
+            loop.start()
+        finally:
+            loop.close()
+        log.debug("ReqChannelMixin ioloop closed")
+
+    @staticmethod
+    def post_fork_thread(channel, handler, evt):
+        try:
+            ReqChannelMixin._post_fork_thread(channel, handler, evt)
+        except Exception as exc:
+            log.exception('Exception in post_fork_thread')
+
     def test_basic(self):
         '''
         Test a variety of messages, make sure we get the expected responses

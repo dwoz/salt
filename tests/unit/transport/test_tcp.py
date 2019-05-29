@@ -75,30 +75,39 @@ class BaseTCPReqCase(TestCase, AdaptedConfigurationTestCaseMixin):
         cls.server_channel.pre_fork(cls.process_manager)
 
         cls.io_loop = salt.utils.asynchronous.IOLoop()
+        cls.evt = threading.Event()
 
-        def run_loop_in_thread(loop):
+        def run_loop_in_thread(loop, evt):
             loop.make_current()
-            loop.start()
+            @tornado.gen.coroutine
+            def stopper():
+                while True:
+                    if evt.is_set():
+                        loop.stop()
+                        break
+                    yield tornado.gen.sleep(.3)
+            loop.add_callback(stopper)
+            try:
+                loop.start()
+            finally:
+                loop.close()
 
         try:
             cls.server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         except ValueError:
             log.error("Adding handle twice, this needs to be fixed for asyncio")
 
-        cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls.io_loop,))
+        cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls.io_loop, cls.evt,))
         cls.server_thread.daemon = True
         cls.server_thread.start()
 
     @classmethod
     def tearDownClass(cls):
-        if not hasattr(cls, '_handle_payload'):
-            return
-        if hasattr(cls, 'io_loop'):
-            cls.io_loop.add_callback(cls.io_loop.stop)
-            cls.server_thread.join()
-            cls.process_manager.kill_children()
-            cls.server_channel.close()
-            del cls.server_channel
+        cls.process_manager.kill_children()
+        cls.server_channel.close()
+        cls.evt.set()
+        cls.server_thread.join()
+        del cls.server_channel
 
     @classmethod
     @tornado.gen.coroutine
@@ -206,11 +215,19 @@ class BaseTCPPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
 
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls._server_io_loop)
 
-        def run_loop_in_thread(loop):
+        def run_loop_in_thread(loop, evt):
             loop.make_current()
+            @tornado.gen.coroutine
+            def stopper():
+                while True:
+                    if evt.is_set():
+                        loop.stop()
+                    yield tornado.gen.sleep(.3)
+            loop.add_callback(stopper)
             loop.start()
 
-        cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls._server_io_loop,))
+        cls.evt = threading.Event()
+        cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls._server_io_loop, cls.evt))
         cls.server_thread.daemon = True
         cls.server_thread.start()
 
@@ -223,7 +240,7 @@ class BaseTCPPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
 
     @classmethod
     def tearDownClass(cls):
-        cls._server_io_loop.add_callback(cls._server_io_loop.stop)
+        cls.evt.set()
         cls.server_thread.join()
         cls.process_manager.kill_children()
         cls.req_server_channel.close()

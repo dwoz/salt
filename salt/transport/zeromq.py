@@ -1155,6 +1155,8 @@ class AsyncReqMessageClient(object):
         self.send_future_map = {}
 
         self.send_timeout_map = {}  # message -> timeout
+        self._keep_sending = True
+        self.io_loop.spawn_callback(self._internal_send_recv)
         self._closing = False
 
     # TODO: timeout all in-flight sessions, or error
@@ -1180,6 +1182,7 @@ class AsyncReqMessageClient(object):
             self.context.term()
 
     def destroy(self):
+        self._keep_sending = False
         # Bacwards compat
         salt.utils.versions.warn_until(
             'Sodium',
@@ -1222,7 +1225,10 @@ class AsyncReqMessageClient(object):
 
     @tornado.gen.coroutine
     def _internal_send_recv(self):
-        while self.send_queue:
+        while self._keep_sending:
+            if not self.send_queue:
+                yield tornado.gen.sleep(.01)
+                continue
             message = self.send_queue[0]
             future = self.send_future_map.get(message, None)
             if future is None:
@@ -1309,9 +1315,6 @@ class AsyncReqMessageClient(object):
             self.send_timeout_map[message] = send_timeout
 
         self.send_queue.append(message)
-        if len(self.send_queue) >= 1:
-            self.io_loop.spawn_callback(self._internal_send_recv)
-
         return future
 
 

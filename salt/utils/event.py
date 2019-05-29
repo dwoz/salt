@@ -1402,6 +1402,7 @@ class StateFire(object):
         try:
             channel.send(load)
         except Exception:
+            log.exception('Exception sending event')
             pass
         finally:
             channel.stop()
