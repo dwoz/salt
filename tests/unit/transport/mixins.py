@@ -32,11 +32,11 @@ class ReqChannelMixin(object):
                 yield tornado.gen.sleep(.3)
         loop.add_callback(stopper)
         try:
-            log.error("START LOOP")
+            log.debug("ReqChannelMixin ioloop start")
             loop.start()
         finally:
             loop.close()
-        log.error("LOOP DONE")
+        log.debug("ReqChannelMixin ioloop closed")
 
     @staticmethod
     def post_fork_thread(channel, handler, evt):

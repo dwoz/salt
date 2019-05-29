@@ -85,10 +85,13 @@ class BaseTCPReqCase(TestCase, AdaptedConfigurationTestCaseMixin):
                 while True:
                     if evt.is_set():
                         loop.stop()
+                        break
                     yield tornado.gen.sleep(.3)
             loop.add_callback(stopper)
-            loop.start()
-
+            try:
+                loop.start()
+            finally:
+                loop.close()
         try:
             cls.server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         except ValueError:

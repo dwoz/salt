@@ -376,8 +376,6 @@ class ZMQConfigTest(TestCase):
                                                          source_port=s_port) == 'tcp://0.0.0.0:{0};{1}:{2}'.format(s_port, m_ip, m_port)
 
 
-# TODO: Running these causes unit.utils.test_event tests to hang on py3
-@skipIf(six.PY3, "Skip on py3, this should be fixed before merging tornado50")
 class PubServerChannel(TestCase, AdaptedConfigurationTestCaseMixin):
 
     @classmethod
@@ -423,22 +421,11 @@ class PubServerChannel(TestCase, AdaptedConfigurationTestCaseMixin):
         del cls.master_config
 
     def setUp(self):
-        # Start the event loop, even though we dont directly use this with
-        # ZeroMQPubServerChannel, having it running seems to increase the
-        # likely hood of dropped messages.
-        self.io_loop = zmq.eventloop.ioloop.ZMQIOLoop()
-        self.io_loop.make_current()
-        self.io_loop_thread = threading.Thread(target=self.io_loop.start)
-        self.io_loop_thread.start()
         self.process_manager = salt.utils.process.ProcessManager(name='PubServer_ProcessManager')
 
     def tearDown(self):
-        self.io_loop.add_callback(self.io_loop.stop)
-        self.io_loop_thread.join()
         self.process_manager.stop_restarting()
         self.process_manager.kill_children()
-        del self.io_loop
-        del self.io_loop_thread
         del self.process_manager
 
     @staticmethod
