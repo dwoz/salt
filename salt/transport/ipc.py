@@ -10,7 +10,6 @@ import errno
 import logging
 import socket
 import time
-import traceback
 
 # Import Tornado libs
 import salt.ext.tornado
@@ -89,8 +88,11 @@ class IPCServer(object):
     but using either UNIX domain sockets or TCP sockets
     '''
 
-    _coroutines = [
+    async_methods = [
         'handle_stream',
+    ]
+    close_methods = [
+        'close',
     ]
 
     def __init__(self, socket_path, io_loop=None, payload_handler=None):
@@ -321,7 +323,6 @@ class IPCClient(object):
             timeout_at = time.time() + timeout
 
         while True:
-            #yield tornado.gen.moment
             if self._closing:
                 break
 
@@ -416,10 +417,13 @@ class IPCMessageClient(IPCClient):
     # Send some data
     ipc_client.send('Hello world')
     '''
-    _coroutines = [
+    async_methods = [
         'send',
         'connect',
         '_connect',
+    ]
+    close_methods = [
+        'close',
     ]
 
     # FIXME timeout unimplemented
@@ -633,13 +637,16 @@ class IPCMessageSubscriber(IPCClient):
     # Wait for some data
     package = ipc_subscriber.read_sync()
     '''
-    _coroutines = [
+    async_methods = [
         'send',
         'connect',
         '_connect',
         '_read',
         'read_async',
         'read',
+    ]
+    close_methods = [
+        'close',
     ]
 
     def __init__(self, socket_path, io_loop=None):
@@ -655,7 +662,6 @@ class IPCMessageSubscriber(IPCClient):
             yield self._read_in_progress.acquire(timeout=0.00000001)
         except salt.ext.tornado.gen.TimeoutError:
             raise RuntimeError("Unable to acquire read lock")
-            raise tornado.gen.Return(None)
 
         exc_to_raise = None
         ret = None

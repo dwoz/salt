@@ -337,6 +337,7 @@ class AsyncReqMessageClientPoolTest(TestCase):
 
 
 class ZMQConfigTest(TestCase):
+
     def test_master_uri(self):
         '''
         test _get_master_uri method
