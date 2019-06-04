@@ -89,7 +89,6 @@ import salt.defaults.exitcodes
 import salt.transport.ipc
 import salt.transport.client
 
-from multiprocessing.pool import ThreadPool
 log = logging.getLogger(__name__)
 
 # The SUB_EVENT set is for functions that require events fired based on
@@ -356,8 +355,6 @@ class SaltEvent(object):
                     self.subscriber = salt.utils.asynchronous.SyncWrapper(
                         salt.transport.ipc.IPCMessageSubscriber,
                         args=(self.puburi,),
-                        async_methods=['connect',],
-                        stop_methods=['close',],
                         loop_kwarg='io_loop',
                     )
                 try:
@@ -388,10 +385,7 @@ class SaltEvent(object):
         if not self.cpub:
             return
 
-        if self._run_io_loop_sync:
-            self.subscriber.stop()
-        else:
-            self.subscriber.close()
+        self.subscriber.close()
         self.subscriber = None
         self.pending_events = []
         self.cpub = False
@@ -410,8 +404,6 @@ class SaltEvent(object):
                     self.pusher = salt.utils.asynchronous.SyncWrapper(
                         salt.transport.ipc.IPCMessageClient,
                         args=(self.pulluri,),
-                        async_methods=['connect'],
-                        stop_methods=['close',],
                         loop_kwarg='io_loop',
                     )
                 try:
@@ -640,10 +632,6 @@ class SaltEvent(object):
                 if auto_reconnect:
                     raise_errors = self.raise_errors
                     self.raise_errors = True
-                    log.debug(
-                        "get_event IPCSubscriber read (autoreconnect) %s %s",
-                        wait, no_block
-                    )
                     while True:
                         try:
                             ret = self._get_event(wait, tag, match_func, no_block)
@@ -654,10 +642,6 @@ class SaltEvent(object):
                             continue
                     self.raise_errors = raise_errors
                 else:
-                    log.debug(
-                        "get_event IPCSubscriber read (no autoreconnect) %s %s",
-                        wait, no_block
-                    )
                     ret = self._get_event(wait, tag, match_func, no_block)
 
         if ret is None or full:
@@ -785,19 +769,13 @@ class SaltEvent(object):
 
     def destroy(self):
         if self.subscriber is not None:
-            if self._run_io_loop_sync:
-                self.subscriber.stop()
-            else:
-                self.subscriber.close()
+            self.subscriber.close()
             self.subscriber = None
         if self.pusher is not None:
-            if self._run_io_loop_sync:
-                self.pusher.stop()
-            else:
-                self.pusher.close()
+            self.pusher.close()
             self.pusher = None
         if self._run_io_loop_sync and not self.keep_loop:
-           self.io_loop.close()
+            self.io_loop.close()
 
     def _fire_ret_load_specific_fun(self, load, fun_index=0):
         '''
@@ -1404,10 +1382,6 @@ class StateFire(object):
             channel.send(load)
         except Exception:
             log.exception('Exception sending event')
-            pass
-        finally:
-            #channel.stop()
-            pass
         finally:
             channel.close()
         return True
@@ -1441,5 +1415,5 @@ class StateFire(object):
         except Exception:
             pass
         finally:
-            channel.stop()
+            channel.close()
         return True

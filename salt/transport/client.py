@@ -26,7 +26,6 @@ class ReqChannel(object):
             AsyncReqChannel.factory,
             (opts,),
             kwargs,
-            stop_methods=['close',],
             loop_kwarg='io_loop',
         )
 
@@ -50,15 +49,12 @@ class PushChannel(object):
     '''
     @staticmethod
     def factory(opts, **kwargs):
-        sync = SyncWrapper(
+        return SyncWrapper(
             AsyncPushChannel.factory,
             (opts,),
             kwargs,
-            async_methods=['connect',],
-            stop_methods=['close',],
             loop_kwarg='io_loop',
         )
-        return sync
 
     def send(self, load, tries=3, timeout=60):
         '''
@@ -73,14 +69,12 @@ class PullChannel(object):
     '''
     @staticmethod
     def factory(opts, **kwargs):
-        sync = SyncWrapper(
+        return SyncWrapper(
             AsyncPullChannel.factory,
             (opts,),
             kwargs,
-            stop_methods=['close'],
-            loop_kwarg=['io_loop'],
+            loop_kwarg='io_loop',
         )
-        return sync
 
 
 # TODO: better doc strings

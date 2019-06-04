@@ -67,7 +67,6 @@ class WheelClient(salt.client.mixins.SyncClientMixin,
         interface = self.opts['interface']
         if interface == '0.0.0.0':
             interface = '127.0.0.1'
-<<<<<<< HEAD
         master_uri = 'tcp://{}:{}'.format(
             salt.utils.zeromq.ip_bracket(interface),
             six.text_type(self.opts['ret_port'])
@@ -79,7 +78,7 @@ class WheelClient(salt.client.mixins.SyncClientMixin,
         try:
             ret = channel.send(load)
         finally:
-            channel.stop()
+            channel.close()
         if isinstance(ret, collections.Mapping):
             if 'error' in ret:
                 salt.utils.error.raise_error(**ret['error'])
