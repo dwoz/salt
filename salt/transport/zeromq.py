@@ -38,7 +38,7 @@ from salt.ext import six
 from salt.exceptions import SaltReqTimeoutError, SaltException
 from salt._compat import ipaddress
 
-from salt.utils.zeromq import zmq, ZMQDefaultLoop, install_zmq, ZMQ_VERSION_INFO, LIBZMQ_VERSION_INFO
+from salt.utils.zeromq import zmq, ZMQ_VERSION_INFO, LIBZMQ_VERSION_INFO
 import zmq.error
 import zmq.eventloop.ioloop
 import zmq.eventloop.zmqstream
@@ -153,7 +153,6 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
         # do we have any mapping for this io_loop
         io_loop = kwargs.get('io_loop')
         if io_loop is None:
-            install_zmq()
             io_loop = salt.utils.asynchronous.IOLoop()
         if io_loop not in cls.instance_map:
             cls.instance_map[io_loop] = weakref.WeakValueDictionary()
@@ -227,7 +226,6 @@ class AsyncZeroMQReqChannel(salt.transport.client.ReqChannel):
 
         self._io_loop = kwargs.get('io_loop')
         if self._io_loop is None:
-            install_zmq()
             self._io_loop = salt.utils.asynchronous.IOLoop()
 
         if self.crypt != 'clear':
@@ -427,9 +425,6 @@ class AsyncZeroMQPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.t
         self.io_loop = kwargs.get('io_loop')
 
         if self.io_loop is None:
-            install_zmq()
-            # TODO: Validate we can switch to salt.utils.asynchronous here.
-            #self.io_loop = ZMQDefaultLoop.current()
             self.io_loop = salt.utils.asynchronous.IOLoop()
 
         self.hexid = hashlib.sha1(salt.utils.stringutils.to_bytes(self.opts['id'])).hexdigest()
