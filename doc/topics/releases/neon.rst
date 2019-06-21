@@ -341,6 +341,10 @@ State Changes
             setype: system_conf_t
             seranage: s0
 
+- The :py:func:`file.symlink <salt.states.file.symlink>` state was
+  fixed to remove existing file system entries other than files,
+  directories and symbolic links properly.
+
 - The ``onchanges`` and ``prereq`` :ref:`requisites <requisites>` now behave
   properly in test mode.
 
@@ -377,6 +381,10 @@ Module Changes
 - The :py:func:`file.set_selinux_context <salt.modules.file.set_selinux_context>`
   module now supports perstant changes with ``persist=True`` by calling the
   :py:func:`selinux.fcontext_add_policy <salt.modules.selinux.fcontext_add_policy>` module.
+
+- The :py:func:`file.remove <salt.modules.file.remove>` module was
+  fixed to remove file system entries other than files, directories
+  and symbolic links properly.
 
 - The :py:func:`yumpkg <salt.modules.yumpkg>` module has been updated to support
   VMWare's Photon OS, which uses tdnf (a C implementation of dnf).
