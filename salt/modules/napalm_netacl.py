@@ -7,7 +7,7 @@ Generate and load ACL (firewall) configuration on network devices.
 
 .. versionadded:: 2017.7.0
 
-:codeauthor: Mircea Ulinic <ping@mirceaulinic.net>
+:codeauthor: Mircea Ulinic <mircea@cloudflare.com>
 :maturity:   new
 :depends:    capirca, napalm
 :platform:   unix

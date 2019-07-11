@@ -1091,7 +1091,7 @@ def lowdata_fmt():
     # headers for form encoded data (including charset or something similar)
     if data and isinstance(data, collections.Mapping):
         # Make the 'arg' param a list if not already
-        if 'arg' in data and not isinstance(data['arg'], list):  # pylint: disable=unsupported-membership-test
+        if 'arg' in data and not isinstance(data['arg'], list):
             data['arg'] = [data['arg']]
 
         # Finally, make a Low State and put it in request

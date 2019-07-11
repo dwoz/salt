@@ -161,7 +161,7 @@ def wrap_tmpl_func(render_str):
                         tmplsrc, exc,
                         exc_info_on_loglevel=logging.DEBUG
                     )
-                    six.reraise(*sys.exc_info())
+                    raise exc
         else:  # assume tmplsrc is file-like.
             tmplstr = tmplsrc.read()
             tmplsrc.close()

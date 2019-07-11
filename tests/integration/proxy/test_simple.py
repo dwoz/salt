@@ -12,7 +12,7 @@ from tests.support.case import ModuleCase
 
 class ProxyMinionSimpleTestCase(ModuleCase):
     '''
-    Test proxy minion functionality
+    Test minion blackout functionality
     '''
     def test_can_it_ping(self):
         '''

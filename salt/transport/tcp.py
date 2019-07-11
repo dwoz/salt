@@ -10,13 +10,12 @@ Wire protocol: "len(payload) msgpack({'head': SOMEHEADER, 'body': SOMEBODY})"
 from __future__ import absolute_import, print_function, unicode_literals
 import errno
 import logging
-import os
 import socket
-import sys
+import os
+import weakref
 import time
 import threading
 import traceback
-import weakref
 
 # Import Salt Libs
 import salt.crypt
@@ -619,7 +618,7 @@ class TCPReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin, salt.tra
                     # Ignore this condition and continue.
                     pass
                 else:
-                    six.reraise(*sys.exc_info())
+                    raise exc
             self._socket.close()
             self._socket = None
         if hasattr(self.req_server, 'stop'):

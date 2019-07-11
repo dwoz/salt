@@ -32,4 +32,4 @@ class SaltRunnerTest(ShellCase):
         '''
         ret = self.run_run_plus('salt.cmd')
         expected = 'Passed invalid arguments:'
-        self.assertRaisesRegex(TypeError, expected)
+        self.assertIn(expected, ret['return'])

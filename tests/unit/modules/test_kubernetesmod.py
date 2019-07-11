@@ -2,7 +2,6 @@
 '''
     :codeauthor: Jochen Breuer <jbreuer@suse.de>
 '''
-# pylint: disable=no-value-for-parameter
 
 # Import Python Libs
 from __future__ import absolute_import

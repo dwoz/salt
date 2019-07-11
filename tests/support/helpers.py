@@ -211,7 +211,7 @@ def flaky(caller=None, condition=True, attempts=4):
                 if not isinstance(exc, (AssertionError, SkipTest)) and log.isEnabledFor(logging.DEBUG):
                     log.exception(exc, exc_info=True)
                 if attempt >= attempts -1:
-                    six.reraise(*sys.exc_info())
+                    raise exc
                 backoff_time = attempt ** 2
                 log.info(
                     'Found Exception. Waiting %s seconds to retry.',

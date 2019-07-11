@@ -80,27 +80,18 @@ def get_user_groups(name, sid=False):
     Returns:
         list: A list of group names or sids
     '''
-    groups = []
-    if name.upper() == 'SYSTEM':
+    if name == 'SYSTEM':
         # 'win32net.NetUserGetLocalGroups' will fail if you pass in 'SYSTEM'.
-        groups = ['SYSTEM']
+        groups = [name]
     else:
-        try:
-            groups = win32net.NetUserGetLocalGroups(None, name)
-        except win32net.error as exc:
-            if exc.winerror == 5:
-                # Try without LG_INCLUDE_INDIRECT flag, because the user might
-                # not have permissions for it
-                groups = win32net.NetUserGetLocalGroups(None, name, 0)
-            else:
-                raise
+        groups = win32net.NetUserGetLocalGroups(None, name)
 
     if not sid:
         return groups
 
-    ret_groups = []
+    ret_groups = set()
     for group in groups:
-        ret_groups.append(get_sid_from_name(group))
+        ret_groups.add(get_sid_from_name(group))
 
     return ret_groups
 

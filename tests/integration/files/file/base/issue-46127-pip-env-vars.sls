@@ -5,10 +5,6 @@
   virtualenv.managed:
     - system_site_packages: False
     - distribute: True
-    {#- Provide the real path for the python executable in case tests are running inside a virtualenv #}
-    {%- if salt.runtests_helpers.get_python_executable() %}
-    - python: {{ salt.runtests_helpers.get_python_executable() }}
-    {%- endif %}
 
 install_older_venv_1:
   pip.installed:

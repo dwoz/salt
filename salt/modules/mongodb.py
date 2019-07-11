@@ -18,7 +18,6 @@ from __future__ import absolute_import, print_function, unicode_literals
 # Import python libs
 import logging
 import re
-import sys
 
 # Import salt libs
 import salt.utils.json
@@ -84,7 +83,7 @@ def _to_dict(objects):
             objects = salt.utils.json.loads(objects)
     except ValueError as err:
         log.error("Could not parse objects: %s", err)
-        six.reraise(*sys.exc_info())
+        raise err
 
     return objects
 

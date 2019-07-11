@@ -1354,13 +1354,10 @@ def extracted(name,
                         )
                         return ret
 
-                    # Ignore verbose file list options as we are already using
-                    # "v" below in tar_shortopts
-                    tar_opts = [x for x in shlex.split(options)
-                                if x not in ('v', '-v', '--verbose')]
+                    tar_opts = shlex.split(options)
 
                     tar_cmd = ['tar']
-                    tar_shortopts = 'xv'
+                    tar_shortopts = 'x'
                     tar_longopts = []
 
                     for position, opt in enumerate(tar_opts):
@@ -1390,9 +1387,9 @@ def extracted(name,
                         ret['changes'] = results
                         return ret
                     if _is_bsdtar():
-                        files = results['stderr'].splitlines()
+                        files = results['stderr']
                     else:
-                        files = results['stdout'].splitlines()
+                        files = results['stdout']
                     if not files:
                         files = 'no tar output so far'
         except CommandExecutionError as exc:

@@ -5,7 +5,7 @@ Network SNMP
 
 Manage the SNMP configuration on network devices.
 
-:codeauthor: Mircea Ulinic <ping@mirceaulinic.net>
+:codeauthor: Mircea Ulinic <mircea@cloudflare.com>
 :maturity:   new
 :depends:    napalm
 :platform:   unix

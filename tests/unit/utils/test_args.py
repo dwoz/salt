@@ -13,6 +13,7 @@ import salt.utils.args
 # Import Salt Testing Libs
 from tests.support.unit import TestCase, skipIf
 from tests.support.mock import (
+    create_autospec,
     DEFAULT,
     NO_MOCK,
     NO_MOCK_REASON,
@@ -125,13 +126,11 @@ class ArgsTestCase(TestCase):
         def _test_spec(arg1, arg2, kwarg1=None):
             pass
 
-        test_functions = {'test_module.test_spec': _test_spec}
+        sys_mock = create_autospec(_test_spec)
+        test_functions = {'test_module.test_spec': sys_mock}
         ret = salt.utils.args.argspec_report(test_functions, 'test_module.test_spec')
         self.assertDictEqual(ret, {'test_module.test_spec':
-                                       {'kwargs': None,
-                                        'args': ['arg1', 'arg2', 'kwarg1'],
-                                        'defaults': (None, ),
-                                        'varargs': None}})
+                                       {'kwargs': True, 'args': None, 'defaults': None, 'varargs': True}})
 
     def test_test_mode(self):
         self.assertTrue(salt.utils.args.test_mode(test=True))

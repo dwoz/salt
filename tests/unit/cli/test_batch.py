@@ -35,19 +35,11 @@ class BatchTestCase(TestCase):
 
     # get_bnum tests
 
-    def test_get_bnum_str(self):
+    def test_get_bnum(self):
         '''
-        Tests passing batch value as a number(str)
+        Tests passing batch value as a number
         '''
         self.batch.opts = {'batch': '2', 'timeout': 5}
-        self.batch.minions = ['foo', 'bar']
-        self.assertEqual(Batch.get_bnum(self.batch), 2)
-
-    def test_get_bnum_int(self):
-        '''
-        Tests passing batch value as a number(int)
-        '''
-        self.batch.opts = {'batch': 2, 'timeout': 5}
         self.batch.minions = ['foo', 'bar']
         self.assertEqual(Batch.get_bnum(self.batch), 2)
 

@@ -2,14 +2,12 @@
 
 # Import python libs
 from __future__ import absolute_import, print_function, unicode_literals
-import logging
 import os
-import shutil
-import subprocess
 import tempfile
+import logging
+import shutil
 
 # Import 3rd-party libs
-
 # pylint: disable=import-error,no-name-in-module,redefined-builtin
 from salt.ext import six
 from salt.ext.six.moves.urllib.error import URLError
@@ -17,10 +15,10 @@ from salt.ext.six.moves.urllib.request import urlopen
 # pylint: enable=import-error,no-name-in-module,redefined-builtin
 
 # Import Salt Testing libs
-from tests.support.helpers import requires_network, skip_if_binaries_missing
-from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.runtests import RUNTIME_VARS
+from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.unit import TestCase, skipIf
+from tests.support.helpers import requires_network, skip_if_binaries_missing
 
 # Import Salt libs
 import salt.utils.files
@@ -48,10 +46,11 @@ log = logging.getLogger(__name__)
 
 
 def download_to(url, dest):
-    with salt.utils.files.fopen(dest, 'wb') as fic:
+    with salt.utils.files.fopen(dest, 'w') as fic:
         fic.write(urlopen(url, timeout=10).read())
 
 
+@skipIf(True, 'These tests are not running reliably')
 class Base(TestCase, LoaderModuleMockMixin):
 
     def setup_loader_modules(self):
@@ -85,22 +84,15 @@ class Base(TestCase, LoaderModuleMockMixin):
         # creating a new setuptools install
         cls.ppy_st = os.path.join(cls.rdir, 'psetuptools')
         cls.py_st = os.path.join(cls.ppy_st, 'bin', 'python')
-        subprocess.check_call([
-            salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
-            '--no-site-packages',
-            cls.ppy_st
-        ])
-        subprocess.check_call([
-            '{0}/bin/pip'.format(cls.ppy_st),
-            'install',
-            '-U',
-            'setuptools',
-        ])
-        subprocess.check_call([
-            '{0}/bin/easy_install'.format(cls.ppy_st),
-            '-U',
-            'distribute',
-        ])
+        ret1 = buildout._Popen((
+            '{0} --no-site-packages {1};'
+            '{1}/bin/pip install -U setuptools; '
+            '{1}/bin/easy_install -U distribute;').format(
+                salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
+                cls.ppy_st
+            )
+        )
+        assert ret1['retcode'] == 0
 
     @classmethod
     def tearDownClass(cls):
@@ -128,6 +120,7 @@ class Base(TestCase, LoaderModuleMockMixin):
             shutil.rmtree(self.tdir)
 
 
+@skipIf(True, 'These tests are not running reliably')
 @skipIf(salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES) is None,
         "The 'virtualenv' packaged needs to be installed")
 @skip_if_binaries_missing(['tar'])
@@ -136,10 +129,10 @@ class BuildoutTestCase(Base):
     @requires_network()
     def test_onlyif_unless(self):
         b_dir = os.path.join(self.tdir, 'b')
-        ret = buildout.buildout(b_dir, onlyif=RUNTIME_VARS.SHELL_FALSE_PATH)
+        ret = buildout.buildout(b_dir, onlyif='/bin/false')
         self.assertTrue(ret['comment'] == 'onlyif condition is false')
         self.assertTrue(ret['status'] is True)
-        ret = buildout.buildout(b_dir, unless=RUNTIME_VARS.SHELL_TRUE_PATH)
+        ret = buildout.buildout(b_dir, unless='/bin/true')
         self.assertTrue(ret['comment'] == 'unless condition is true')
         self.assertTrue(ret['status'] is True)
 
@@ -322,6 +315,7 @@ class BuildoutTestCase(Base):
 
 @skipIf(salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES) is None,
         'The \'virtualenv\' packaged needs to be installed')
+@skipIf(True, 'These tests are not running reliably')
 class BuildoutOnlineTestCase(Base):
 
     @classmethod
@@ -333,61 +327,51 @@ class BuildoutOnlineTestCase(Base):
         cls.py_blank = os.path.join(cls.ppy_blank, 'bin', 'python')
         # creating a distribute based install
         try:
-            subprocess.check_call([
-                salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
-                '--no-site-packages',
-                '--no-setuptools',
-                '--no-pip',
-                cls.ppy_dis,
-            ])
-        except subprocess.CalledProcessError:
-            subprocess.check_call([
-                salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
-                '--no-site-packages',
-                cls.ppy.dis,
-            ])
-
-            url = (
-                'https://pypi.python.org/packages/source'
-                '/d/distribute/distribute-0.6.43.tar.gz'
-            )
-            download_to(
-                url,
-                os.path.join(cls.ppy_dis, 'distribute-0.6.43.tar.gz'),
-            )
-
-            subprocess.check_call([
-                'tar',
-                '-C',
-                cls.ppy_dis,
-                '-xzvf',
-                '{0}/distribute-0.6.43.tar.gz'.format(cls.ppy_dis),
-            ])
-
-            subprocess.check_call([
-                '{0}/bin/python'.format(cls.ppy_dis),
-                '{0}/distribute-0.6.43/setup.py'.format(cls.ppy_dis),
-                'install',
-            ])
-
-            # creating a blank based install
-            try:
-                subprocess.check_call([
+            ret20 = buildout._Popen((
+                '{0} --no-site-packages --no-setuptools --no-pip {1}'.format(
                     salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
-                    '--no-site-packages',
-                    '--no-setuptools',
-                    '--no-pip',
-                    cls.ppy_blank,
-                ])
-            except subprocess.CalledProcessError:
-                subprocess.check_call([
+                    cls.ppy_dis
+                )
+            ))
+        except buildout._BuildoutError:
+            ret20 = buildout._Popen((
+                '{0} --no-site-packages {1}'.format(
                     salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
-                    '--no-site-packages',
-                    cls.ppy_blank,
-                ])
+                    cls.ppy_dis
+                ))
+            )
+        assert ret20['retcode'] == 0
+
+        download_to('https://pypi.python.org/packages/source'
+                    '/d/distribute/distribute-0.6.43.tar.gz',
+                    os.path.join(cls.ppy_dis, 'distribute-0.6.43.tar.gz'))
+
+        ret2 = buildout._Popen((
+            'cd {0} &&'
+            ' tar xzvf distribute-0.6.43.tar.gz && cd distribute-0.6.43 &&'
+            ' {0}/bin/python setup.py install'
+        ).format(cls.ppy_dis))
+        assert ret2['retcode'] == 0
+
+        # creating a blank based install
+        try:
+            ret3 = buildout._Popen((
+                '{0} --no-site-packages --no-setuptools --no-pip {1}'.format(
+                    salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
+                    cls.ppy_blank
+                )
+            ))
+        except buildout._BuildoutError:
+            ret3 = buildout._Popen((
+                '{0} --no-site-packages {1}'.format(
+                    salt.utils.path.which_bin(KNOWN_VIRTUALENV_BINARY_NAMES),
+                    cls.ppy_blank
+                )
+            ))
+
+        assert ret3['retcode'] == 0
 
     @requires_network()
-    @skipIf(True, 'TODO this test should probably be fixed')
     def test_buildout_bootstrap(self):
         b_dir = os.path.join(self.tdir, 'b')
         bd_dir = os.path.join(self.tdir, 'b', 'bdistribute')
@@ -488,6 +472,7 @@ class BuildoutOnlineTestCase(Base):
 
 
 # TODO: Is this test even still needed?
+@skipIf(True, 'These tests are not running reliably')
 class BuildoutAPITestCase(TestCase):
 
     def test_merge(self):

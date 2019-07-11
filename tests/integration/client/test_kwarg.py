@@ -86,15 +86,13 @@ class StdTest(ModuleCase):
         '''
         terrible_yaml_string = 'foo: ""\n# \''
         ret = self.client.cmd_full_return(
-            'minion',
-            'test.arg_type',
-            ['a', 1],
-            kwarg={
-                'outer': {'a': terrible_yaml_string},
-                'inner': 'value'
-            },
-            timeout=self.TIMEOUT,
-        )
+                'minion',
+                'test.arg_type',
+                ['a', 1],
+                timeout=self.TIMEOUT,
+                kwarg={'outer': {'a': terrible_yaml_string},
+                       'inner': 'value'}
+                )
         data = ret['minion']['ret']
         self.assertIn(six.text_type.__name__, data['args'][0])
         self.assertIn('int', data['args'][1])

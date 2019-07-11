@@ -149,13 +149,13 @@ def compare_lists(old=None, new=None):
     Compare before and after results from various salt functions, returning a
     dict describing the changes that were made
     '''
-    ret = {}
+    ret = dict()
     for item in new:
         if item not in old:
-            ret.setdefault('new', []).append(item)
+            ret['new'] = item
     for item in old:
         if item not in new:
-            ret.setdefault('old', []).append(item)
+            ret['old'] = item
     return ret
 
 

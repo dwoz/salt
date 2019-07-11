@@ -5,7 +5,7 @@ NAPALM Users
 
 Manages the configuration of the users on network devices.
 
-:codeauthor: Mircea Ulinic <ping@mirceaulinic.net>
+:codeauthor: Mircea Ulinic <mircea@cloudflare.com>
 :maturity:   new
 :depends:    napalm
 :platform:   unix

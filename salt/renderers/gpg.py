@@ -357,7 +357,7 @@ def _decrypt_ciphertext(cipher):
         return decrypted_data
 
 
-def _decrypt_ciphertexts(cipher, translate_newlines=False, encoding=None):
+def _decrypt_ciphertexts(cipher, translate_newlines=False):
     to_bytes = salt.utils.stringutils.to_bytes
     cipher = to_bytes(cipher)
     if translate_newlines:
@@ -376,14 +376,14 @@ def _decrypt_ciphertexts(cipher, translate_newlines=False, encoding=None):
         ret = cipher
 
     try:
-        ret = salt.utils.stringutils.to_unicode(ret, encoding=encoding)
+        ret = salt.utils.stringutils.to_unicode(ret)
     except UnicodeDecodeError:
         # decrypted data contains some sort of binary data - not our problem
         pass
     return ret
 
 
-def _decrypt_object(obj, translate_newlines=False, encoding=None):
+def _decrypt_object(obj, translate_newlines=False):
     '''
     Recursively try to decrypt any object. If the object is a six.string_types
     (string or unicode), and it contains a valid GPG header, decrypt it,
@@ -392,7 +392,7 @@ def _decrypt_object(obj, translate_newlines=False, encoding=None):
     if salt.utils.stringio.is_readable(obj):
         return _decrypt_object(obj.getvalue(), translate_newlines)
     if isinstance(obj, six.string_types):
-        return _decrypt_ciphertexts(obj, translate_newlines=translate_newlines, encoding=encoding)
+        return _decrypt_ciphertexts(obj, translate_newlines=translate_newlines)
     elif isinstance(obj, dict):
         for key, value in six.iteritems(obj):
             obj[key] = _decrypt_object(value,
@@ -417,4 +417,4 @@ def render(gpg_data, saltenv='base', sls='', argline='', **kwargs):
     log.debug('Reading GPG keys from: %s', _get_key_dir())
 
     translate_newlines = kwargs.get('translate_newlines', False)
-    return _decrypt_object(gpg_data, translate_newlines=translate_newlines, encoding=kwargs.get('encoding', None))
+    return _decrypt_object(gpg_data, translate_newlines=translate_newlines)

@@ -203,15 +203,14 @@ def update():
 
     if __opts__.get('fileserver_events', False):
         # if there is a change, fire an event
-        with salt.utils.event.get_event(
+        event = salt.utils.event.get_event(
                 'master',
                 __opts__['sock_dir'],
                 __opts__['transport'],
                 opts=__opts__,
-                listen=False) as event:
-            event.fire_event(
-                data,
-                salt.utils.event.tagify(['roots', 'update'], prefix='fileserver'))
+                listen=False)
+        event.fire_event(data,
+                         salt.utils.event.tagify(['roots', 'update'], prefix='fileserver'))
 
 
 def file_hash(load, fnd):
@@ -390,7 +389,7 @@ def _file_lists(load, form):
                     rel_dest = _translate_sep(
                         os.path.relpath(
                             os.path.realpath(os.path.normpath(joined)),
-                            os.path.realpath(fs_root)
+                            fs_root
                         )
                     )
                     log.trace(

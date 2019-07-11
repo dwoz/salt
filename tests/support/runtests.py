@@ -54,7 +54,6 @@ import logging
 import multiprocessing
 
 import salt.utils.json
-import salt.utils.path
 
 # Import tests support libs
 import tests.support.paths as paths
@@ -226,8 +225,6 @@ RUNTIME_VARS = RuntimeVars(
     BASE_FILES=paths.BASE_FILES,
     PROD_FILES=paths.PROD_FILES,
     TESTS_DIR=paths.TESTS_DIR,
-    PYTEST_SESSION=False,
-    SHELL_TRUE_PATH=salt.utils.path.which('true'),
-    SHELL_FALSE_PATH=salt.utils.path.which('false'),
+    PYTEST_SESSION=False
 )
 # <---- Tests Runtime Variables --------------------------------------------------------------------------------------

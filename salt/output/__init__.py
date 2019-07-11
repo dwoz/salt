@@ -129,7 +129,7 @@ def display_output(data, out=None, opts=None, **kwargs):
     except IOError as exc:
         # Only raise if it's NOT a broken pipe
         if exc.errno != errno.EPIPE:
-            six.reraise(*sys.exc_info())
+            raise exc
 
 
 def get_printout(out, opts=None, **kwargs):
@@ -193,10 +193,7 @@ def get_printout(out, opts=None, **kwargs):
         # Since the grains outputter was removed we don't need to fire this
         # error when old minions are asking for it
         if out != 'grains':
-            log.error(
-                'Invalid outputter %s specified, fall back to nested',
-                out,
-            )
+            log.error('Invalid outputter %s specified, falling back to nested', out)
         return outputters['nested']
     return outputters[out]
 

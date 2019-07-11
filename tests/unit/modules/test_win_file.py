@@ -6,39 +6,19 @@
 from __future__ import absolute_import, unicode_literals, print_function
 import os
 import tempfile
-from collections import namedtuple
 
 # Import Salt Testing Libs
 from tests.support.helpers import destructiveTest
 from tests.support.mixins import LoaderModuleMockMixin
 from tests.support.mock import patch, NO_MOCK, NO_MOCK_REASON
 from tests.support.unit import TestCase, skipIf
-from tests.support.mock import MagicMock
 
 # Import Salt Libs
-import salt.utils.win_functions
 import salt.modules.win_file as win_file
 import salt.utils.win_dacl as win_dacl
 import salt.modules.temp as temp
 import salt.utils.platform
 from salt.exceptions import CommandExecutionError
-
-
-class DummyStat(object):
-    st_mode = 33188
-    st_ino = 115331251
-    st_dev = 44
-    st_nlink = 1
-    st_uid = 99200001
-    st_gid = 99200001
-    st_size = 41743
-    st_atime = 1552661253
-    st_mtime = 1552661253
-    st_ctime = 1552661253
-
-
-WindowsVersion = namedtuple('WinowsVersion', 'major minor')
-winver = WindowsVersion(major=10, minor=0)
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
@@ -118,7 +98,7 @@ class WinFileCheckPermsTestCase(TestCase, LoaderModuleMockMixin):
         self.current_user = salt.utils.win_functions.get_current_user(False)
         return {
             win_file: {
-                '__utils__': {'dacl.check_perms': win_dacl.check_perms},
+                '__utils__': {'dacl.check_perms': win_dacl.check_perms}
             },
             win_dacl: {
                 '__opts__': {'test': False},
@@ -128,12 +108,12 @@ class WinFileCheckPermsTestCase(TestCase, LoaderModuleMockMixin):
     def setUp(self):
         self.temp_file = tempfile.NamedTemporaryFile(delete=False)
         self.temp_file.close()
-        win_dacl.set_owner(obj_name=self.temp_file.name,
-                           principal=self.current_user)
-        win_dacl.set_inheritance(obj_name=self.temp_file.name,
-                                 enabled=True)
+        salt.utils.win_dacl.set_owner(obj_name=self.temp_file.name,
+                                      principal=self.current_user)
+        salt.utils.win_dacl.set_inheritance(obj_name=self.temp_file.name,
+                                            enabled=True)
         self.assertEqual(
-            win_dacl.get_owner(obj_name=self.temp_file.name),
+            salt.utils.win_dacl.get_owner(obj_name=self.temp_file.name),
             self.current_user)
 
     def tearDown(self):
@@ -267,13 +247,13 @@ class WinFileCheckPermsTestCase(TestCase, LoaderModuleMockMixin):
         Test resetting perms with test=True. This shows minimal changes
         '''
         # Turn off inheritance
-        win_dacl.set_inheritance(obj_name=self.temp_file.name,
-                                 enabled=False,
-                                 clear=True)
+        salt.utils.win_dacl.set_inheritance(obj_name=self.temp_file.name,
+                                            enabled=False,
+                                            clear=True)
         # Set some permissions
-        win_dacl.set_permissions(obj_name=self.temp_file.name,
-                                 principal='Administrator',
-                                 permissions='full_control')
+        salt.utils.win_dacl.set_permissions(obj_name=self.temp_file.name,
+                                            principal='Administrator',
+                                            permissions='full_control')
         expected = {'comment': '',
                     'changes': {
                         'perms': {
@@ -299,13 +279,13 @@ class WinFileCheckPermsTestCase(TestCase, LoaderModuleMockMixin):
         Test resetting perms on a File
         '''
         # Turn off inheritance
-        win_dacl.set_inheritance(obj_name=self.temp_file.name,
-                                 enabled=False,
-                                 clear=True)
+        salt.utils.win_dacl.set_inheritance(obj_name=self.temp_file.name,
+                                            enabled=False,
+                                            clear=True)
         # Set some permissions
-        win_dacl.set_permissions(obj_name=self.temp_file.name,
-                                 principal='Administrator',
-                                 permissions='full_control')
+        salt.utils.win_dacl.set_permissions(obj_name=self.temp_file.name,
+                                            principal='Administrator',
+                                            permissions='full_control')
         expected = {'comment': '',
                     'changes': {
                         'perms': {
@@ -324,16 +304,3 @@ class WinFileCheckPermsTestCase(TestCase, LoaderModuleMockMixin):
             inheritance=False,
             reset=True)
         self.assertDictEqual(expected, ret)
-
-    def test_stat(self):
-        with patch('os.path.exists', MagicMock(return_value=True)), \
-                patch('sys.getwindowsversion', MagicMock(return_value=winver)), \
-                patch('salt.modules.win_file._resolve_symlink', MagicMock(side_effect=lambda path: path)), \
-                patch('salt.modules.win_file.get_uid', MagicMock(return_value=1)), \
-                patch('salt.modules.win_file.uid_to_user', MagicMock(return_value='dummy')), \
-                patch('salt.modules.win_file.get_pgid', MagicMock(return_value=1)), \
-                patch('salt.modules.win_file.gid_to_group', MagicMock(return_value='dummy')), \
-                patch('os.stat', MagicMock(return_value=DummyStat())):
-            ret = win_file.stats('dummy', None, True)
-            self.assertEqual(ret['mode'], '0644')
-            self.assertEqual(ret['type'], 'file')

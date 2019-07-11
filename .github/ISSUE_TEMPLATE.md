@@ -1,5 +1,4 @@
-### Description of Issue
-<!-- Note: Please direct questions to the salt-users google group. Only post issues and feature requests here -->
+### Description of Issue/Question
 
 ### Setup
 (Please provide relevant configs and/or SLS files (Be sure to remove sensitive info).)

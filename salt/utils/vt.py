@@ -805,7 +805,7 @@ class Terminal(object):
                         'else call waitpid() on our process?'
                     )
                 else:
-                    six.reraise(*sys.exc_info())
+                    raise err
 
             # I have to do this twice for Solaris.
             # I can't even believe that I figured this out...
@@ -824,7 +824,7 @@ class Terminal(object):
                             'someone else call waitpid() on our process?'
                         )
                     else:
-                        six.reraise(*sys.exc_info())
+                        raise
 
                 # If pid is still 0 after two calls to waitpid() then the
                 # process really is alive. This seems to work on all platforms,

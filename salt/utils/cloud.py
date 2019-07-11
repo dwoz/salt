@@ -5,23 +5,23 @@ Utility functions for salt.cloud
 
 # Import python libs
 from __future__ import absolute_import, print_function, unicode_literals
-import codecs
-import copy
 import errno
-import hashlib
-import logging
-import multiprocessing
 import os
-import pipes
-import re
-import shutil
-import socket
 import stat
-import subprocess
-import sys
+import codecs
+import shutil
+import uuid
+import hashlib
+import socket
 import tempfile
 import time
+import subprocess
+import multiprocessing
+import logging
+import pipes
 import traceback
+import copy
+import re
 import uuid
 
 
@@ -2086,7 +2086,7 @@ def scp_file(dest_path, contents=None, kwargs=None, local_file=None):
                     os.close(tmpfd)
                 except OSError as exc:
                     if exc.errno != errno.EBADF:
-                        six.reraise(*sys.exc_info())
+                        raise exc
 
         log.debug('Uploading %s to %s', dest_path, kwargs['hostname'])
 
@@ -2157,7 +2157,7 @@ def scp_file(dest_path, contents=None, kwargs=None, local_file=None):
                 os.remove(file_to_upload)
             except OSError as exc:
                 if exc.errno != errno.ENOENT:
-                    six.reraise(*sys.exc_info())
+                    raise exc
     return retcode
 
 
@@ -2194,7 +2194,7 @@ def sftp_file(dest_path, contents=None, kwargs=None, local_file=None):
                     os.close(tmpfd)
                 except OSError as exc:
                     if exc.errno != errno.EBADF:
-                        six.reraise(*sys.exc_info())
+                        raise exc
 
         if local_file is not None:
             file_to_upload = local_file
@@ -2259,7 +2259,7 @@ def sftp_file(dest_path, contents=None, kwargs=None, local_file=None):
                 os.remove(file_to_upload)
             except OSError as exc:
                 if exc.errno != errno.ENOENT:
-                    six.reraise(*sys.exc_info())
+                    raise exc
     return retcode
 
 

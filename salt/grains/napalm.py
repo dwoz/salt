@@ -3,7 +3,7 @@
 NAPALM Grains
 =============
 
-:codeauthor: Mircea Ulinic <ping@mirceaulinic.net>
+:codeauthor: Mircea Ulinic <mircea@cloudflare.com>
 :maturity:   new
 :depends:    napalm
 :platform:   unix

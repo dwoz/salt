@@ -11,6 +11,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import sys
 import logging
+import textwrap
 
 # Import Pytest Salt libs
 from pytestsalt.utils import cli_scripts
@@ -25,16 +26,22 @@ def get_script_path(bin_dir, script_name):
     # Late import
     from tests.support.runtests import RUNTIME_VARS
 
+    extra_code = textwrap.dedent(
+        r'''
+        # During test runs, squash the msgpack deprecation warnings
+        import salt
+        import warnings
+        warnings.filterwarnings(
+            'ignore', r'encoding is deprecated, Use raw=False instead\.', DeprecationWarning,
+        )
+        '''
+    )
+
     if not os.path.isdir(bin_dir):
         os.makedirs(bin_dir)
 
     cli_script_name = 'cli_{}.py'.format(script_name.replace('-', '_'))
     script_path = os.path.join(bin_dir, cli_script_name)
-
-    if 'COVERAGE_PROCESS_START' in os.environ or 'COVERAGE_FILE' in os.environ:
-        inject_coverage = inject_sitecustomize = True
-    else:
-        inject_coverage = inject_sitecustomize = False
 
     if not os.path.isfile(script_path):
         cli_scripts.generate_script(
@@ -42,8 +49,8 @@ def get_script_path(bin_dir, script_name):
             script_name=script_name,
             executable=sys.executable,
             code_dir=RUNTIME_VARS.CODE_DIR,
-            inject_coverage=inject_coverage,
-            inject_sitecustomize=inject_sitecustomize
+            extra_code=extra_code,
+            inject_sitecustomize=True
         )
     log.info('Returning script path %r', script_path)
     return script_path

@@ -121,7 +121,7 @@ def _wait_for_sync(change, conn, tries=10, sleep=20):
             if e.response.get('Error', {}).get('Code') == 'Throttling':
                 log.debug('Throttled by AWS API.')
             else:
-                six.reraise(*sys.exc_info())
+                raise e
         if status == 'INSYNC':
             return True
         time.sleep(sleep)
@@ -898,7 +898,7 @@ def get_resource_records(HostedZoneId=None, Name=None, StartRecordName=None,
                 log.debug('Throttled by AWS API.')
                 time.sleep(3)
                 continue
-            six.reraise(*sys.exc_info())
+            raise e
 
 
 def change_resource_record_sets(HostedZoneId=None, Name=None,

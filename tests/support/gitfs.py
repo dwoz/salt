@@ -86,16 +86,11 @@ class ProcessManager(object):
             raise ValueError('one of name or search is required')
         for proc in psutil.process_iter():
             if name is not None:
-                try:
-                    if search is None:
-                        if name in proc.name():
-                            return proc
-                    elif name in proc.name() and _search(proc):
+                if search is None:
+                    if name in proc.name():
                         return proc
-                except psutil.NoSuchProcess:
-                    # Whichever process we are interrogating is no longer alive.
-                    # Skip it and keep searching.
-                    continue
+                elif name in proc.name() and _search(proc):
+                    return proc
             else:
                 if _search(proc):
                     return proc

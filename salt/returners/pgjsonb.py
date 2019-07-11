@@ -275,7 +275,7 @@ def _get_serv(ret=None, commit=False):
         error = err.args
         sys.stderr.write(six.text_type(error))
         cursor.execute("ROLLBACK")
-        six.reraise(*sys.exc_info())
+        raise err
     else:
         if commit:
             cursor.execute("COMMIT")

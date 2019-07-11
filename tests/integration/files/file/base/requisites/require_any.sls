@@ -27,7 +27,7 @@ B:
 
 C:
   cmd.run:
-    - name: "$(which false)"
+    - name: /bin/false
 
 D:
   cmd.run:

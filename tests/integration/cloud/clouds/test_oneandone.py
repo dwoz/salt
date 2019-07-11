@@ -23,7 +23,6 @@ try:
 except ImportError:
     HAS_ONEANDONE = False
 
-
 # Create the cloud instance name to be used throughout the tests
 INSTANCE_NAME = generate_random_name('CLOUD-TEST-')
 PROVIDER_NAME = 'oneandone'

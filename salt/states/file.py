@@ -309,6 +309,7 @@ import salt.utils.stringutils
 import salt.utils.templates
 import salt.utils.url
 import salt.utils.versions
+from salt.utils.locales import sdecode
 from salt.exceptions import CommandExecutionError
 from salt.serializers import DeserializationError
 from salt.state import get_accumulator_dir as _get_accumulator_dir
@@ -1188,12 +1189,12 @@ def _get_template_texts(source_list=None,
     return ret
 
 
-def _validate_str_list(arg, encoding=None):
+def _validate_str_list(arg):
     '''
     ensure ``arg`` is a list of strings
     '''
     if isinstance(arg, six.binary_type):
-        ret = [salt.utils.stringutils.to_unicode(arg, encoding=encoding)]
+        ret = [salt.utils.stringutils.to_unicode(arg)]
     elif isinstance(arg, six.string_types):
         ret = [arg]
     elif isinstance(arg, Iterable) and not isinstance(arg, Mapping):
@@ -2701,7 +2702,7 @@ def managed(name,
             )
 
         try:
-            validated_contents = _validate_str_list(use_contents, encoding=encoding)
+            validated_contents = _validate_str_list(use_contents)
             if not validated_contents:
                 return _error(
                     ret,
@@ -3876,7 +3877,7 @@ def recurse(name,
         # "env" is not supported; Use "saltenv".
         kwargs.pop('env')
 
-    name = os.path.expanduser(salt.utils.data.decode(name))
+    name = os.path.expanduser(sdecode(name))
 
     user = _test_owner(kwargs, user=user)
     if salt.utils.platform.is_windows():
