@@ -3,12 +3,14 @@
 # Import Python libs
 from __future__ import absolute_import, print_function, unicode_literals
 
+
 # Import Salt Libs
 import salt.transport.client
 
 # Import 3rd-party libs
 from salt.ext import six
 import salt.ext.tornado.gen
+
 
 
 def run_loop_in_thread(loop, evt):
@@ -28,12 +30,6 @@ def run_loop_in_thread(loop, evt):
         loop.start()
     finally:
         loop.close()
-
-import tornado.ioloop
-import tornado.gen
-import logging
-
-log = logging.getLogger(__name__)
 
 
 class ReqChannelMixin(object):
