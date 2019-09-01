@@ -97,10 +97,14 @@ class BaseZMQReqCase(TestCase, AdaptedConfigurationTestCaseMixin):
         cls.server_channel.pre_fork(cls.process_manager)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         cls.io_loop = salt.ext.tornado.ioloop.IOLoop()
 =======
         cls.io_loop = salt.utils.asynchronous.IOLoop()
 >>>>>>> Tornado 5.0 WIP
+=======
+        cls.io_loop = zmq.eventloop.ioloop.ZMQIOLoop()
+>>>>>>> Use regular loops for transport unit tests
         cls.evt = threading.Event()
         cls.server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls.io_loop, cls.evt))
@@ -249,8 +253,11 @@ class BaseZMQPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
         cls._server_io_loop = salt.ext.tornado.ioloop.IOLoop()
 =======
         cls._server_io_loop = zmq.eventloop.ioloop.ZMQIOLoop()
+<<<<<<< HEAD
         cls._server_io_loop = salt.utils.asynchronous.IOLoop()
 >>>>>>> Tornado 5.0 WIP
+=======
+>>>>>>> Use regular loops for transport unit tests
         cls.evt = threading.Event()
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls._server_io_loop)
         cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls._server_io_loop, cls.evt))

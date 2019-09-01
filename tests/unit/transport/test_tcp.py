@@ -22,7 +22,6 @@ import salt.utils.versions
 import salt.transport.server
 import salt.transport.client
 import salt.exceptions
-import salt.utils.asynchronous
 from salt.ext.six.moves import range
 from salt.transport.tcp import SaltMessageClientPool, SaltMessageClient, TCPPubServerChannel
 
@@ -33,7 +32,6 @@ from tests.support.mixins import AdaptedConfigurationTestCaseMixin
 from tests.support.mock import MagicMock, patch
 from tests.unit.transport.mixins import PubChannelMixin, ReqChannelMixin, run_loop_in_thread
 
-log = logging.getLogger(__name__)
 
 log = logging.getLogger(__name__)
 
@@ -192,11 +190,7 @@ class BaseTCPPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
         # we also require req server for auth
         cls.req_server_channel = salt.transport.server.ReqServerChannel.factory(cls.master_config)
         cls.req_server_channel.pre_fork(cls.process_manager)
-<<<<<<< HEAD
-        cls.io_loop = salt.ext.tornado.ioloop.IOLoop()
-=======
         cls.io_loop = salt.utils.asynchronous.IOLoop()
->>>>>>> Tornado 5.0 WIP
         cls.stop = threading.Event()
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         cls.server_thread = threading.Thread(
