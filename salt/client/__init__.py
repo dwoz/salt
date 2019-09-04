@@ -1719,43 +1719,39 @@ class LocalClient(object):
 
         master_uri = 'tcp://' + salt.utils.zeromq.ip_bracket(self.opts['interface']) + \
                      ':' + six.text_type(self.opts['ret_port'])
-        channel = salt.transport.client.ReqChannel.factory(self.opts,
-                                                           crypt='clear',
-                                                           master_uri=master_uri)
+        with salt.transport.client.ReqChannel.factory(
+                self.opts, crypt='clear', master_uri=master_uri) as channel:
 
-        try:
-            # Ensure that the event subscriber is connected.
-            # If not, we won't get a response, so error out
-            if listen and not self.event.connect_pub(timeout=timeout):
-                raise SaltReqTimeoutError()
-            payload = channel.send(payload_kwargs, timeout=timeout)
-        except SaltReqTimeoutError:
-            channel.close()
-            raise SaltReqTimeoutError(
-                'Salt request timed out. The master is not responding. You '
-                'may need to run your command with `--async` in order to '
-                'bypass the congested event bus. With `--async`, the CLI tool '
-                'will print the job id (jid) and exit immediately without '
-                'listening for responses. You can then use '
-                '`salt-run jobs.lookup_jid` to look up the results of the job '
-                'in the job cache later.'
-            )
+            try:
+                # Ensure that the event subscriber is connected.
+                # If not, we won't get a response, so error out
+                if listen and not self.event.connect_pub(timeout=timeout):
+                    raise SaltReqTimeoutError()
+                payload = channel.send(payload_kwargs, timeout=timeout)
+            except SaltReqTimeoutError:
+                raise SaltReqTimeoutError(
+                    'Salt request timed out. The master is not responding. You '
+                    'may need to run your command with `--async` in order to '
+                    'bypass the congested event bus. With `--async`, the CLI tool '
+                    'will print the job id (jid) and exit immediately without '
+                    'listening for responses. You can then use '
+                    '`salt-run jobs.lookup_jid` to look up the results of the job '
+                    'in the job cache later.'
+                )
 
-        if not payload:
-            # The master key could have changed out from under us! Regen
-            # and try again if the key has changed
-            key = self.__read_master_key()
-            if key == self.key:
-                channel.close()
-                return payload
-            self.key = key
-            payload_kwargs['key'] = self.key
-            payload = channel.send(payload_kwargs)
+            if not payload:
+                # The master key could have changed out from under us! Regen
+                # and try again if the key has changed
+                key = self.__read_master_key()
+                if key == self.key:
+                    return payload
+                self.key = key
+                payload_kwargs['key'] = self.key
+                payload = channel.send(payload_kwargs)
 
         error = payload.pop('error', None)
         if error is not None:
             if isinstance(error, dict):
-                channel.close()
                 err_name = error.get('name', '')
                 err_msg = error.get('message', '')
                 if err_name == 'AuthenticationError':
@@ -1764,8 +1760,6 @@ class LocalClient(object):
                     raise AuthorizationError(err_msg)
 
             raise PublishError(error)
-
-        channel.close()
 
         if not payload:
             return payload
@@ -1828,37 +1822,36 @@ class LocalClient(object):
 
         master_uri = 'tcp://' + salt.utils.zeromq.ip_bracket(self.opts['interface']) + \
                      ':' + six.text_type(self.opts['ret_port'])
-        channel = salt.transport.client.AsyncReqChannel.factory(self.opts,
-                                                                io_loop=io_loop,
-                                                                crypt='clear',
-                                                                master_uri=master_uri)
+        with salt.transport.client.AsyncReqChannel.factory(
+                self.opts, io_loop=io_loop, crypt='clear',
+                master_uri=master_uri) as channel:
 
-        try:
-            # Ensure that the event subscriber is connected.
-            # If not, we won't get a response, so error out
-            if listen and not self.event.connect_pub(timeout=timeout):
-                raise SaltReqTimeoutError()
-            payload = yield channel.send(payload_kwargs, timeout=timeout)
-        except SaltReqTimeoutError:
-            raise SaltReqTimeoutError(
-                'Salt request timed out. The master is not responding. You '
-                'may need to run your command with `--async` in order to '
-                'bypass the congested event bus. With `--async`, the CLI tool '
-                'will print the job id (jid) and exit immediately without '
-                'listening for responses. You can then use '
-                '`salt-run jobs.lookup_jid` to look up the results of the job '
-                'in the job cache later.'
-            )
+            try:
+                # Ensure that the event subscriber is connected.
+                # If not, we won't get a response, so error out
+                if listen and not self.event.connect_pub(timeout=timeout):
+                    raise SaltReqTimeoutError()
+                payload = yield channel.send(payload_kwargs, timeout=timeout)
+            except SaltReqTimeoutError:
+                raise SaltReqTimeoutError(
+                    'Salt request timed out. The master is not responding. You '
+                    'may need to run your command with `--async` in order to '
+                    'bypass the congested event bus. With `--async`, the CLI tool '
+                    'will print the job id (jid) and exit immediately without '
+                    'listening for responses. You can then use '
+                    '`salt-run jobs.lookup_jid` to look up the results of the job '
+                    'in the job cache later.'
+                )
 
-        if not payload:
-            # The master key could have changed out from under us! Regen
-            # and try again if the key has changed
-            key = self.__read_master_key()
-            if key == self.key:
-                raise tornado.gen.Return(payload)
-            self.key = key
-            payload_kwargs['key'] = self.key
-            payload = yield channel.send(payload_kwargs)
+            if not payload:
+                # The master key could have changed out from under us! Regen
+                # and try again if the key has changed
+                key = self.__read_master_key()
+                if key == self.key:
+                    raise tornado.gen.Return(payload)
+                self.key = key
+                payload_kwargs['key'] = self.key
+                payload = yield channel.send(payload_kwargs)
 
         error = payload.pop('error', None)
         if error is not None:
@@ -1872,8 +1865,6 @@ class LocalClient(object):
 
             raise PublishError(error)
 
-        # We have the payload, let's get rid of the channel fast(GC'ed faster)
-        channel.close()
 
         if not payload:
             raise tornado.gen.Return(payload)

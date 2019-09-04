@@ -596,10 +596,9 @@ class AsyncAuth(object):
             acceptance_wait_time_max = acceptance_wait_time
         creds = None
 
-        channel = salt.transport.client.AsyncReqChannel.factory(self.opts,
-                                                                crypt='clear',
-                                                                io_loop=self.io_loop)
-        try:
+        with salt.transport.client.AsyncReqChannel.factory(
+                self.opts, crypt='clear', io_loop=self.io_loop) as channel:
+
             error = None
             while True:
                 try:
@@ -654,7 +653,10 @@ class AsyncAuth(object):
                 # Notify the bus about creds change
                 if self.opts.get('auth_events') is True:
                     with salt.utils.event.get_event(self.opts.get('__role'), opts=self.opts, listen=False) as event:
-                        event.fire_event({'key': key, 'creds': creds}, salt.utils.event.tagify(prefix='auth', suffix='creds'))
+                        event.fire_event(
+                            {'key': key, 'creds': creds},
+                            salt.utils.event.tagify(prefix='auth', suffix='creds')
+                        )
         finally:
             channel.close()
 
@@ -675,6 +677,16 @@ class AsyncAuth(object):
         with the publication port and the shared AES key.
 
         '''
+        if channel:
+            auth = yield self._sign_in(channel, timeout, safe, tries)
+        else:
+            with salt.transport.client.AsyncReqChannel.factory(
+                    self.opts, crypt='clear', io_loop=self.io_loop) as channel:
+                auth = yield self._sign_in(channel, timeout, safe, tries)
+        raise tornado.gen.Return(auth)
+
+    @tornado.gen.coroutine
+    def _sign_in(self, channel, timeout=60, safe=True, tries=1):
         auth = {}
 
         auth_timeout = self.opts.get('auth_timeout', None)
@@ -691,12 +703,6 @@ class AsyncAuth(object):
 
         auth['master_uri'] = self.opts['master_uri']
 
-        close_channel = False
-        if not channel:
-            close_channel = True
-            channel = salt.transport.client.AsyncReqChannel.factory(self.opts,
-                                                                    crypt='clear',
-                                                                    io_loop=self.io_loop)
 
         sign_in_payload = self.minion_sign_in_payload()
         try:
@@ -713,9 +719,6 @@ class AsyncAuth(object):
                 raise tornado.gen.Return('retry')
             else:
                 raise SaltClientError('Attempt to authenticate with the salt master failed with timeout error')
-        finally:
-            if close_channel:
-                channel.close()
 
         if not isinstance(payload, dict):
             log.error('Sign-in attempt failed: %s', payload)
@@ -1221,10 +1224,9 @@ class SAuth(AsyncAuth):
         '''
         acceptance_wait_time = self.opts['acceptance_wait_time']
         acceptance_wait_time_max = self.opts['acceptance_wait_time_max']
-        channel = salt.transport.client.ReqChannel.factory(self.opts, crypt='clear')
         if not acceptance_wait_time_max:
             acceptance_wait_time_max = acceptance_wait_time
-        try:
+        with salt.transport.client.ReqChannel.factory(self.opts, crypt='clear') as channel:
             while True:
                 creds = self.sign_in(channel=channel)
                 if creds == 'retry':
@@ -1250,8 +1252,6 @@ class SAuth(AsyncAuth):
                 break
             self._creds = creds
             self._crypticle = Crypticle(self.opts, creds['aes'])
-        finally:
-            channel.close()
 
     def sign_in(self, timeout=60, safe=True, tries=1, channel=None):
         '''
@@ -1269,6 +1269,15 @@ class SAuth(AsyncAuth):
         with the publication port and the shared AES key.
 
         '''
+        if channel:
+            auth = self._sign_in(channel, timeout, safe, tries)
+        else:
+            with salt.transport.client.AsyncReqChannel.factory(
+                    self.opts, crypt='clear', io_loop=self.io_loop) as channel:
+                auth = self._sign_in(channel, timeout, safe, tries)
+        return auth
+
+    def _sign_in(self, channel, timeout=60, safe=True, tries=1):
         auth = {}
 
         auth_timeout = self.opts.get('auth_timeout', None)
@@ -1285,13 +1294,6 @@ class SAuth(AsyncAuth):
 
         auth['master_uri'] = self.opts['master_uri']
 
-        close_channel = False
-        if not channel:
-            close_channel = True
-            channel = salt.transport.client.ReqChannel.factory(self.opts, crypt='clear')
-        else:
-            close_channel = False
-
         sign_in_payload = self.minion_sign_in_payload()
         try:
             payload = channel.send(
@@ -1306,9 +1308,6 @@ class SAuth(AsyncAuth):
             if close_channel:
                 channel.close()
             raise SaltClientError('Attempt to authenticate with the salt master failed with timeout error')
-        finally:
-            if close_channel:
-                channel.close()
 
         if 'load' in payload:
             if 'ret' in payload['load']:
@@ -1376,8 +1375,6 @@ class SAuth(AsyncAuth):
                 if salt.utils.crypt.pem_finger(m_pub_fn, sum_type=self.opts['hash_type']) != self.opts['master_finger']:
                     self._finger_fail(self.opts['master_finger'], m_pub_fn)
         auth['publish_port'] = payload['publish_port']
-        if close_channel:
-            channel.close()
         return auth
 
 

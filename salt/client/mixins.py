@@ -136,13 +136,11 @@ class SyncClientMixin(object):
         '''
         load = kwargs
         load['cmd'] = self.client
-        channel = salt.transport.client.ReqChannel.factory(self.opts,
-                                                           crypt='clear',
-                                                           usage='master_call')
-        try:
+        with salt.transport.client.ReqChannel.factory(
+                self.opts, crypt='clear', usage='master_call') as channel:
+
             ret = channel.send(load)
-        finally:
-            channel.close()
+
         if isinstance(ret, collections.Mapping):
             if 'error' in ret:
                 salt.utils.error.raise_error(**ret['error'])

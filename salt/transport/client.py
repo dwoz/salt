@@ -42,6 +42,12 @@ class ReqChannel(object):
         '''
         raise NotImplementedError()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.close()
+
 
 class PushChannel(object):
     '''
