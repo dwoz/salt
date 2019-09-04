@@ -1736,8 +1736,7 @@ class LocalClient(object):
                 if listen and not self.event.connect_pub(timeout=timeout):
                     raise SaltReqTimeoutError()
                 payload = channel.send(payload_kwargs, timeout=timeout)
-            except SaltReqTimeoutError as err:
-                log.error(err)
+            except SaltReqTimeoutError:
                 raise SaltReqTimeoutError(
                     'Salt request timed out. The master is not responding. You '
                     'may need to run your command with `--async` in order to '
@@ -1758,20 +1757,20 @@ class LocalClient(object):
                 payload_kwargs['key'] = self.key
                 payload = channel.send(payload_kwargs)
 
-            error = payload.pop('error', None)
-            if error is not None:
-                if isinstance(error, dict):
-                    err_name = error.get('name', '')
-                    err_msg = error.get('message', '')
-                    if err_name == 'AuthenticationError':
-                        raise AuthenticationError(err_msg)
-                    elif err_name == 'AuthorizationError':
-                        raise AuthorizationError(err_msg)
+        error = payload.pop('error', None)
+        if error is not None:
+            if isinstance(error, dict):
+                err_name = error.get('name', '')
+                err_msg = error.get('message', '')
+                if err_name == 'AuthenticationError':
+                    raise AuthenticationError(err_msg)
+                elif err_name == 'AuthorizationError':
+                    raise AuthorizationError(err_msg)
 
-                raise PublishError(error)
+            raise PublishError(error)
 
-            if not payload:
-                return payload
+        if not payload:
+            return payload
 
         return {'jid': payload['load']['jid'],
                 'minions': payload['load']['minions']}
@@ -1863,20 +1862,20 @@ class LocalClient(object):
                 payload_kwargs['key'] = self.key
                 payload = yield channel.send(payload_kwargs)
 
-            error = payload.pop('error', None)
-            if error is not None:
-                if isinstance(error, dict):
-                    err_name = error.get('name', '')
-                    err_msg = error.get('message', '')
-                    if err_name == 'AuthenticationError':
-                        raise AuthenticationError(err_msg)
-                    elif err_name == 'AuthorizationError':
-                        raise AuthorizationError(err_msg)
+        error = payload.pop('error', None)
+        if error is not None:
+            if isinstance(error, dict):
+                err_name = error.get('name', '')
+                err_msg = error.get('message', '')
+                if err_name == 'AuthenticationError':
+                    raise AuthenticationError(err_msg)
+                elif err_name == 'AuthorizationError':
+                    raise AuthorizationError(err_msg)
 
-                raise PublishError(error)
+            raise PublishError(error)
 
-            if not payload:
-                raise salt.ext.tornado.gen.Return(payload)
+        if not payload:
+            raise salt.ext.tornado.gen.Return(payload)
 
         raise salt.ext.tornado.gen.Return({'jid': payload['load']['jid'],
                                   'minions': payload['load']['minions']})
