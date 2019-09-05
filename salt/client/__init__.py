@@ -1865,7 +1865,6 @@ class LocalClient(object):
 
             raise PublishError(error)
 
-
         if not payload:
             raise tornado.gen.Return(payload)
 
