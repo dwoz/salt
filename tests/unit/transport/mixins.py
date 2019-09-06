@@ -13,11 +13,13 @@ import salt.ext.tornado.gen
 
 
 
-def run_loop_in_thread(loop, evt):
+def run_loop_in_thread(loop, evt, run_methods=None):
     '''
     Run the provided loop until an event is set
     '''
     loop.make_current()
+    for method in run_methods or []:
+        method()
     @salt.ext.tornado.gen.coroutine
     def stopper():
         while True:
