@@ -1143,6 +1143,7 @@ class AsyncReqMessageClient(object):
                            http://api.zeromq.org/2-1:zmq-setsockopt [ZMQ_LINGER]
         :param IOLoop io_loop: A Tornado IOLoop event scheduler [tornado.ioloop.IOLoop]
         '''
+        self._closing = False
         self.opts = opts
         self.addr = addr
         self.linger = linger
@@ -1162,7 +1163,6 @@ class AsyncReqMessageClient(object):
         self.send_future_map = {}
 
         self.send_timeout_map = {}  # message -> timeout
-        self._closing = False
 
     # TODO: timeout all in-flight sessions, or error
     def close(self):
@@ -1198,7 +1198,11 @@ class AsyncReqMessageClient(object):
 
     # pylint: disable=W1701
     def __del__(self):
-        self.close()
+        # TODO: Testing this
+        try:
+            self.close()
+        except Exception:
+            log.execption("WTF")
     # pylint: enable=W1701
 
     def _init_socket(self):
@@ -1217,7 +1221,7 @@ class AsyncReqMessageClient(object):
             )
 
         _set_tcp_keepalive(self.socket, self.opts)
-        if self.addr.startswith('tcp://['):
+        if str(self.addr).startswith('tcp://['):
             # Hint PF type if bracket enclosed IPv6 address
             if hasattr(zmq, 'IPV6'):
                 self.socket.setsockopt(zmq.IPV6, 1)
