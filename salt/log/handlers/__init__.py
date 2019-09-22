@@ -12,6 +12,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 # Import python libs
 import sys
 import copy
+import errno
 import logging
 import threading
 import logging.handlers
@@ -174,13 +175,21 @@ class ZMQHandler(ExcInfoOnLogLevelFormatMixIn, logging.Handler, NewStyleClassMix
 
     def __init__(self, host='127.0.0.1', port=3330):
         logging.Handler.__init__(self)
-        self.context = zmq.Context()
-        self.sender = self.context.socket(zmq.PUSH)
-        self.sender.connect('tcp://{}:{}'.format(host, port))
+        self._host = host
+        self._port = port
+        self._connect()
+
+    def _connect(self):
+        self._context = zmq.Context()
+        self._sender = self._context.socket(zmq.PUSH)
+        self._sender.connect('tcp://{}:{}'.format(self._host, self._port))
+
+    def _disconnect(self):
+        self._sender.close(0)
+        self._context.term()
 
     def stop(self):
-        self.sender.close(0)
-        self.context.term()
+        self._disconnect()
 
     def prepare(self, record):
         msg = self.format(record)
@@ -190,7 +199,7 @@ class ZMQHandler(ExcInfoOnLogLevelFormatMixIn, logging.Handler, NewStyleClassMix
         record.args = None
         record.exc_info = None
         record.exc_text = None
-        return msgpack.dumps(record.__dict__, use_bin_type=True)
+        return record
 
     def emit(self, record):
         '''
@@ -198,10 +207,23 @@ class ZMQHandler(ExcInfoOnLogLevelFormatMixIn, logging.Handler, NewStyleClassMix
 
         Writes the LogRecord to the queue, preparing it for pickling first.
         '''
+        record = self.prepare(record)
+        msg = msgpack.dumps(record.__dict__, use_bin_type=True)
         try:
-            msg = self.prepare(record)
-            self.sender.send(msg)
-        except Exception:
+            self._sender.send(msg, zmq.NOBLOCK)
+        except zmq.ZMQError as exc:
+            if exc.errno == errno.EINTR:
+                # Could not send the message.
+                # Maybe because the other end is now gone?
+                # Let's try reconnecting.
+                self._disconnect()
+                self._connect()
+                try:
+                    self._sender.send(msg, zmq.NOBLOCK)
+                except zmq.ZMQError:
+                    # Ok. Let's give up
+                    pass
+        except Exception:  # pylint: disable=broad-except
             self.handleError(record)
 
 
