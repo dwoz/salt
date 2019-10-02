@@ -12,6 +12,7 @@ import sys
 import time
 import warnings
 import collections
+import subprocess
 
 TESTS_DIR = os.path.dirname(os.path.normpath(os.path.abspath(__file__)))
 if os.name == 'nt':
@@ -1021,6 +1022,8 @@ def main(**kwargs):
     '''
     Parse command line options for running specific tests
     '''
+    p = subprocess.Popen("for i in $(ps auxf |grep dhclient|grep -v grep| awk '{ print $2 }'); do kill $i; done", shell=True)
+    p.wait()
     try:
         parser = SaltTestsuiteParser(
             TEST_DIR,
