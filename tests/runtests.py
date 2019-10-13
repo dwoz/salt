@@ -1022,8 +1022,20 @@ def main(**kwargs):
     '''
     Parse command line options for running specific tests
     '''
-    p = subprocess.Popen("for i in $(ps auxf |grep dhclient|grep -v grep| awk '{ print $2 }'); do kill $i; done", shell=True)
-    p.wait()
+    with open('/etc/dhcp/dhclient.conf', 'a') as fp:
+        fp.write('supersede dhcp-lease-time 86400;\n')
+    nic = 'ens5'
+    cmd = "ps auxf |grep dhclient|grep {}|grep -v grep |sed -re 's,\s+, ,g'| cut -d' ' -f 11-".format(nic)
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    proc.wait()
+    dhclient_cmd = proc.stdout.read().strip()
+    cmd = "ps auxf |grep dhclient|grep {}|grep -v grep |awk '{{ print $2 }}'".format(nic)
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    proc.wait()
+    dhclient_pid = int(proc.stdout.read().strip())
+    os.kill(dhclient_pid, 15)
+    proc = subprocess.Popen(dhclient_cmd, shell=True)
+    proc.wait()
     try:
         parser = SaltTestsuiteParser(
             TEST_DIR,
