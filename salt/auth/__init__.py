@@ -502,7 +502,7 @@ class Resolver(object):
         try:
             return channel.send(load)
         finally:
-            channel.stop()
+            channel.close()
 
     def cli(self, eauth):
         '''
