@@ -1136,6 +1136,7 @@ class AsyncReqMessageClient(object):
                            http://api.zeromq.org/2-1:zmq-setsockopt [ZMQ_LINGER]
         :param IOLoop io_loop: A Tornado IOLoop event scheduler [tornado.ioloop.IOLoop]
         '''
+        self._closing = False
         self.opts = opts
         self.addr = addr
         self.linger = linger
@@ -1155,7 +1156,6 @@ class AsyncReqMessageClient(object):
         self.send_future_map = {}
 
         self.send_timeout_map = {}  # message -> timeout
-        self._closing = False
 
     # TODO: timeout all in-flight sessions, or error
     def close(self):
@@ -1191,6 +1191,10 @@ class AsyncReqMessageClient(object):
 
     # pylint: disable=W1701
     def __del__(self):
+        # TODO: Testing this
+        return
+        import traceback
+        print('\n'.join(traceback.format_stack()))
         self.close()
     # pylint: enable=W1701
 
