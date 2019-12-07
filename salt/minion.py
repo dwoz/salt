@@ -1549,7 +1549,7 @@ class Minion(MinionBase):
                 process = SignalHandlingProcess(
                     target=self._target,
                     name='ProcessPayload',
-                    args=(None, self.opts, data, self.connected)
+                    args=(instance, self.opts, data, self.connected)
                 )
         else:
             process = threading.Thread(
