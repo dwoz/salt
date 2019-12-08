@@ -1630,11 +1630,19 @@ class Minion(MinionBase):
         last = time.time()
         while True:
             payload = queue.get()
-            log.error("RUN PAYLOAD")
-            minion_instance.handle_payload(payload)
+            if 'kind' not in payload:
+                log.error("Expect kind")
+            if  payload['kind'] == 'pillar_update':
+                minion_instance.opts['pillar'] = payload['data']
+            elif payload['kind'] == 'payload':
+                log.error("RUN PAYLOAD")
+                minion_instance.handle_payload(payload['data'])
+            else:
+                log.error("UNRECOGNIZED KIND %s", payload['kind'])
             if time.time() - last >= 10:
                 minion_instance.cleanup_subprocesses()
                 last = time.time()
+
 
     @classmethod
     def _thread_return(cls, minion_instance, opts, data):
@@ -1642,6 +1650,7 @@ class Minion(MinionBase):
         This method should be used as a threading target, start the actual
         minion side execution.
         '''
+        log.error("THREAD RET")
         minion_instance.gen_modules()
         fn_ = os.path.join(minion_instance.proc_dir, data['jid'])
 
@@ -1803,6 +1812,7 @@ class Minion(MinionBase):
             ret['retcode'] = salt.defaults.exitcodes.EX_GENERIC
             ret['out'] = 'nested'
 
+        log.error("HERE! %r", ret)
         ret['jid'] = data['jid']
         ret['fun'] = data['fun']
         ret['fun_args'] = data['arg']
@@ -2248,6 +2258,8 @@ class Minion(MinionBase):
                           'One or more masters may be down!')
             finally:
                 async_pillar.destroy()
+        if hasattr(self, 'job_q'):
+            self.job_q.put({'kind': 'pillar_update', 'data': self.opts['pillar']})
         self.matchers_refresh()
         self.beacons_refresh()
         evt = salt.utils.event.get_event('minion', opts=self.opts)
@@ -2795,7 +2807,7 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
-        self.job_q.put(payload)
+        self.job_q.put({'kind': 'payload', 'data': payload})
 
     def handle_payload(self, payload):
         if payload is not None and payload['enc'] == 'aes':
