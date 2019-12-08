@@ -2595,7 +2595,7 @@ class Minion(MinionBase):
         # Add an extra fallback in case a forked process leaks through
         #multiprocessing.active_children()
         self.subprocess_list.cleanup()
-        if self.schedule:
+        if hasattr(self, 'schedule') and self.schedule:
             self.schedule.cleanup_subprocesses()
 
     def _setup_core(self):
