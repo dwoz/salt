@@ -1633,7 +1633,11 @@ class Minion(MinionBase):
             if 'kind' not in payload:
                 log.error("Expect kind")
             if  payload['kind'] == 'pillar_update':
-                minion_instance.opts['pillar'] = payload['data']
+                minion_instance.opts['pillar'] = payload['data']['pillar']
+                minion_instance.opts['grains'] = payload['data']['grains']
+                minion_instance.grains_cache = minion_instance.opts['grains']
+                minion_instance.matchers_refresh()
+                minion_instance.beacons_refresh()
             elif payload['kind'] == 'payload':
                 log.error("RUN PAYLOAD")
                 minion_instance.handle_payload(payload['data'])
@@ -2259,7 +2263,13 @@ class Minion(MinionBase):
             finally:
                 async_pillar.destroy()
         if hasattr(self, 'job_q'):
-            self.job_q.put({'kind': 'pillar_update', 'data': self.opts['pillar']})
+            self.job_q.put(
+                {'kind': 'pillar_update',
+                'data': {
+                    'pillar': self.opts['pillar'],
+                    'grains': self.opts['grains'],
+                }
+            })
         self.matchers_refresh()
         self.beacons_refresh()
         evt = salt.utils.event.get_event('minion', opts=self.opts)
