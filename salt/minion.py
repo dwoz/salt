@@ -1621,32 +1621,28 @@ class Minion(MinionBase):
     def job_spawner(cls, queue, opts, is_ready):
         minion_instance = cls(opts, proc_man=False)
         minion_instance._setup_core()
-        log.error("WAIT READY")
         payload = queue.get()
         minion_instance.opts['master_uri'] = payload
         minion_instance.connected = True
         minion_instance.gen_modules(True)
-        log.error("IS READY %r", minion_instance.opts['master_uri'])
         last = time.time()
         while True:
             payload = queue.get()
             if 'kind' not in payload:
                 log.error("Expect kind")
-            if  payload['kind'] == 'pillar_update':
+            if payload['kind'] == 'pillar_update':
                 minion_instance.opts['pillar'] = payload['data']['pillar']
                 minion_instance.opts['grains'] = payload['data']['grains']
                 minion_instance.grains_cache = minion_instance.opts['grains']
                 minion_instance.matchers_refresh()
                 minion_instance.beacons_refresh()
             elif payload['kind'] == 'payload':
-                log.error("RUN PAYLOAD")
                 minion_instance.handle_payload(payload['data'])
             else:
-                log.error("UNRECOGNIZED KIND %s", payload['kind'])
+                log.error("unrecognized spawn kind %s", payload['kind'])
             if time.time() - last >= 10:
                 minion_instance.cleanup_subprocesses()
                 last = time.time()
-
 
     @classmethod
     def _thread_return(cls, minion_instance, opts, data):
@@ -1654,7 +1650,6 @@ class Minion(MinionBase):
         This method should be used as a threading target, start the actual
         minion side execution.
         '''
-        log.error("THREAD RET")
         minion_instance.gen_modules()
         fn_ = os.path.join(minion_instance.proc_dir, data['jid'])
 
@@ -1816,7 +1811,6 @@ class Minion(MinionBase):
             ret['retcode'] = salt.defaults.exitcodes.EX_GENERIC
             ret['out'] = 'nested'
 
-        log.error("HERE! %r", ret)
         ret['jid'] = data['jid']
         ret['fun'] = data['fun']
         ret['fun_args'] = data['arg']
