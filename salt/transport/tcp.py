@@ -363,8 +363,20 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
     def crypted_transfer_decode_dictentry(self, load, dictkey=None, tries=3, timeout=60):
         if not self.auth.authenticated:
             yield self.auth.authenticate()
-        ret = yield self.message_client.send(self._package_load(self.auth.crypticle.dumps(load)), timeout=timeout)
+        ret = yield self.message_client.send(
+            self._package_load(self.auth.crypticle.dumps(load)),
+            timeout=timeout,
+            tries=tries)
         key = self.auth.get_keys()
+        if 'key' not in ret:
+            # Reauth in the case our key is deleted on the master side.
+            yield self.auth.authenticate()
+            ret = yield self.message_client.send(
+                self._package_load(self.auth.crypticle.dumps(load)),
+                timeout=timeout,
+                tries=tries,
+            )
+        log.error("MEH %r", ret)
         if HAS_M2:
             aes = key.private_decrypt(ret['key'], RSA.pkcs1_oaep_padding)
         else:
