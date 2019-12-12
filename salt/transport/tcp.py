@@ -366,7 +366,7 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
         ret = yield self.message_client.send(
             self._package_load(self.auth.crypticle.dumps(load)),
             timeout=timeout,
-            tries=tries)
+            )
         key = self.auth.get_keys()
         if 'key' not in ret:
             # Reauth in the case our key is deleted on the master side.
@@ -374,7 +374,6 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
             ret = yield self.message_client.send(
                 self._package_load(self.auth.crypticle.dumps(load)),
                 timeout=timeout,
-                tries=tries,
             )
         log.error("MEH %r", ret)
         if HAS_M2:
