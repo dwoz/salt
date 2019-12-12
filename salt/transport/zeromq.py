@@ -1192,11 +1192,11 @@ class AsyncReqMessageClient(object):
     # pylint: disable=W1701
     def __del__(self):
         # TODO: Testing this
-    # pylint: enable=W1701
         try:
             self.close()
         except Exception:
             log.execption("WTF")
+    # pylint: enable=W1701
 
     def _init_socket(self):
         if hasattr(self, 'stream'):
