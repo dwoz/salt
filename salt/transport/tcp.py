@@ -375,7 +375,6 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
                 self._package_load(self.auth.crypticle.dumps(load)),
                 timeout=timeout,
             )
-        log.error("MEH %r", ret)
         if HAS_M2:
             aes = key.private_decrypt(ret['key'], RSA.pkcs1_oaep_padding)
         else:

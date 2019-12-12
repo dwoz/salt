@@ -598,7 +598,6 @@ class AsyncAuth(object):
 
         with salt.transport.client.AsyncReqChannel.factory(
                 self.opts, crypt='clear', io_loop=self.io_loop) as channel:
-
             error = None
             while True:
                 try:
@@ -657,8 +656,6 @@ class AsyncAuth(object):
                             {'key': key, 'creds': creds},
                             salt.utils.event.tagify(prefix='auth', suffix='creds')
                         )
-        finally:
-            channel.close()
 
     @tornado.gen.coroutine
     def sign_in(self, timeout=60, safe=True, tries=1, channel=None):
