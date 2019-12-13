@@ -118,6 +118,7 @@ from salt.exceptions import (
 
 import tornado.gen  # pylint: disable=F0401
 import tornado.ioloop  # pylint: disable=F0401
+import msgpack
 
 log = logging.getLogger(__name__)
 
