@@ -275,7 +275,7 @@ class TestSaltEvent(TestCase):
     def test_event_many_backlog(self):
         '''Test a large number of events, send all then recv all'''
         with eventpublisher_process(self.sock_dir):
-            with salt.utils.event.MasterEvent(SOCK_DIR, listen=True) as me:
+            with salt.utils.event.MasterEvent(self.sock_dir, listen=True) as me:
                 try:
                     # Must not exceed zmq HWM
                     for i in range(500):
