@@ -1214,7 +1214,7 @@ class AsyncReqMessageClient(object):
             )
 
         _set_tcp_keepalive(self.socket, self.opts)
-        if self.addr.startswith('tcp://['):
+        if str(self.addr).startswith('tcp://['):
             # Hint PF type if bracket enclosed IPv6 address
             if hasattr(zmq, 'IPV6'):
                 self.socket.setsockopt(zmq.IPV6, 1)

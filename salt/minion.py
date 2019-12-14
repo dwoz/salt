@@ -757,7 +757,12 @@ class MinionBase(object):
                     self.tok = pub_channel.auth.gen_token(b'salt')
                     self.connected = True
                     if hasattr(self, 'job_q'):
-                        self.job_q.put(msgpack.dumps(self.opts['master_uri']))
+                        self.job_q.put(
+                            {
+                                'kind': 'master_uri',
+                                'data': self.opts['master_uri'],
+                            }
+                        )
                         self.is_ready.set()
                     raise tornado.gen.Return((opts['master'], pub_channel))
                 except SaltClientError as exc:
@@ -1622,13 +1627,15 @@ class Minion(MinionBase):
     def job_spawner(cls, queue, opts, is_ready):
         minion_instance = cls(opts, proc_man=False)
         minion_instance._setup_core()
-        payload = msgpack.loads(queue.get())
-        minion_instance.opts['master_uri'] = payload
+        payload = queue.get()
+        if payload['kind'] != 'master_uri':
+            raise Exception("NOT MASTER URI")
+        minion_instance.opts['master_uri'] = payload['data']
         minion_instance.connected = True
         minion_instance.gen_modules(True)
         last = time.time()
         while True:
-            payload = msgpack.loads(queue.get())
+            payload = queue.get()
             if 'kind' not in payload:
                 log.error("Expect kind")
             if payload['kind'] == 'pillar_update':
@@ -2259,13 +2266,13 @@ class Minion(MinionBase):
                 async_pillar.destroy()
         if hasattr(self, 'job_q'):
             self.job_q.put(
-                msgpack.dumps(
-                    {'kind': 'pillar_update',
+                {
+                    'kind': 'pillar_update',
                     'data': {
                         'pillar': self.opts['pillar'],
                         'grains': self.opts['grains'],
                     }
-                })
+                }
             )
         self.matchers_refresh()
         self.beacons_refresh()
@@ -2814,7 +2821,9 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
-        self.job_q.put(msgpack.dumps({'kind': 'payload', 'data': payload}))
+        self.job_q.put(
+                {'kind': 'payload', 'data': payload}
+        )
 
     def handle_payload(self, payload):
         if payload is not None and payload['enc'] == 'aes':
