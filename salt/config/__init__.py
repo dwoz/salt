@@ -3884,7 +3884,7 @@ def _update_discovery_config(opts):
         opts['discovery'] = salt.utils.dictupdate.update(discovery_config, opts['discovery'], True, True)
 
 
-def master_config(path, env_var='SALT_MASTER_CONFIG', defaults=None, exit_on_config_errors=False):
+def master_config(path, env_var='SALT_MASTER_CONFIG', defaults=None, exit_on_config_errors=False, skip_id=False):
     '''
     Reads in the master configuration file and sets up default options
 
@@ -3915,7 +3915,7 @@ def master_config(path, env_var='SALT_MASTER_CONFIG', defaults=None, exit_on_con
                      exit_on_config_errors=exit_on_config_errors))
     overrides.update(include_config(include, path, verbose=True,
                      exit_on_config_errors=exit_on_config_errors))
-    opts = apply_master_config(overrides, defaults)
+    opts = apply_master_config(overrides, defaults, skip_id='salt')
     _validate_ssh_minion_opts(opts)
     _validate_opts(opts)
     # If 'nodegroups:' is uncommented in the master config file, and there are
@@ -3930,7 +3930,7 @@ def master_config(path, env_var='SALT_MASTER_CONFIG', defaults=None, exit_on_con
     return opts
 
 
-def apply_master_config(overrides=None, defaults=None):
+def apply_master_config(overrides=None, defaults=None, skip_id=False):
     '''
     Returns master configurations dict.
     '''
@@ -4006,10 +4006,13 @@ def apply_master_config(overrides=None, defaults=None):
     using_ip_for_id = False
     append_master = False
     if not opts.get('id'):
-        opts['id'], using_ip_for_id = get_id(
-                opts,
-                cache_minion_id=None)
-        append_master = True
+        if skip_id:
+            opts['id'] = skip_id
+        else:
+            opts['id'], using_ip_for_id = get_id(
+                    opts,
+                    cache_minion_id=None)
+            append_master = True
 
     # it does not make sense to append a domain to an IP based id
     if not using_ip_for_id and 'append_domain' in opts:
@@ -4130,7 +4133,7 @@ def client_config(path, env_var='SALT_CLIENT_CONFIG', defaults=None):
     # Update options with the master configuration, either from the provided
     # path, salt's defaults or provided defaults
     opts.update(
-        master_config(path, defaults=defaults)
+        master_config(path, defaults=defaults, skip_id=True)
     )
     # Update with the users salt dot file or with the environment variable
     saltrc_config = os.path.join(client_config_dir, saltrc_config_file)

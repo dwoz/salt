@@ -13,6 +13,8 @@ import os
 import re
 import sys
 import time
+import errno
+import inspect
 import signal
 import stat
 import logging
@@ -34,8 +36,10 @@ import salt.crypt
 import salt.client
 import salt.client.ssh.client
 import salt.exceptions
+import salt.fileserver
 import salt.payload
 import salt.pillar
+import salt.pillar.git_pillar
 import salt.state
 import salt.runner
 import salt.auth
@@ -75,6 +79,7 @@ from salt.utils.debug import (
 )
 from salt.utils.event import tagify
 from salt.utils.odict import OrderedDict
+import salt.utils.tracing
 
 try:
     import resource
@@ -573,9 +578,27 @@ class Master(SMaster):
                 'Cannot change to root directory ({0})'.format(err)
             )
 
+        salt.utils.tracing.tracer.configure(
+            config={
+                'sampler': {
+                    'type': 'const',
+                    'param': 1,
+                },
+                'local_agent': {
+                    'reporting_host': "127.0.0.1",
+                    'reporting_port': 5775,
+                },
+                'logging': True,
+                'tags': {
+                    'hostname': 'localhost',
+                    'ip': '127.0.0.1',
+                }
+            },
+            service_name='salt-master',
+            validate=True,
+        )
+
         if self.opts.get('fileserver_verify_config', True):
-            # Avoid circular import
-            import salt.fileserver
             fileserver = salt.fileserver.Fileserver(self.opts)
             if not fileserver.servers:
                 errors.append(
@@ -618,7 +641,6 @@ class Master(SMaster):
             if git_pillars:
                 try:
                     new_opts = copy.deepcopy(self.opts)
-                    import salt.pillar.git_pillar
                     for repo in git_pillars:
                         new_opts['ext_pillar'] = [repo]
                         try:
@@ -921,6 +943,8 @@ class ReqServer(salt.utils.process.SignalHandlingMultiprocessingProcess):
         # Reset signals to default ones before adding processes to the process
         # manager. We don't want the processes being started to inherit those
         # signal handlers
+        salt.loader.grains(opts)
+        #self.opts['grains'] = salt.loader.grains(opts)
         with salt.utils.process.default_signals(signal.SIGINT, signal.SIGTERM):
             for ind in range(int(self.opts['worker_threads'])):
                 name = 'MWorker-{0}'.format(ind)
@@ -1036,7 +1060,8 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
             pass
 
     @tornado.gen.coroutine
-    def _handle_payload(self, payload):
+    #@salt.utils.tracing.trace('handle_payload')
+    def _handle_payload(self, payload, span=None):
         '''
         The _handle_payload method is the key method used to figure out what
         needs to be done with communication to the server
@@ -1057,10 +1082,29 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
 
         :param dict payload: The payload route to the appropriate handler
         '''
+        if span:
+            span = span.tracer.start_span(
+                operation_name="handle_message",
+                child_of=span,
+            )
+        elif 'load' in payload:
+            context = salt.utils.tracing.tracer.extract(salt.utils.tracing.Format.TEXT_MAP, payload['load'])
+            if context:
+                log.error("Got context")
+                span = salt.utils.tracing.tracer.start_span(
+                    operation_name="_handle_payload",
+                    child_of=context,
+                )
+            else:
+                log.error("No context: %s", payload)
+
         key = payload['enc']
+        log.error("handle payload key is %s", key)
         load = payload['load']
         ret = {'aes': self._handle_aes,
-               'clear': self._handle_clear}[key](load)
+               'clear': self._handle_clear}[key](load, span=span)
+        if span:
+            span.finish()
         raise tornado.gen.Return(ret)
 
     def _post_stats(self, stats):
@@ -1074,7 +1118,7 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
             self.stats = collections.defaultdict(lambda: {'mean': 0, 'latency': 0, 'runs': 0})
             self.stat_clock = end_time
 
-    def _handle_clear(self, load):
+    def _handle_clear(self, load, **kwargs):
         '''
         Process a cleartext command
 
@@ -1082,6 +1126,9 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         :return: The result of passing the load to a function in ClearFuncs corresponding to
                  the command specified in the load's 'cmd' key.
         '''
+        span = kwargs.get('span', None)
+        if span:
+            span = salt.utils.tracing.tracer.start_span('_handle_clear', child_of=span)
         log.trace('Clear payload received with command %s', load['cmd'])
         cmd = load['cmd']
         if cmd.startswith('__'):
@@ -1092,9 +1139,11 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         if self.opts['master_stats']:
             stats = salt.utils.event.update_stats(self.stats, start, load)
             self._post_stats(stats)
+        if span:
+            span.finish()
         return ret
 
-    def _handle_aes(self, data):
+    def _handle_aes(self, data, **kwargs):
         '''
         Process a command sent via an AES key
 
@@ -1102,6 +1151,9 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         :return: The result of passing the load to a function in AESFuncs corresponding to
                  the command specified in the load's 'cmd' key.
         '''
+        span = kwargs.get('span', None)
+        if span:
+            span = salt.utils.tracing.tracer.start_span('_handle_aes', child_of=span)
         if 'cmd' not in data:
             log.error('Received malformed command %s', data)
             return {}
@@ -1123,6 +1175,8 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         if self.opts['master_stats']:
             stats = salt.utils.event.update_stats(self.stats, start, data)
             self._post_stats(stats)
+        if span:
+            span.finish()
         return ret
 
     def run(self):
@@ -1133,7 +1187,7 @@ class MWorker(salt.utils.process.SignalHandlingMultiprocessingProcess):
         self.clear_funcs = ClearFuncs(
            self.opts,
            self.key,
-           )
+        )
         self.aes_funcs = AESFuncs(self.opts)
         salt.utils.crypt.reinit_crypto()
         self.__bind()
@@ -1592,7 +1646,7 @@ class AESFuncs(object):
                         minions, jid, exc
                     )
 
-    def _return(self, load):
+    def _return(self, load, span=None):
         '''
         Handle the return data sent from the minions.
 
@@ -1602,6 +1656,8 @@ class AESFuncs(object):
 
         :param dict load: The minion payload
         '''
+        if span:
+            span = span.tracer.start_span('_return', child_of=span)
         if self.opts['require_minion_sign_messages'] and 'sig' not in load:
             log.critical(
                 '_return: Master is requiring minions to sign their '
@@ -1629,9 +1685,11 @@ class AESFuncs(object):
 
         try:
             salt.utils.job.store_job(
-                self.opts, load, event=self.event, mminion=self.mminion)
+                self.opts, load, event=self.event, mminion=self.mminion, span=span)
         except salt.exceptions.SaltCacheError:
             log.error('Could not store job information for load: %s', load)
+        if span:
+			span.finish()
 
     def _syndic_return(self, load):
         '''
@@ -1815,21 +1873,36 @@ class AESFuncs(object):
         else:
             return self.masterapi.revoke_auth(load)
 
-    def run_func(self, func, load):
+    def run_func(self, func, load, span=None):
         '''
         Wrapper for running functions executed with AES encryption
 
         :param function func: The function to run
         :return: The result of the master function that was called
         '''
+        log.error("AES _run_func %s %s", func, load)
         # Don't honor private functions
         if func.startswith('__'):
             # TODO: return some error? Seems odd to return {}
             return {}, {'fun': 'send'}
         # Run the func
+        def has_kwarg(func, name, true_if_kwargs=True):
+            argspec = inspect.getargspec(func)
+            if true_if_kwargs and argspec.keywords:
+                return True
+            elif name in argspec.args:
+                idx = argspec.args.index(name)
+                nargs = len(argspec.args) - len(argspec.defaults)
+                if idx >= nargs:
+                    return True
+            return False
         if hasattr(self, func):
             try:
                 start = time.time()
+                func_obj = getattr(self, func)
+                #if has_kwarg(func_obj, 'span'):
+                #    ret = getattr(self, func)(load, span=span)
+                #else:
                 ret = getattr(self, func)(load)
                 log.trace(
                     'Master function call %s took %s seconds',
@@ -2034,11 +2107,14 @@ class ClearFuncs(object):
             return False
         return self.loadauth.get_tok(clear_load['token'])
 
-    def publish(self, clear_load):
+    def publish(self, clear_load, **kwargs):
         '''
         This method sends out publications to the minions, it can only be used
         by the LocalClient.
         '''
+        span = kwargs.get('span', None)
+        if span:
+            span = salt.utils.tracing.tracer.start_span('MWorker.publish', child_of=span)
         extra = clear_load.get('kwargs', {})
 
         publisher_acl = salt.acl.PublisherACL(self.opts['publisher_acl_blacklist'])
@@ -2133,8 +2209,10 @@ class ClearFuncs(object):
 
         # Send it!
         self._send_ssh_pub(payload, ssh_minions=ssh_minions)
-        self._send_pub(payload)
+        self._send_pub(payload, span=span)
 
+        if span:
+            span.finish()
         return {
             'enc': 'clear',
             'load': {
@@ -2187,13 +2265,13 @@ class ClearFuncs(object):
             return {'error': msg}
         return jid
 
-    def _send_pub(self, load):
+    def _send_pub(self, load, **kwargs):
         '''
         Take a load and send it across the network to connected minions
         '''
         for transport, opts in iter_transport_opts(self.opts):
             chan = salt.transport.server.PubServerChannel.factory(opts)
-            chan.publish(load)
+            chan.publish(load, **kwargs)
 
     @property
     def ssh_client(self):

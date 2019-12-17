@@ -40,6 +40,7 @@ import salt.utils.jid
 import salt.utils.minions
 import salt.utils.platform
 import salt.utils.stringutils
+import salt.utils.tracing
 import salt.utils.user
 import salt.utils.verify
 import salt.utils.zeromq
@@ -78,7 +79,8 @@ def get_local_client(
         mopts=None,
         skip_perm_errors=False,
         io_loop=None,
-        auto_reconnect=False):
+        auto_reconnect=False,
+        **kwargs):
     '''
     .. versionadded:: 2014.7.0
 
@@ -103,7 +105,9 @@ def get_local_client(
         mopts=opts,
         skip_perm_errors=skip_perm_errors,
         io_loop=io_loop,
-        auto_reconnect=auto_reconnect)
+        auto_reconnect=auto_reconnect,
+        **kwargs
+    )
 
 
 class LocalClient(object):
@@ -304,6 +308,7 @@ class LocalClient(object):
             jid='',
             kwarg=None,
             listen=False,
+            span=None,
             **kwargs):
         '''
         Asynchronously send a command to connected minions
@@ -331,6 +336,7 @@ class LocalClient(object):
                 jid=jid,
                 timeout=self._get_timeout(timeout),
                 listen=listen,
+                span=span,
                 **kwargs)
         except SaltClientError:
             # Re-raise error with specific message
@@ -745,6 +751,9 @@ class LocalClient(object):
         :param verbose: Print extra information about the running command
         :returns: A generator
         '''
+        span = salt.utils.tracing.tracer.start_span(
+            'LocalClientCmdCli', child_of=kwargs.pop('span', None),
+        )
         arg = salt.utils.args.condition_input(arg, kwarg)
         was_listening = self.event.cpub
 
@@ -779,6 +788,7 @@ class LocalClient(object):
                 ret,
                 timeout,
                 listen=True,
+                span=span,
                 **kwargs)
 
             if not self.pub_data:
@@ -818,6 +828,7 @@ class LocalClient(object):
         finally:
             if not was_listening:
                 self.event.close_pub()
+            span.finish()
 
     def cmd_iter(
             self,
@@ -1114,7 +1125,9 @@ class LocalClient(object):
         jinfo_iter = []
         # open event jids that need to be un-subscribed from later
         open_jids = set()
+        timetostr = lambda x: datetime.fromtimestamp(x).time()
         timeout_at = time.time() + timeout
+        log.info("TIMEOUT SET 1 %s", timetostr(timeout_at))
         gather_syndic_wait = time.time() + self.opts['syndic_wait']
         # are there still minions running the job out there
         # start as True so that we ping at least once
@@ -1129,6 +1142,14 @@ class LocalClient(object):
                 # if we got None, then there were no events
                 if raw is None:
                     break
+                context = salt.utils.tracing.extract(raw['data'])
+                span = None
+                if context:
+                    span = salt.utils.tracing.tracer.start_span(
+                        operation_name="_get_iter_returns",
+                        child_of=context,
+                    )
+                log.error("RET IS %s", raw)
                 if 'minions' in raw.get('data', {}):
                     minions.update(raw['data']['minions'])
                     if 'missing' in raw.get('data', {}):
@@ -1152,6 +1173,8 @@ class LocalClient(object):
                         ret[raw['data']['id']].update(raw['data'])
                     log.debug('jid %s return from %s', jid, raw['data']['id'])
                     yield ret
+                if span:
+                    span.finish()
 
             # if we have all of the returns (and we aren't a syndic), no need for anything fancy
             if len(found.intersection(minions)) >= len(minions) and not self.opts['order_masters']:
@@ -1175,6 +1198,7 @@ class LocalClient(object):
                 # if we have a new minion in the list, make sure it has a timeout
                 if id_ not in minion_timeouts:
                     minion_timeouts[id_] = time.time() + timeout
+                    log.error("SET 1 minion timeout %s %s", id_, timetostr(minion_timeouts[id_]))
 
             # if the jinfo has timed out and some minions are still running the job
             # re-do the ping
@@ -1189,6 +1213,7 @@ class LocalClient(object):
                 else:
                     jinfo_iter = self.get_returns_no_block('salt/job/{0}'.format(jinfo['jid']))
                 timeout_at = time.time() + gather_job_timeout
+                log.info("TIMEOUT SET 2 %s", timetostr(timeout_at))
                 # if you are a syndic, wait a little longer
                 if self.opts['order_masters']:
                     timeout_at += self.opts.get('syndic_wait', 1)
@@ -1248,6 +1273,7 @@ class LocalClient(object):
                     minions.add(raw['data']['id'])
                 # update this minion's timeout, as long as the job is still running
                 minion_timeouts[raw['data']['id']] = time.time() + timeout
+                log.error("SET 2 minion timeout %s %s", id_, raw['data']['id'])
                 # a minion returned, so we know its running somewhere
                 minions_running = True
 
@@ -1707,6 +1733,7 @@ class LocalClient(object):
             jid='',
             timeout=5,
             listen=False,
+            span=None,
             **kwargs):
         '''
         Take the required arguments and publish the given command.
@@ -1755,13 +1782,7 @@ class LocalClient(object):
                                                            crypt='clear',
                                                            master_uri=master_uri)
 
-        try:
-            # Ensure that the event subscriber is connected.
-            # If not, we won't get a response, so error out
-            if listen and not self.event.connect_pub(timeout=timeout):
-                raise SaltReqTimeoutError()
-            payload = channel.send(payload_kwargs, timeout=timeout)
-        except SaltReqTimeoutError:
+        if listen and not self.event.connect_pub(timeout=timeout):
             raise SaltReqTimeoutError(
                 'Salt request timed out. The master is not responding. You '
                 'may need to run your command with `--async` in order to '
@@ -1771,6 +1792,11 @@ class LocalClient(object):
                 '`salt-run jobs.lookup_jid` to look up the results of the job '
                 'in the job cache later.'
             )
+
+        if span:
+            salt.utils.tracing.inject(span.context, payload_kwargs)
+        payload = channel.send(payload_kwargs, timeout=timeout)
+
 
         if not payload:
             # The master key could have changed out from under us! Regen

@@ -68,6 +68,7 @@ def isportopen(host, port):
     '''
     Return status of a port
     '''
+    print("IS OPEN PORT")
 
     if not 1 <= int(port) <= 65535:
         return False
@@ -82,6 +83,7 @@ def host_to_ips(host):
     '''
     Returns a list of IP addresses of a given hostname or None if not found.
     '''
+    print("HOST TO IPS")
     ips = []
     try:
         for family, socktype, proto, canonname, sockaddr in socket.getaddrinfo(
@@ -98,7 +100,7 @@ def host_to_ips(host):
     return ips
 
 
-def _generate_minion_id():
+def _generate_minion_id(needed=None):
     '''
     Get list of possible host names and convention names.
 
@@ -176,10 +178,16 @@ def generate_minion_id():
 
     :return:
     '''
-    try:
-        ret = salt.utils.stringutils.to_unicode(_generate_minion_id().first())
-    except TypeError:
-        ret = None
+    print("GENERATE MIN ID")
+    if not getattr(generate_minion_id, 'cached', None):
+        print("NOCACHE")
+        try:
+            #ret = salt.utils.stringutils.to_unicode(_generate_minion_id().first())
+            ret = salt.utils.stringutils.to_unicode(socket.getfqdn())
+        except TypeError:
+            ret = None
+        generate_minion_id.cached = ret or 'localhost'
+    return generate_minion_id.cached
     return ret or 'localhost'
 
 
@@ -228,6 +236,7 @@ def ip_to_host(ip):
     '''
     Returns the hostname of a given IP
     '''
+    print("IP TO HOST")
     try:
         hostname, aliaslist, ipaddrlist = socket.gethostbyaddr(ip)
     except Exception as exc:

@@ -74,6 +74,8 @@ from salt.ext import six
 import tornado.ioloop
 import tornado.iostream
 
+import opentracing
+
 # Import salt libs
 import salt.config
 import salt.payload
@@ -584,7 +586,8 @@ class SaltEvent(object):
 
             log.trace('get_event() received = %s', ret)
             return ret
-        log.trace('_get_event() waited %s seconds and received nothing', wait)
+        if wait > 0:
+            log.trace('_get_event() waited %s seconds and received nothing', wait)
         return None
 
     def get_event(self,
@@ -708,13 +711,15 @@ class SaltEvent(object):
                 continue
             yield data
 
-    def fire_event(self, data, tag, timeout=1000):
+    def fire_event(self, data, tag, span=None, timeout=1000):
         '''
         Send a single event into the publisher with payload dict "data" and
         event identifier "tag"
 
         The default is 1000 ms
         '''
+        if span:
+            span = span.tracer.start_span('fire_event', child_of=span)
         if not six.text_type(tag):  # no empty tags allowed
             raise ValueError('Empty tag.')
 
@@ -732,6 +737,9 @@ class SaltEvent(object):
                 return False
 
         data['_stamp'] = datetime.datetime.utcnow().isoformat()
+
+        if span:
+            span.tracer.inject(span.context, opentracing.Format.TEXT_MAP, data)
 
         tagend = TAGEND
         if six.PY2:
@@ -764,6 +772,8 @@ class SaltEvent(object):
                     raise
         else:
             self.io_loop.spawn_callback(self.pusher.send, msg)
+        if span:
+            span.finish()
         return True
 
     def fire_master(self, data, tag, timeout=1000):

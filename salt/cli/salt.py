@@ -5,12 +5,15 @@ from __future__ import absolute_import, print_function, unicode_literals
 import sys
 sys.modules['pkg_resources'] = None
 import os
+import time
+import logging
 
 # Import Salt libs
 import salt.defaults.exitcodes
 import salt.utils.job
 import salt.utils.parsers
 import salt.utils.stringutils
+import salt.utils.tracing
 import salt.log
 from salt.utils.args import yamlify_arg
 from salt.utils.verify import verify_log
@@ -27,6 +30,13 @@ from salt.exceptions import (
 # Import 3rd-party libs
 from salt.ext import six
 
+# log_level = logging.DEBUG
+# logging.getLogger('').handlers = []
+# logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
+
+
+log = logging.getLogger(__name__)
+
 
 class SaltCMD(salt.utils.parsers.SaltCMDOptionParser):
     '''
@@ -39,6 +49,26 @@ class SaltCMD(salt.utils.parsers.SaltCMDOptionParser):
         '''
         import salt.client
         self.parse_args()
+        #salt.utils.tracing.tracer.configure(
+        #    config={
+        #        'sampler': {
+        #            'type': 'const',
+        #            'param': 1,
+        #        },
+        #        'local_agent': {
+        #            'reporting_host': "127.0.0.1",
+        #            'reporting_port': 5775,
+        #        },
+        #        'logging': True,
+        #        'tags': {
+        #            'hostname': 'localhost',
+        #            'ip': '127.0.0.1',
+        #        }
+        #    },
+        #    service_name='salt-cli',
+        #    validate=True,
+        #)
+        span = salt.utils.tracing.start_span('SaltCMD.run')
 
         if self.config['log_level'] not in ('quiet', ):
             # Setup file logging!
@@ -53,7 +83,9 @@ class SaltCMD(salt.utils.parsers.SaltCMDOptionParser):
             self.local_client = salt.client.get_local_client(
                 self.get_config_file_path(),
                 skip_perm_errors=skip_perm_errors,
-                auto_reconnect=True)
+                auto_reconnect=True,
+                #parent_span=span,
+            )
         except SaltClientError as exc:
             self.exit(2, '{0}\n'.format(exc))
             return
@@ -151,12 +183,15 @@ class SaltCMD(salt.utils.parsers.SaltCMDOptionParser):
             salt.utils.stringutils.print_cli('Executed command with job ID: {0}'.format(jid))
             return
 
+        kwargs['span'] = span
+
         # local will be None when there was an error
         if not self.local_client:
             return
 
         retcodes = []
         errors = []
+
 
         try:
             if self.options.subset:
@@ -222,6 +257,10 @@ class SaltCMD(salt.utils.parsers.SaltCMDOptionParser):
                 SaltClientError) as exc:
             ret = six.text_type(exc)
             self._output_ret(ret, '', retcode=1)
+        finally:
+            span.finish()
+            time.sleep(3)
+            salt.utils.tracing.tracer.close()
 
     def _preview_target(self):
         '''

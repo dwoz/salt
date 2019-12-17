@@ -9,6 +9,7 @@ import os
 import sys
 import copy
 import errno
+import inspect
 import signal
 import socket
 import hashlib
@@ -29,6 +30,7 @@ import salt.utils.stringutils
 import salt.utils.verify
 import salt.utils.zeromq
 import salt.utils.versions
+import salt.utils.tracing
 import salt.payload
 import salt.transport.client
 import salt.transport.server
@@ -63,6 +65,7 @@ except ImportError:
         from Cryptodome.Cipher import PKCS1_OAEP
     except ImportError:
         from Crypto.Cipher import PKCS1_OAEP
+
 
 log = logging.getLogger(__name__)
 
@@ -580,6 +583,7 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
     def __init__(self, opts):
         salt.transport.server.ReqServerChannel.__init__(self, opts)
         self._closing = False
+        self.tracer = None
 
     def zmq_device(self):
         '''
@@ -733,6 +737,19 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
             stream.send(self.serial.dumps('bad load'))
             raise tornado.gen.Return()
 
+        try:
+            context = salt.utils.tracing.tracer.extract(salt.utils.tracing.Format.TEXT_MAP, payload['load'])
+            if context:
+                span = salt.utils.tracing.tracer.start_span(
+                    operation_name="handle_message",
+                    child_of=context,
+                )
+            else:
+                span = None
+        except KeyError:
+            context = None
+            span = None
+
         # TODO helper functions to normalize payload?
         if not isinstance(payload, dict) or not isinstance(payload.get('load'), dict):
             log.error('payload and load must be a dict. Payload was: %s and load was %s', payload, payload.get('load'))
@@ -781,6 +798,8 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
             log.error('Unknown req_fun %s', req_fun)
             # always attempt to return an error to the minion
             stream.send(self.serial.dumps('Server-side exception handling payload'))
+        if span:
+            span.finish()
         raise tornado.gen.Return()
 
     def __setup_signals(self):
@@ -855,6 +874,19 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             salt.log.setup.set_multiprocessing_logging_queue(log_queue)
             salt.log.setup.setup_multiprocessing_logging(log_queue)
 
+        #salt.utils.tracing.tracer.configure(
+        #    config={ # usually read from some yaml config
+        #        'sampler': {
+        #            'type': 'const',
+        #            'param': 1,
+        #        },
+        #        'logging': True,
+        #    },
+        #    service_name='salt-master-{}'.format(self.__class__.__name__),
+        #    validate=True,
+        #)
+        ##tracer = jaeger_config.initialize_tracer()
+        #log.error("Configure jaeger %s, %d", tracer, os.getpid())
         # Set up the context
         context = zmq.Context(1)
         # Prepare minion publish socket
@@ -902,6 +934,7 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             while True:
                 # Catch and handle EINTR from when this process is sent
                 # SIGUSR1 gracefully so we don't choke and die horribly
+                span = None
                 try:
                     log.debug('Publish daemon getting data from puller %s', pull_uri)
                     package = pull_sock.recv()
@@ -910,6 +943,16 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                     unpacked_package = salt.payload.unpackage(package)
                     if six.PY3:
                         unpacked_package = salt.transport.frame.decode_embedded_strs(unpacked_package)
+                    context = salt.utils.tracing.tracer.extract(
+                        salt.utils.tracing.Format.TEXT_MAP,
+                        unpacked_package,
+                    )
+                    if context:
+                        log.error("Got context")
+                        span = salt.utils.tracing.tracer.start_span(
+                            operation_name="publish_daemon",
+                            child_of=context,
+                        )
                     payload = unpacked_package['payload']
                     log.trace('Accepted unpacked package from puller')
                     if self.opts['zmq_filtering']:
@@ -941,11 +984,12 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
                         log.trace('Sending ZMQ-unfiltered data over publisher %s', pub_uri)
                         pub_sock.send(payload)
                         log.trace('Unfiltered data has been sent')
+                    if span:
+                        span.finish()
                 except zmq.ZMQError as exc:
                     if exc.errno == errno.EINTR:
                         continue
                     raise exc
-
         except KeyboardInterrupt:
             log.trace('Publish daemon caught Keyboard interupt, tearing down')
         # Cleanly close the sockets if we're shutting down
@@ -1010,13 +1054,15 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             self._sock_data.sock.close()
             delattr(self._sock_data, 'sock')
 
-    def publish(self, load):
+    def publish(self, load, span=None):
         '''
         Publish "load" to minions. This send the load to the publisher daemon
         process with does the actual sending to minions.
 
         :param dict load: A load to be sent across the wire to minions
         '''
+        if span:
+            span = span.tracer.start_span('publish', child_of=span)
         payload = {'enc': 'aes'}
         crypticle = salt.crypt.Crypticle(self.opts, salt.master.SMaster.secrets['aes']['secret'].value)
         payload['load'] = crypticle.dumps(load)
@@ -1024,6 +1070,8 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             master_pem_path = os.path.join(self.opts['pki_dir'], 'master.pem')
             log.debug("Signing data packet")
             payload['sig'] = salt.crypt.sign_message(master_pem_path, payload['load'])
+        if span:
+            span.tracer.inject(span.context, salt.utils.tracing.Format.TEXT_MAP, payload)
         int_payload = {'payload': self.serial.dumps(payload)}
 
         # add some targeting stuff for lists only (for now)
@@ -1041,6 +1089,8 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             log.debug("Publish Side Match: %s", match_ids)
             # Send list of miions thru so zmq can target them
             int_payload['topic_lst'] = match_ids
+        if span:
+            span.tracer.inject(span.context, salt.utils.tracing.Format.TEXT_MAP, int_payload)
         payload = self.serial.dumps(int_payload)
         log.debug(
             'Sending payload to publish daemon. jid=%s size=%d',
@@ -1050,6 +1100,8 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
             self.pub_connect()
         self.pub_sock.send(payload)
         log.debug('Sent payload to publish daemon.')
+        if span:
+            span.finish()
 
 
 class AsyncReqMessageClientPool(salt.transport.MessageClientPool):

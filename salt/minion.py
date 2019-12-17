@@ -32,6 +32,7 @@ import salt.transport.client
 import salt.defaults.exitcodes
 
 from salt.utils.ctx import RequestContext
+import salt.utils.tracing
 
 # pylint: enable=no-name-in-module,redefined-builtin
 import tornado
@@ -240,6 +241,14 @@ def resolve_dns(opts, fallback=True):
     log.debug('Master URI: %s', ret['master_uri'])
 
     return ret
+
+
+def reload_module(module):
+    import importlib
+    if hasattr(importlib, 'reload'):
+        importlib.reload(module)
+    else:
+        reload(module)
 
 
 def prep_ip_port(opts):
@@ -898,11 +907,13 @@ class MasterMinion(object):
         self.opts = salt.config.minion_config(
             opts['conf_file'],
             ignore_config_errors=ignore_config_errors,
-            role='master'
+            role='master',
+        #    minion_id=opts.get('id')
         )
         self.opts.update(opts)
         self.whitelist = whitelist
-        self.opts['grains'] = salt.loader.grains(opts)
+        if not self.opts.get('grains', None):
+            self.opts['grains'] = salt.loader.grains(opts)
         self.opts['pillar'] = {}
         self.mk_returners = returners
         self.mk_states = states
@@ -1195,6 +1206,25 @@ class Minion(MinionBase):
         if signal.getsignal(signal.SIGTERM) is signal.SIG_DFL:
             # No custom signal handling was added, install our own
             signal.signal(signal.SIGTERM, self._handle_signals)
+        salt.utils.tracing.tracer.configure(
+            config={ # usually read from some yaml config
+                'sampler': {
+                    'type': 'const',
+                    'param': 1,
+                },
+                'local_agent': {
+                    'reporting_host': "127.0.0.1",
+                    'reporting_port': 5775,
+                },
+                'logging': True,
+                'tags': {
+                    'hostname': 'localhost',
+                    'ip': '127.0.0.1',
+                }
+            },
+            service_name='salt-minion',
+            validate=True,
+        )
 
     def _handle_signals(self, signum, sigframe):  # pylint: disable=unused-argument
         self._running = False
@@ -1492,11 +1522,14 @@ class Minion(MinionBase):
         return True
 
     @tornado.gen.coroutine
-    def _handle_decoded_payload(self, data):
+    def _handle_decoded_payload(self, data, parent_span=None):
         '''
         Override this method if you wish to handle the decoded data
         differently.
         '''
+        span = None
+        if parent_span:
+            span = parent_span.tracer.start_span('_handle_decoded_payload', child_of=parent_span)
         # Ensure payload is unicode. Disregard failure to decode binary blobs.
         if six.PY2:
             data = salt.utils.data.decode(data, keep=True)
@@ -1516,6 +1549,7 @@ class Minion(MinionBase):
         log.trace('Started JIDs: %s', self.jid_queue)
         if self.jid_queue is not None:
             if data['jid'] in self.jid_queue:
+                log.debug("JID already in queue")
                 return
             else:
                 self.jid_queue.append(data['jid'])
@@ -1547,19 +1581,26 @@ class Minion(MinionBase):
         # side.
         instance = self
         multiprocessing_enabled = self.opts.get('multiprocessing', True)
+        ctx_payload = {}
+        if span:
+           span.tracer.inject(
+                span.context, salt.utils.tracing.Format.TEXT_MAP, ctx_payload,
+           )
         if multiprocessing_enabled:
+            log.error("PROCESSS")
             if sys.platform.startswith('win'):
                 # let python reconstruct the minion on the other side if we're
                 # running on windows
                 instance = None
             with default_signals(signal.SIGINT, signal.SIGTERM):
                 process = SignalHandlingMultiprocessingProcess(
-                    target=self._target, args=(instance, self.opts, data, self.connected)
+                    target=self._target, args=(instance, self.opts, data, self.connected, ctx_payload)
                 )
         else:
+            log.error("THREAD")
             process = threading.Thread(
                 target=self._target,
-                args=(instance, self.opts, data, self.connected),
+                args=(instance, self.opts, data, self.connected, ctx_payload),
                 name=data['jid']
             )
 
@@ -1577,6 +1618,8 @@ class Minion(MinionBase):
             process.join()
         else:
             self.win_proc.append(process)
+        if span:
+            span.finish()
 
     def ctx(self):
         '''
@@ -1596,7 +1639,34 @@ class Minion(MinionBase):
             return exitstack
 
     @classmethod
-    def _target(cls, minion_instance, opts, data, connected):
+    def _target(cls, minion_instance, opts, data, connected, span_ctx):
+        lstart = start  = time.time()
+        end = time.time()
+        lstart = end
+        #salt.utils.tracing.configure(
+        #    config={ # usually read from some yaml config
+        #        'sampler': {
+        #            'type': 'const',
+        #            'param': 1,
+        #        },
+        #        'logging': True,
+        #    },
+        #    service_name='salt-minion',
+        #    validate=True,
+        #)
+        span = None
+        context = salt.utils.tracing.extract(span_ctx)
+        if context:
+            span = salt.utils.tracing.start_span(
+                operation_name="target",
+                child_of=context,
+            )
+            span.log_kv({'event': 'meh 3'})
+        else:
+            log.error("NO CONTEXT")
+
+        end = time.time()
+        lstart = end
         if not minion_instance:
             minion_instance = cls(opts)
             minion_instance.connected = connected
@@ -1615,6 +1685,8 @@ class Minion(MinionBase):
                 minion_instance.proc_dir = (
                     get_proc_dir(opts['cachedir'], uid=uid)
                     )
+        end = time.time()
+        lstart = end
 
         def run_func(minion_instance, opts, data):
             if isinstance(data['fun'], tuple) or isinstance(data['fun'], list):
@@ -1626,25 +1698,45 @@ class Minion(MinionBase):
                                                                   {'data': data, 'opts': opts})):
             with tornado.stack_context.StackContext(minion_instance.ctx):
                 run_func(minion_instance, opts, data)
+                if span:
+                    span.finish()
+                    time.sleep(3)
+                    span.tracer.close()
+                    log.error("AFTER TRACER CLOSE")
 
     @classmethod
-    def _thread_return(cls, minion_instance, opts, data):
+    def _thread_return(cls, minion_instance, opts, data, span):
         '''
         This method should be used as a threading target, start the actual
         minion side execution.
         '''
+        start = time.time()
+        log.error("THREAD RETURN")
         fn_ = os.path.join(minion_instance.proc_dir, data['jid'])
 
         if opts['multiprocessing'] and not salt.utils.platform.is_windows():
             # Shutdown the multiprocessing before daemonizing
             salt.log.setup.shutdown_multiprocessing_logging()
-
             salt.utils.process.daemonize_if(opts)
-
             # Reconfigure multiprocessing logging after daemonizing
             salt.log.setup.setup_multiprocessing_logging()
-
         salt.utils.process.appendproctitle('{0}._thread_return {1}'.format(cls.__name__, data['jid']))
+
+        if span:
+            #salt.utils.tracing.configure(
+            #    config={ # usually read from some yaml config
+            #        'sampler': {
+            #            'type': 'const',
+            #            'param': 1,
+            #        },
+            #        'logging': True,
+            #    },
+            #    service_name='salt-minion',
+            #    validate=True,
+            #)
+            #span.span._tracer = salt.utils.tracing.tracer()
+            #span.span._tracer = salt.utils.tracing.jaeger_tracer()
+            span = span.tracer.start_span("post fork", child_of=span)
 
         sdata = {'pid': os.getpid()}
         sdata.update(data)
@@ -1815,7 +1907,8 @@ class Minion(MinionBase):
         if minion_instance.connected:
             minion_instance._return_pub(
                 ret,
-                timeout=minion_instance._return_retry_timer()
+                timeout=minion_instance._return_retry_timer(),
+                span=span,
             )
 
         # Add default returners from minion config
@@ -1849,23 +1942,39 @@ class Minion(MinionBase):
                     log.exception(
                         'The return failed for job %s: %s', data['jid'], exc
                     )
+        if span:
+            span.finish()
 
     @classmethod
-    def _thread_multi_return(cls, minion_instance, opts, data):
+    def _thread_multi_return(cls, minion_instance, opts, data, span):
         '''
         This method should be used as a threading target, start the actual
         minion side execution.
         '''
+        log.error("THREAD MULTI RETURN")
         fn_ = os.path.join(minion_instance.proc_dir, data['jid'])
 
         if opts['multiprocessing'] and not salt.utils.platform.is_windows():
             # Shutdown the multiprocessing before daemonizing
             salt.log.setup.shutdown_multiprocessing_logging()
-
             salt.utils.process.daemonize_if(opts)
-
             # Reconfigure multiprocessing logging after daemonizing
             salt.log.setup.setup_multiprocessing_logging()
+
+        log.error("Configure jaeger %d", os.getpid())
+        #if span:
+        #    salt.utils.tracing.configure(
+        #        config={ # usually read from some yaml config
+        #            'sampler': {
+        #                'type': 'const',
+        #                'param': 1,
+        #            },
+        #            'logging': True,
+        #        },
+        #        service_name='salt-minion',
+        #        validate=True,
+        #    )
+        #    span.span._tracer = salt.utils.tracing.tracer()
 
         salt.utils.process.appendproctitle('{0}._thread_multi_return {1}'.format(cls.__name__, data['jid']))
 
@@ -1969,8 +2078,10 @@ class Minion(MinionBase):
                         'The return failed for job %s: %s',
                         data['jid'], exc
                     )
+        if span:
+            span.finish()
 
-    def _return_pub(self, ret, ret_cmd='_return', timeout=60, sync=True):
+    def _return_pub(self, ret, ret_cmd='_return', timeout=60, sync=True, span=None):
         '''
         Return the data from the executed command to the master server
         '''
@@ -1984,7 +2095,7 @@ class Minion(MinionBase):
                 except (OSError, IOError):
                     # The file is gone already
                     pass
-        log.info('Returning information for job: %s', jid)
+        log.info('Returning information for job (single): %s', jid)
         log.trace('Return data: %s', ret)
         if ret_cmd == '_syndic_return':
             load = {'cmd': ret_cmd,
@@ -2033,6 +2144,9 @@ class Minion(MinionBase):
         if not self.opts['pub_ret']:
             return ''
 
+        if span:
+            span.tracer.inject(span.context, salt.utils.tracing.Format.TEXT_MAP, load)
+
         def timeout_handler(*_):
             log.warning(
                'The minion failed to return the job information for job %s. '
@@ -2073,7 +2187,7 @@ class Minion(MinionBase):
                     except (OSError, IOError):
                         # The file is gone already
                         pass
-            log.info('Returning information for job: %s', jid)
+            log.info('Returning information for job (multi): %s', jid)
             load = jids.setdefault(jid, {})
             if ret_cmd == '_syndic_return':
                 if not load:
@@ -2883,9 +2997,18 @@ class Minion(MinionBase):
                 self.destroy()
 
     def _handle_payload(self, payload):
+        span = None
+        context = salt.utils.tracing.extract(payload)
+        if context:
+            log.error("Got context")
+            span = salt.utils.tracing.start_span(
+                operation_name="_handle_payload",
+                child_of=context,
+            )
+
         if payload is not None and payload['enc'] == 'aes':
             if self._target_load(payload['load']):
-                self._handle_decoded_payload(payload['load'])
+                self._handle_decoded_payload(payload['load'], parent_span=span)
             elif self.opts['zmq_filtering']:
                 # In the filtering enabled case, we'd like to know when minion sees something it shouldnt
                 log.trace(
@@ -2895,6 +3018,9 @@ class Minion(MinionBase):
         # If it's not AES, and thus has not been verified, we do nothing.
         # In the future, we could add support for some clearfuncs, but
         # the minion currently has no need.
+
+        if span:
+            span.finish()
 
     def _target_load(self, load):
         # Verify that the publication is valid

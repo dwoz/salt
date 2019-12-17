@@ -19,6 +19,7 @@ import signal
 import getpass
 import logging
 import optparse
+import time
 import traceback
 import tempfile
 from functools import partial
@@ -216,7 +217,6 @@ class OptionParser(optparse.OptionParser, object):
                         process_option_func, traceback.format_exc(err)
                     )
                 )
-
         # Run the functions on self._mixin_after_parsed_funcs
         for mixin_after_parsed_func in self._mixin_after_parsed_funcs:  # pylint: disable=no-member
             try:
@@ -2592,6 +2592,7 @@ class SaltKeyOptionParser(six.with_metaclass(OptionParserMeta,
         )
 
     def process_config_dir(self):
+        print('process a')
         if self.options.gen_keys:
             # We're generating keys, override the default behavior of this
             # function if we don't have any access to the configuration

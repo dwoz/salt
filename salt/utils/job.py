@@ -16,7 +16,7 @@ import salt.utils.verify
 log = logging.getLogger(__name__)
 
 
-def store_job(opts, load, event=None, mminion=None):
+def store_job(opts, load, event=None, mminion=None, span=None):
     '''
     Store job information using the configured master_job_cache
     '''
@@ -67,7 +67,7 @@ def store_job(opts, load, event=None, mminion=None):
         # If the return data is invalid, just ignore it
         log.info('Got return from %s for job %s', load['id'], load['jid'])
         event.fire_event(load,
-                         salt.utils.event.tagify([load['jid'], 'ret', load['id']], 'job'))
+                         salt.utils.event.tagify([load['jid'], 'ret', load['id']], 'job'), span=span)
         event.fire_ret_load(load)
 
     # if you have a job_cache, or an ext_job_cache, don't write to
