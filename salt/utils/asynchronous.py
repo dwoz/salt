@@ -11,7 +11,10 @@ import tornado.ioloop
 import tornado.concurrent
 import contextlib
 from salt.ext import six
-from salt.utils import zeromq
+import salt.utils.zeromq
+
+
+salt.utils.zeromq.install_zmq()
 
 
 @contextlib.contextmanager
@@ -25,6 +28,66 @@ def current_ioloop(io_loop):
         yield
     finally:
         orig_loop.make_current()
+
+
+class IOLoop(object):
+    '''
+    A wrapper around an existing IOLoop implimentation.
+    '''
+    seed_loop = None
+
+    @classmethod
+    def _current(cls):
+        return tornado.ioloop.IOLoop.current()
+
+    @classmethod
+    def _is_closed(cls, loop):
+        if hasattr(loop, '_salt_close_called'):
+            if loop._salt_close_called is True:
+                return True
+        if hasattr(loop, '_closing'):
+            if loop._closing is True:
+                return True
+        if hasattr(loop, 'asyncio_loop'):
+            if loop.asyncio_loop.is_closed() is True:
+                return True
+        return False
+
+    def __init__(self, *args, **kwargs):
+        self._ioloop = kwargs.get(
+            '_ioloop',
+            self._current()
+        )
+        self.sync_runner_cls = kwargs.get(
+            'sync_runner_cls',
+            ThreadedSyncRunner
+        )
+        self.sync_runner = None
+
+    def __getattr__(self, key):
+        return getattr(self._ioloop, key)
+
+    def add_handler(self, *args, **kwargs):
+        try:
+            self._ioloop.add_handler(*args, **kwargs)
+        except Exception:
+            reraise(*sys.exc_info())
+
+    def start(self, *args, **kwargs):
+        self._ioloop.start()
+
+    def stop(self, *args, **kwargs):
+        self._ioloop._salt_started_called = False
+        self._ioloop.stop()
+
+    def close(self, *args, **kwargs):
+        self._ioloop.close()
+
+    def run_sync(self, func, timeout=None):
+        self._ioloop.run_sync(func, timeout=timeout)
+
+    def is_running(self):
+        return self._io_loop.is_running()
 
 
 class SyncWrapper(object):
@@ -45,7 +108,7 @@ class SyncWrapper(object):
         if kwargs is None:
             kwargs = {}
 
-        self.io_loop = zeromq.ZMQDefaultLoop()
+        self.io_loop = salt.utils.zeromq.ZMQDefaultLoop()
         kwargs['io_loop'] = self.io_loop
 
         with current_ioloop(self.io_loop):
