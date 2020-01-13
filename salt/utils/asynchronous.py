@@ -58,10 +58,6 @@ class IOLoop(object):
             '_ioloop',
             self._current()
         )
-        self.sync_runner_cls = kwargs.get(
-            'sync_runner_cls',
-            ThreadedSyncRunner
-        )
         self.sync_runner = None
 
     def __getattr__(self, key):
@@ -70,8 +66,8 @@ class IOLoop(object):
     def add_handler(self, *args, **kwargs):
         try:
             self._ioloop.add_handler(*args, **kwargs)
-        except Exception:
-            reraise(*sys.exc_info())
+        except Exception:  # pylint: disable=broad-except
+            six.reraise(*sys.exc_info())
 
     def start(self, *args, **kwargs):
         self._ioloop.start()
