@@ -17,9 +17,10 @@ import tornado.gen
 import tornado.netutil
 import tornado.concurrent
 from tornado.locks import Lock
-from tornado.ioloop import IOLoop, TimeoutError as TornadoTimeoutError
+from tornado.ioloop import TimeoutError as TornadoTimeoutError
 from tornado.iostream import IOStream, StreamClosedError
 # Import Salt libs
+import salt.utils.asynchronous
 import salt.utils.msgpack
 import salt.transport.client
 import salt.transport.frame
@@ -108,7 +109,7 @@ class IPCServer(object):
 
         # Placeholders for attributes to be populated by method calls
         self.sock = None
-        self.io_loop = io_loop or IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self._closing = False
 
     def start(self):
@@ -256,7 +257,7 @@ class IPCClient(object):
         to the server.
 
         '''
-        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self.socket_path = socket_path
         self._closing = False
         self.stream = None
@@ -384,12 +385,13 @@ class IPCMessageClient(IPCClient):
 
     # Import Tornado libs
     import tornado.ioloop
+    import salt.utils.asynchronous
 
     # Import Salt libs
     import salt.config
     import salt.transport.ipc
 
-    io_loop = tornado.ioloop.IOLoop.current()
+    io_loop = salt.utils.asynchronous.IOLoop()
 
     ipc_server_socket_path = '/var/run/ipc_server.ipc'
 
@@ -430,12 +432,12 @@ class IPCMessageServer(IPCServer):
     a console:
 
         # Import Tornado libs
-        import tornado.ioloop
+        import salt.utils.asynchronous
 
         # Import Salt libs
         import salt.transport.ipc
 
-        io_loop = tornado.ioloop.IOLoop.current()
+        io_loop = salt.utils.asynchronous.IOLoop()
         ipc_server_socket_path = '/var/run/ipc_server.ipc'
         ipc_server = salt.transport.ipc.IPCMessageServer(ipc_server_socket_path, io_loop=io_loop,
                                                          payload_handler=print_to_console)
@@ -478,7 +480,7 @@ class IPCMessagePublisher(object):
 
         # Placeholders for attributes to be populated by method calls
         self.sock = None
-        self.io_loop = io_loop or IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self._closing = False
         self.streams = set()
 
