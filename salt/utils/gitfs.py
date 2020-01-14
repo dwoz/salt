@@ -19,7 +19,6 @@ import stat
 import subprocess
 import sys
 import time
-import tornado.ioloop
 import weakref
 from datetime import datetime
 

@@ -362,7 +362,7 @@ class SaltMessageClientCleanupTest(TestCase, AdaptedConfigurationTestCaseMixin):
 
         orig_loop.stop = stop
         try:
-            assert client.io_loop == orig_loop
+            assert client.io_loop._ioloop == orig_loop
             client.io_loop.run_sync(client.connect)
 
             # Ensure we are testing the _read_until_future and io_loop teardown
