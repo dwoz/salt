@@ -226,7 +226,7 @@ class SaltEvent(object):
             self.io_loop = io_loop
             self._run_io_loop_sync = False
         else:
-            self.io_loop = tornado.ioloop.IOLoop()
+            self.io_loop = salt.utils.asynchronous.IOLoop()
             self._run_io_loop_sync = True
         self.cpub = False
         self.cpush = False
@@ -966,7 +966,7 @@ class AsyncEventPublisher(object):
         default_minion_sock_dir = self.opts['sock_dir']
         self.opts.update(opts)
 
-        self.io_loop = io_loop or tornado.ioloop.IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self._closing = False
 
         hash_type = getattr(hashlib, self.opts['hash_type'])
@@ -1098,7 +1098,7 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
         Bind the pub and pull sockets for events
         '''
         salt.utils.process.appendproctitle(self.__class__.__name__)
-        self.io_loop = tornado.ioloop.IOLoop()
+        self.io_loop = salt.utils.asynchronous.IOLoop()
         with salt.utils.asynchronous.current_ioloop(self.io_loop):
             if self.opts['ipc_mode'] == 'tcp':
                 epub_uri = int(self.opts['tcp_master_pub_port'])
