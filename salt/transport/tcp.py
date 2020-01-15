@@ -771,7 +771,7 @@ class SaltMessageServer(tornado.tcpserver.TCPServer, object):
     messages that are sent through to us
     '''
     def __init__(self, message_handler, *args, **kwargs):
-        io_loop = kwargs.get('io_loop', None) or salt.utils.asynchronous.IOLoop()
+        io_loop = kwargs.pop('io_loop', None) or salt.utils.asynchronous.IOLoop()
         super(SaltMessageServer, self).__init__(*args, **kwargs)
         self.io_loop = io_loop
         self.clients = []

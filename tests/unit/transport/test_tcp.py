@@ -16,6 +16,7 @@ from tornado.testing import AsyncTestCase, gen_test
 
 import salt.config
 from salt.ext import six
+import salt.utils.asynchronous
 import salt.utils.platform
 import salt.utils.process
 import salt.transport.server
