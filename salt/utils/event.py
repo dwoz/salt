@@ -226,7 +226,7 @@ class SaltEvent(object):
             self.io_loop = io_loop
             self._run_io_loop_sync = False
         else:
-            self.io_loop = salt.utils.asynchronous.IOLoop()
+            self.io_loop = tornado.ioloop.IOLoop()
             self._run_io_loop_sync = True
         self.cpub = False
         self.cpush = False
