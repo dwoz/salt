@@ -681,9 +681,9 @@ class AsyncAuth(object):
             with salt.transport.client.AsyncReqChannel.factory(
                     self.opts, crypt='clear', io_loop=self.io_loop) as channel:
                 auth = yield self._sign_in(channel, timeout, safe, tries)
-        raise tornado.gen.Return(auth)
+        raise salt.ext.tornado.gen.Return(auth)
 
-    @tornado.gen.coroutine
+    @salt.ext.tornado.gen.coroutine
     def _sign_in(self, channel, timeout=60, safe=True, tries=1):
         auth = {}
 

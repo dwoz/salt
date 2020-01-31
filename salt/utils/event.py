@@ -360,7 +360,7 @@ class SaltEvent(object):
                 try:
                     self.subscriber.connect(timeout=timeout)
                     self.cpub = True
-                except tornado.iostream.StreamClosedError:
+                except salt.ext.tornado.iostream.StreamClosedError:
                     log.trace("Subscriber connect saw stream closed.")
                 except Exception:
                     log.exception(
@@ -409,7 +409,7 @@ class SaltEvent(object):
                 try:
                     self.pusher.connect(timeout=timeout)
                     self.cpush = True
-                except tornado.iostream.StreamClosedError:
+                except salt.ext.tornado.iostream.StreamClosedError:
                     log.trace("Pusher connect saw stream closed.")
                 except Exception:
                     log.exception(

@@ -15,7 +15,7 @@ import sys
 import salt.ext.tornado.ioloop
 import salt.ext.tornado.concurrent
 import contextlib
-import tornado.gen
+import salt.ext.tornado.gen
 
 from salt.ext.six import reraise
 import salt.utils.zeromq
@@ -32,7 +32,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-OLD_TORNADO = salt.utils.versions.LooseVersion(tornado.version) < salt.utils.versions.LooseVersion('5.0')
+OLD_TORNADO = salt.utils.versions.LooseVersion(salt.ext.tornado.version) < salt.utils.versions.LooseVersion('5.0')
 
 USES_ASYNCIO = (
     HAS_ASYNCIO and not OLD_TORNADO
@@ -71,7 +71,7 @@ class ThreadedSyncRunner(object):
 
     def __init__(self, io_loop=None, lock=None):
         if io_loop is None:
-            self.io_loop = tornado.ioloop.IOLoop()
+            self.io_loop = salt.ext.tornado.ioloop.IOLoop()
         else:
             self.io_loop = io_loop
         if lock is None:
@@ -114,18 +114,18 @@ class IOLoop(object):
 
     @classmethod
     def _current(cls):
-        loop = tornado.ioloop.IOLoop.current()
+        loop = salt.ext.tornado.ioloop.IOLoop.current()
         if not hasattr(loop, '_salt_started_called'):
             loop._salt_started_called = False
             loop._salt_pid = os.getpid()
             loop._salt_close_called = False
         if loop._salt_pid != os.getpid() or cls._is_closed(loop):  # or loop._pid != loop._salt_pid:
-            tornado.ioloop.IOLoop.clear_current()
+            salt.ext.tornado.ioloop.IOLoop.clear_current()
             if not cls._is_closed(loop):
                 loop.close()
             if hasattr(loop, '_impl'):
                 del loop._impl
-            loop = tornado.ioloop.IOLoop()
+            loop = salt.ext.tornado.ioloop.IOLoop()
             loop._salt_started_called = False
             loop._salt_pid = os.getpid()
             loop._salt_close_called = False
@@ -227,7 +227,7 @@ class SyncWrapper(object):
 
     def __init__(self, cls, args=None, kwargs=None, async_methods=None,
             close_methods=None, loop_kwarg=None):
-        self.io_loop = tornado.ioloop.IOLoop()
+        self.io_loop = salt.ext.tornado.ioloop.IOLoop()
         if args is None:
             args = []
         if kwargs is None:
