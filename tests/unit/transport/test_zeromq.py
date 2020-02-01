@@ -96,15 +96,7 @@ class BaseZMQReqCase(TestCase, AdaptedConfigurationTestCaseMixin):
         cls.server_channel = salt.transport.server.ReqServerChannel.factory(cls.master_config)
         cls.server_channel.pre_fork(cls.process_manager)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-        cls.io_loop = salt.ext.tornado.ioloop.IOLoop()
-=======
         cls.io_loop = salt.utils.asynchronous.IOLoop()
->>>>>>> Tornado 5.0 WIP
-=======
-        cls.io_loop = zmq.eventloop.ioloop.ZMQIOLoop()
->>>>>>> Use regular loops for transport unit tests
         cls.evt = threading.Event()
         cls.server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls.io_loop, cls.evt))
@@ -249,15 +241,7 @@ class BaseZMQPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
         cls.req_server_channel = salt.transport.server.ReqServerChannel.factory(cls.master_config)
         cls.req_server_channel.pre_fork(cls.process_manager)
 
-<<<<<<< HEAD
-        cls._server_io_loop = salt.ext.tornado.ioloop.IOLoop()
-=======
-        cls._server_io_loop = zmq.eventloop.ioloop.ZMQIOLoop()
-<<<<<<< HEAD
         cls._server_io_loop = salt.utils.asynchronous.IOLoop()
->>>>>>> Tornado 5.0 WIP
-=======
->>>>>>> Use regular loops for transport unit tests
         cls.evt = threading.Event()
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls._server_io_loop)
         cls.server_thread = threading.Thread(target=run_loop_in_thread, args=(cls._server_io_loop, cls.evt))
@@ -436,16 +420,6 @@ class PubServerChannel(TestCase, AdaptedConfigurationTestCaseMixin):
         del cls.master_config
 
     def setUp(self):
-<<<<<<< HEAD
-        # Start the event loop, even though we dont directly use this with
-        # ZeroMQPubServerChannel, having it running seems to increase the
-        # likely hood of dropped messages.
-        self.io_loop = salt.ext.tornado.ioloop.IOLoop()
-        self.io_loop.make_current()
-        self.io_loop_thread = threading.Thread(target=self.io_loop.start)
-        self.io_loop_thread.start()
-=======
->>>>>>> Tornado 5.0 WIP
         self.process_manager = salt.utils.process.ProcessManager(name='PubServer_ProcessManager')
 
     def tearDown(self):

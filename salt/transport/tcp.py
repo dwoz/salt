@@ -1116,7 +1116,7 @@ class SaltMessageClient(object):
             # TODO: Wean of __del__
             # Local reference since we might try to catch the exception after
             # tornado.iostream has been GC'ed.
-            StreamClosedError = tornado.iostream.StreamClosedError
+            StreamClosedError = salt.ext.tornado.iostream.StreamClosedError
             while not self._closing:
                 try:
                     self._read_until_future = self._stream.read_bytes(4096, partial=True)
