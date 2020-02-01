@@ -4,7 +4,7 @@ Routines to set up a minion
 '''
 # Import python libs
 from __future__ import absolute_import, print_function, with_statement, unicode_literals
-#import functools
+import functools
 import os
 import sys
 import copy
@@ -33,7 +33,7 @@ import salt.transport.client
 import salt.defaults.exitcodes
 import salt.utils.crypt
 
-#from salt.utils.ctx import RequestContext
+from salt.utils.ctx import RequestContext
 
 # pylint: enable=no-name-in-module,redefined-builtin
 import salt.ext.tornado
