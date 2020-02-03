@@ -17,6 +17,7 @@ def run_loop_in_thread(loop, evt, run_methods=None):
     '''
     Run the provided loop until an event is set
     '''
+#    loop = salt.utils.asynchronous.IOLoop()
     loop.make_current()
     for method in run_methods or []:
         method()

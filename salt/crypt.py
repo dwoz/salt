@@ -454,7 +454,7 @@ class AsyncAuth(object):
         Only create one instance of AsyncAuth per __key()
         '''
         # do we have any mapping for this io_loop
-        io_loop = io_loop or salt.ext.tornado.ioloop.IOLoop.current()
+        io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         if io_loop not in AsyncAuth.instance_map:
             AsyncAuth.instance_map[io_loop] = weakref.WeakValueDictionary()
         loop_instance_map = AsyncAuth.instance_map[io_loop]
@@ -508,7 +508,7 @@ class AsyncAuth(object):
         if not os.path.isfile(self.pub_path):
             self.get_keys()
 
-        self.io_loop = io_loop or salt.ext.tornado.ioloop.IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
 
         salt.utils.crypt.reinit_crypto()
         key = self.__key(self.opts)
@@ -532,7 +532,7 @@ class AsyncAuth(object):
                 # copied. Skip it because it will just be recreated on the
                 # new copy.
                 continue
-            setattr(result, key, copy.deepcopy(self.__dict__[key], memo))
+            setattr(result, key, copy.deepcopy(self.__dict__[key], memo), io_loop=None)
         return result
 
     @property

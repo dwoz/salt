@@ -239,7 +239,7 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
         Only create one instance of channel per __key()
         '''
         # do we have any mapping for this io_loop
-        io_loop = kwargs.get('io_loop') or salt.ext.tornado.ioloop.IOLoop.current()
+        io_loop = kwargs.get('io_loop') or salt.utils.asynchronous.IOLoop()
         if io_loop not in cls.instance_map:
             cls.instance_map[io_loop] = weakref.WeakValueDictionary()
         loop_instance_map = cls.instance_map[io_loop]
@@ -286,7 +286,7 @@ class AsyncTCPReqChannel(salt.transport.client.ReqChannel):
         # crypt defaults to 'aes'
         self.crypt = kwargs.get('crypt', 'aes')
 
-        self.io_loop = kwargs.get('io_loop') or salt.ext.tornado.ioloop.IOLoop.current()
+        self.io_loop = kwargs.get('io_loop') or salt.utils.asynchronous.IOLoop.current()
 
         if self.crypt != 'clear':
             self.auth = salt.crypt.AsyncAuth(self.opts, io_loop=self.io_loop)
@@ -443,7 +443,7 @@ class AsyncTCPPubChannel(salt.transport.mixins.auth.AESPubClientMixin, salt.tran
         self.serial = salt.payload.Serial(self.opts)
 
         self.crypt = kwargs.get('crypt', 'aes')
-        self.io_loop = kwargs.get('io_loop') or salt.ext.tornado.ioloop.IOLoop.current()
+        self.io_loop = kwargs.get('io_loop') or salt.utils.asynchronous.IOLoop.current()
         self.connected = False
         self._closing = False
         self._reconnected = False
@@ -797,7 +797,7 @@ class SaltMessageServer(salt.ext.tornado.tcpserver.TCPServer, object):
     messages that are sent through to us
     '''
     def __init__(self, message_handler, *args, **kwargs):
-        io_loop = kwargs.pop('io_loop', None) or salt.ext.tornado.ioloop.IOLoop.current()
+        io_loop = kwargs.pop('io_loop', None) or salt.ext.tornado.ioloop.IOLoop()
         super(SaltMessageServer, self).__init__(*args, **kwargs)
         self.io_loop = io_loop
         self.clients = []
@@ -1008,38 +1008,38 @@ class SaltMessageClient(object):
         if self._closing:
             return
         self._closing = True
-        if hasattr(self, '_stream') and not self._stream.closed():
-            # If _stream_return() hasn't completed, it means the IO
-            # Loop is stopped (such as when using
-            # 'salt.utils.asynchronous.SyncWrapper'). Ensure that
-            # _stream_return() completes by restarting the IO Loop.
-            # This will prevent potential errors on shutdown.
-            try:
-                orig_loop = salt.ext.tornado.ioloop.IOLoop.current()
-                self.io_loop.make_current()
-                self._stream.close()
-                if self._read_until_future is not None:
-                    # This will prevent this message from showing up:
-                    # '[ERROR   ] Future exception was never retrieved:
-                    # StreamClosedError'
-                    # This happens because the logic is always waiting to read
-                    # the next message and the associated read future is marked
-                    # 'StreamClosedError' when the stream is closed.
-                    if self._read_until_future.done():
-                        self._read_until_future.exception()
-                    if (self.io_loop != salt.ext.tornado.ioloop.IOLoop.current(instance=False)
-                            or not self._stream_return_future.done()):
-                        def null_cb(future):
-                            pass
-                        self.io_loop.add_future(
-                            self._stream_return_future,
-                            null_cb,
-                        )
-                        self.io_loop.start()
-            except Exception as e:  # pylint: disable=broad-except
-                log.info('Exception caught in SaltMessageClient.close: %s', str(e))
-            finally:
-                orig_loop.make_current()
+        #if hasattr(self, '_stream') and not self._stream.closed():
+        #    # If _stream_return() hasn't completed, it means the IO
+        #    # Loop is stopped (such as when using
+        #    # 'salt.utils.asynchronous.SyncWrapper'). Ensure that
+        #    # _stream_return() completes by restarting the IO Loop.
+        #    # This will prevent potential errors on shutdown.
+        #    try:
+        #        orig_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        #        self.io_loop.make_current()
+        #        self._stream.close()
+        #        if self._read_until_future is not None:
+        #            # This will prevent this message from showing up:
+        #            # '[ERROR   ] Future exception was never retrieved:
+        #            # StreamClosedError'
+        #            # This happens because the logic is always waiting to read
+        #            # the next message and the associated read future is marked
+        #            # 'StreamClosedError' when the stream is closed.
+        #            if self._read_until_future.done():
+        #                self._read_until_future.exception()
+        #            if (self.io_loop != salt.ext.tornado.ioloop.IOLoop.current(instance=False)
+        #                    or not self._stream_return_future.done()):
+        #                def null_cb(future):
+        #                    pass
+        #                self.io_loop.add_future(
+        #                    self._stream_return_future,
+        #                    null_cb,
+        #                )
+        #                self.io_loop.start()
+        #    except Exception as e:  # pylint: disable=broad-except
+        #        log.info('Exception caught in SaltMessageClient.close: %s', str(e))
+        #    finally:
+        #        orig_loop.make_current()
         self._tcp_client.close()
         self.io_loop = None
         self._read_until_future = None

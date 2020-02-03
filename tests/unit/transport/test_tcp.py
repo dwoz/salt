@@ -75,6 +75,7 @@ class BaseTCPReqCase(TestCase, AdaptedConfigurationTestCaseMixin):
         cls.server_channel = salt.transport.server.ReqServerChannel.factory(cls.master_config)
         cls.server_channel.pre_fork(cls.process_manager)
 
+        #cls.io_loop = salt.utils.asynchronous.IOLoop()
         cls.io_loop = salt.ext.tornado.ioloop.IOLoop()
         cls.stop = threading.Event()
 
@@ -195,7 +196,7 @@ class BaseTCPPubCase(AsyncTestCase, AdaptedConfigurationTestCaseMixin):
         # we also require req server for auth
         cls.req_server_channel = salt.transport.server.ReqServerChannel.factory(cls.master_config)
         cls.req_server_channel.pre_fork(cls.process_manager)
-        cls.io_loop = salt.utils.asynchronous.IOLoop()
+        cls.io_loop = salt.ext.transport.ioloop.IOLoop()
         cls.stop = threading.Event()
         cls.req_server_channel.post_fork(cls._handle_payload, io_loop=cls.io_loop)
         cls.server_thread = threading.Thread(
@@ -354,7 +355,7 @@ class SaltMessageClientCleanupTest(TestCase, AdaptedConfigurationTestCaseMixin):
         '''
         test message client cleanup on close
         '''
-        orig_loop = salt.ext.tornado.ioloop.IOLoop()
+        orig_loop = salt.ext.transport.ioloop.IOLoop()
         orig_loop.make_current()
         opts = self.get_temp_config('master')
         client = SaltMessageClient(opts, self.listen_on, self.port, io_loop=orig_loop)

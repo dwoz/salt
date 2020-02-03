@@ -267,7 +267,7 @@ class IPCClient(object):
         to the server.
 
         '''
-        self.io_loop = io_loop or salt.ext.tornado.ioloop.IOLoop.current()
+        self.io_loop = io_loop or salt.utils.asynchronous.IOLoop()
         self.socket_path = socket_path
         self._closing = False
         self.stream = None
