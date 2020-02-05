@@ -177,7 +177,7 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         minion = salt.minion.Minion(
             mock_opts,
             jid_queue=copy.copy(mock_jid_queue),
-            io_loop=salt.ext.tornado.ioloop.IOLoop(),
+            io_loop=salt.ext.tornado.ioloop.IOLoop.current(),
         )
         try:
             ret = minion._handle_decoded_payload(mock_data).result()
@@ -206,7 +206,7 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
             minion = salt.minion.Minion(
                 mock_opts,
                 jid_queue=copy.copy(mock_jid_queue),
-                io_loop=salt.ext.tornado.ioloop.IOLoop(),
+                io_loop=salt.ext.tornado.ioloop.IOLoop.current(),
             )
             try:
 
@@ -243,7 +243,7 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
             minion = salt.minion.Minion(
                 mock_opts,
                 jid_queue=copy.copy(mock_jid_queue),
-                io_loop=salt.ext.tornado.ioloop.IOLoop(),
+                io_loop=salt.ext.tornado.ioloop.IOLoop.current(),
             )
             try:
 
@@ -341,8 +341,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         ):
             mock_opts = self.get_config("minion", from_scratch=True)
             mock_opts["beacons_before_connect"] = True
-            io_loop = salt.ext.tornado.ioloop.IOLoop()
-            io_loop.make_current()
+            io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+            # io_loop.make_current()
             minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
             try:
 
@@ -374,8 +374,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         ):
             mock_opts = self.get_config("minion", from_scratch=True)
             mock_opts["scheduler_before_connect"] = True
-            io_loop = salt.ext.tornado.ioloop.IOLoop()
-            io_loop.make_current()
+            io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+            # io_loop.make_current()
             minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
             try:
                 try:
@@ -388,6 +388,25 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
                 self.assertTrue("beacons" not in minion.periodic_callbacks)
             finally:
                 minion.destroy()
+
+    # @slowTest
+    # def test_when_ping_interval_is_set_the_callback_should_be_added_to_periodic_callbacks(
+    #     self,
+    # ):
+    #     with patch("salt.minion.Minion.ctx", MagicMock(return_value={})), patch(
+    #         "salt.minion.Minion.sync_connect_master",
+    #         MagicMock(side_effect=RuntimeError("stop execution")),
+    #     ), patch(
+    #         "salt.utils.process.SignalHandlingProcess.start",
+    #         MagicMock(return_value=True),
+    #     ), patch(
+    #         "salt.utils.process.SignalHandlingProcess.join",
+    #         MagicMock(return_value=True),
+    #     ):
+    #         mock_opts = self.get_config("minion", from_scratch=True)
+    #         mock_opts["ping_interval"] = 10
+    #         io_loop = salt.ext.tornado.ioloop.IOLoop()
+    #         io_loop.make_current()
 
     @slowTest
     def test_when_ping_interval_is_set_the_callback_should_be_added_to_periodic_callbacks(
@@ -405,8 +424,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         ):
             mock_opts = self.get_config("minion", from_scratch=True)
             mock_opts["ping_interval"] = 10
-            io_loop = salt.ext.tornado.ioloop.IOLoop()
-            io_loop.make_current()
+            io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+            # io_loop.make_current()
             minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
             try:
                 try:
@@ -425,8 +444,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
     def test_when_passed_start_event_grains(self):
         mock_opts = self.get_config("minion", from_scratch=True)
         mock_opts["start_event_grains"] = ["os"]
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
-        io_loop.make_current()
+        io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        # io_loop.make_current()
         minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
         try:
             minion.tok = MagicMock()
@@ -444,8 +463,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
     @slowTest
     def test_when_not_passed_start_event_grains(self):
         mock_opts = self.get_config("minion", from_scratch=True)
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
-        io_loop.make_current()
+        io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        # io_loop.make_current()
         minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
         try:
             minion.tok = MagicMock()
@@ -461,8 +480,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
     def test_when_other_events_fired_and_start_event_grains_are_set(self):
         mock_opts = self.get_config("minion", from_scratch=True)
         mock_opts["start_event_grains"] = ["os"]
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
-        io_loop.make_current()
+        io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        # io_loop.make_current()
         minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
         try:
             minion.tok = MagicMock()
@@ -500,8 +519,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         Ensure gen_modules is called with the correct arguments #54429
         """
         mock_opts = self.get_config("minion", from_scratch=True)
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
-        io_loop.make_current()
+        io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        # io_loop.make_current()
         minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
 
         class MockPillarCompiler(object):
@@ -525,8 +544,8 @@ class MinionTestCase(TestCase, AdaptedConfigurationTestCaseMixin):
         mock_opts = self.get_config("minion", from_scratch=True)
         mock_opts["multiprocessing"] = True
 
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
-        io_loop.make_current()
+        io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        # io_loop.make_current()
         minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
 
         job_data = {"jid": "test-jid", "fun": "test.ping"}

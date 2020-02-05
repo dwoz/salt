@@ -20,6 +20,7 @@ import logging
 import os
 import socket
 import sys
+import threading
 
 import salt.utils.asynchronous
 
@@ -35,7 +36,7 @@ __virtualname__ = "salt_runtests"
 
 
 def __virtual__():
-    if __opts__["__role"] != "master":
+    if __opts__["__role"] not in ("master", "minion"):
         return False
     return "runtests_conn_check_port" in __opts__  # pylint: disable=undefined-variable
 
@@ -49,9 +50,17 @@ class PyTestEngine(object):
     def __init__(self, opts):
         self.opts = opts
         self.sock = None
+        self.thread = None
         self.stop_sending_events_file = opts.get("pytest_stop_sending_events_file")
 
     def start(self):
+        # Wrap the real enging start in a thread. This is needed to play nice
+        # with asyncio when the Python version is < 3.6.
+        self.thread = threading.Thread(target=self.start_target)
+        self.thread.start()
+        self.thread.join()
+
+    def start_target(self):
         self.io_loop = ioloop.IOLoop()
         self.io_loop.make_current()
         self.io_loop.add_callback(self._start)
@@ -79,7 +88,7 @@ class PyTestEngine(object):
                 self.sock, self.handle_connection,
             )
 
-        if self.opts["__role"] == "master":
+        if self.opts["__role"] in ("master", "minion"):
             yield self.fire_master_started_event()
 
     def handle_connection(self, connection, address):

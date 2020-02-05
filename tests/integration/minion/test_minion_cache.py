@@ -36,12 +36,15 @@ class BasePillarTest(ModuleCase):
             "file_ignore_glob": [],
             "pillar": pillar,
         }
+
+        @salt.ext.tornado.gen.coroutine
+        def mock_eval():
+            raise salt.ext.tornado.gen.Return(("master", None))
+
         with patch("salt.loader.grains", return_value={}), patch(
             "salt.minion.SMinion.gen_modules"
-        ), patch("salt.minion.SMinion.eval_master"), patch(
-            "salt.minion.install_zmq"
-        ), patch(
-            "salt.minion.ZMQDefaultLoop.current"
+        ), patch("salt.ext.tornado.ioloop.IOLoop.current"), patch(
+            "salt.minion.SMinion.eval_master", return_value=mock_eval()
         ):
             minion = salt.minion.SMinion(opts)
             self.assertTrue("pillar" in os.listdir(tempdir))

@@ -10,6 +10,7 @@ import salt.transport.client
 
 # Import 3rd-party libs
 from salt.ext import six
+from tests.support.helpers import run_in_thread_with_loop
 
 
 def run_loop_in_thread(loop, evt):
@@ -34,10 +35,13 @@ def run_loop_in_thread(loop, evt):
 
 
 class ReqChannelMixin(object):
+    @run_in_thread_with_loop
     def test_basic(self):
         """
         Test a variety of messages, make sure we get the expected responses
         """
+        self.setup_channel()
+        self.addCleanup(self.teardown_channel)
         msgs = [
             {"foo": "bar"},
             {"bar": "baz"},
@@ -47,10 +51,13 @@ class ReqChannelMixin(object):
             ret = self.channel.send(msg, timeout=2, tries=1)
             self.assertEqual(ret["load"], msg)
 
+    @run_in_thread_with_loop
     def test_normalization(self):
         """
         Since we use msgpack, we need to test that list types are converted to lists
         """
+        self.setup_channel()
+        self.addCleanup(self.teardown_channel)
         types = {
             "list": list,
         }
@@ -62,12 +69,16 @@ class ReqChannelMixin(object):
             for k, v in six.iteritems(ret["load"]):
                 self.assertEqual(types[k], type(v))
 
+    @run_in_thread_with_loop
     def test_badload(self):
         """
         Test a variety of bad requests, make sure that we get some sort of error
         """
+        self.setup_channel()
+        self.addCleanup(self.teardown_channel)
         msgs = ["", [], tuple()]
         for msg in msgs:
+            print(repr(self.channel))
             ret = self.channel.send(msg, timeout=2, tries=1)
             self.assertEqual(ret, "payload and load must be a dict")
 

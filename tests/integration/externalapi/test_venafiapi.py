@@ -16,7 +16,7 @@ from cryptography.x509.oid import NameOID
 from salt.ext.six import text_type
 from salt.ext.six.moves import range
 from tests.support.case import ShellCase
-from tests.support.helpers import slowTest
+from tests.support.helpers import skip_if_not_root, slowTest
 
 
 def _random_name(prefix=""):
@@ -39,6 +39,7 @@ def with_random_name(func):
     return wrapper
 
 
+@skip_if_not_root
 class VenafiTest(ShellCase):
     """
     Test the venafi runner

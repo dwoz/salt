@@ -6,11 +6,13 @@ import threading
 import time
 
 import pytest
+import salt.ext.tornado.ioloop
 import salt.utils.json
 import salt.utils.stringutils
 from salt.ext import six
 from salt.netapi.rest_tornado import saltnado
 from salt.utils.versions import StrictVersion
+from salt.utils.zeromq import ZMQDefaultLoop as ZMQIOLoop
 from salt.utils.zeromq import ZMQDefaultLoop as ZMQIOLoop
 from salt.utils.zeromq import zmq
 from tests.support.helpers import flaky, slowTest
@@ -40,6 +42,11 @@ class TestSaltAPIHandler(_SaltnadoIntegrationTestCase):
     def setUp(self):
         super(TestSaltAPIHandler, self).setUp()
         os.environ["ASYNC_TEST_TIMEOUT"] = "300"
+
+    def get_new_ioloop(self):
+        if six.PY3:
+            return salt.ext.tornado.ioloop.IOLoop()
+        return salt.ext.tornado.ioloop.IOLoop.current()
 
     def get_app(self):
         urls = [("/", saltnado.SaltAPIHandler)]

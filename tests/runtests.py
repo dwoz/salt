@@ -914,7 +914,10 @@ class SaltTestsuiteParser(SaltCoverageTestingParser):
                         and suite != "multimaster"
                         and getattr(self.options, suite)
                     ):
-                        status.append(self.run_integration_suite(**TEST_SUITES[suite]))
+                        results = self.run_integration_suite(**TEST_SUITES[suite])
+                        status.append(results)
+                        if self.options.failfast and results is False:
+                            break
             return status
         except TestDaemonStartFailed:
             self.exit(status=2)
@@ -972,6 +975,7 @@ class SaltTestsuiteParser(SaltCoverageTestingParser):
                                 suffix=os.path.basename(name),
                                 load_from_name=False,
                             )
+                            sys.stdout.flush()
                             status.append(results)
                             continue
                         if not name.startswith(("tests.multimaster.", "multimaster.")):
@@ -1095,12 +1099,15 @@ def main(**kwargs):
                 parser.start_daemons_only()
         status = parser.run_integration_tests()
         overall_status.extend(status)
-        status = parser.run_multimaster_tests()
-        overall_status.extend(status)
-        status = parser.run_unit_tests()
-        overall_status.extend(status)
-        status = parser.run_kitchen_tests()
-        overall_status.extend(status)
+        if not parser.options.failfast or False not in status:
+            status = parser.run_multimaster_tests()
+            overall_status.extend(status)
+        if not parser.options.failfast or False not in status:
+            status = parser.run_unit_tests()
+            overall_status.extend(status)
+        if not parser.options.failfast or False not in status:
+            status = parser.run_kitchen_tests()
+            overall_status.extend(status)
         false_count = overall_status.count(False)
 
         if false_count > 0:
