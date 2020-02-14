@@ -735,7 +735,7 @@ class ZeroMQReqServerChannel(salt.transport.mixins.auth.AESReqServerMixin,
 
         self.context = zmq.Context(1)
         self._socket = self.context.socket(zmq.REP)
-        self._start_zmq_monitor()
+        #self._start_zmq_monitor()
 
         if self.opts.get('ipc_mode', '') == 'tcp':
             self.w_uri = 'tcp://127.0.0.1:{0}'.format(
