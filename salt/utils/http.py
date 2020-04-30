@@ -639,7 +639,7 @@ def query(
         # TODO: Refactor this a bit, move target to module level?
         # Run tornado HTTPClient in a thread so that it does not stop the
         # current IOLoop.
-        thread_result = {}
+        thread_result = {"result": None}
 
         def target():
             try:
@@ -653,6 +653,10 @@ def query(
                 thread_result["status"] = exc.code
                 thread_result["error"] = six.text_type(exc)
             except socket.gaierror as exc:
+                if status is True:
+                    thread_result["status"] = 0
+                thread_result["error"] = six.text_type(exc)
+            except Exception as exc:
                 if status is True:
                     thread_result["status"] = 0
                 thread_result["error"] = six.text_type(exc)
