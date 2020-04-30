@@ -656,7 +656,7 @@ def query(
                 if status is True:
                     thread_result["status"] = 0
                 thread_result["error"] = six.text_type(exc)
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-except
                 if status is True:
                     thread_result["status"] = 0
                 thread_result["error"] = six.text_type(exc)

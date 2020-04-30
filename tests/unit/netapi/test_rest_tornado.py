@@ -779,6 +779,8 @@ class TestSaltRunHandler(SaltnadoTestCase):
 )  # pylint: disable=W0223
 class TestWebsocketSaltAPIHandler(SaltnadoTestCase):
     def get_app(self):
+        io_loop = salt.ext.tornado.ioloop.IOLoop()
+        io_loop.make_current()
         opts = copy.deepcopy(self.opts)
         opts.setdefault("rest_tornado", {})["websockets"] = True
         return rest_tornado.get_application(opts)
