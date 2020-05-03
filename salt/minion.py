@@ -1190,7 +1190,7 @@ class MinionManager(MinionBase):
             minion.destroy()
 
 
-class JobSpawner(salt.utils.process.MultiprocessingProcess):
+class JobSpawner(salt.utils.process.SignalHandlingProcess):
     def __init__(self, cls, job_queue, opts, **kwargs):
         super(JobSpawner, self).__init__(**kwargs)
         self.cls = cls
