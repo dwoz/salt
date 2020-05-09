@@ -469,6 +469,13 @@ class AsyncZeroMQPubChannel(
     A transport channel backed by ZeroMQ for a Salt Publisher to use to
     publish commands to connected minions
     """
+    async_methods = [
+        'connect',
+        '_decode_messages',
+    ]
+    close_methods = [
+        'close',
+    ]
 
     async_methods = [
         "connect",
