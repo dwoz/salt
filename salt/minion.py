@@ -13,6 +13,7 @@ import multiprocessing
 import os
 import random
 import signal
+import ssl
 import sys
 import threading
 import time
@@ -61,6 +62,7 @@ import salt.utils.process
 import salt.utils.schedule
 import salt.utils.ssdp
 import salt.utils.user
+import salt.utils.win_runas
 import salt.utils.zeromq
 from salt._compat import ipaddress
 from salt.config import DEFAULT_MINION_OPTS
@@ -1878,6 +1880,11 @@ class Minion(MinionBase):
         This method should be used as a threading target, start the actual
         minion side execution.
         """
+        import importlib
+
+        importlib.reload(ssl)
+        importlib.reload(salt.utils.win_runas)
+
         minion_instance.gen_modules()
         fn_ = os.path.join(minion_instance.proc_dir, data["jid"])
 
