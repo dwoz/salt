@@ -9,6 +9,7 @@ import ctypes
 import logging
 import os
 import time
+import importlib
 
 # Import Salt Libs
 from salt.exceptions import CommandExecutionError
@@ -47,6 +48,7 @@ def __virtual__():
     """
     Only load if Win32 Libraries are installed
     """
+    importlib.reload(salt.platform.win)
     if not HAS_WIN32 or not HAS_PSUTIL:
         return False, "This utility requires pywin32 and psutil"
 
