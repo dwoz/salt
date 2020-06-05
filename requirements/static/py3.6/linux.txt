@@ -94,6 +94,7 @@ azure-storage-file==1.4.0  # via azure
 azure-storage-queue==1.4.0  # via azure
 azure==4.0.0
 backports.functools-lru-cache==1.5  # via cheroot
+backports.ssl-match-hostname==3.7.0.1  # via websocket-client
 bcrypt==3.1.6             # via paramiko
 boto3==1.13.5
 boto==2.49.0
@@ -190,7 +191,7 @@ python-jose==2.0.2        # via moto
 pytz==2019.1              # via moto, tempora
 pyvmomi==6.7.1.2018.12
 pyyaml==5.1.2
-pyzmq==18.0.1 ; python_version < "3.8"
+pyzmq==18.0.1
 requests-oauthlib==1.3.0  # via msrest
 requests==2.21.0
 responses==0.10.6         # via moto
