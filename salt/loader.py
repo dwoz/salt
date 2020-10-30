@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 import traceback
+import contextvars
 import types
 from collections.abc import MutableMapping
 from zipimport import zipimporter
@@ -38,6 +39,7 @@ import salt.utils.odict
 import salt.utils.platform
 import salt.utils.stringutils
 import salt.utils.versions
+import salt.loader_context
 from salt.exceptions import LoaderError
 
 # Import 3rd-party libs
@@ -261,6 +263,7 @@ def minion_mods(
         loaded_base_name=loaded_base_name,
         static_modules=static_modules,
         extra_module_dirs=utils.module_dirs if utils else None,
+        #pack_self='__salt__',
     )
 
     ret.pack["__salt__"] = ret
@@ -384,7 +387,7 @@ def returners(opts, functions, whitelist=None, context=None, proxy=None):
     )
 
 
-def utils(opts, whitelist=None, context=None, proxy=proxy):
+def utils(opts, whitelist=None, context=None, proxy=proxy, pack_self=None):
     """
     Returns the utility modules
     """
@@ -394,6 +397,7 @@ def utils(opts, whitelist=None, context=None, proxy=proxy):
         tag="utils",
         whitelist=whitelist,
         pack={"__context__": context, "__proxy__": proxy or {}},
+        pack_self=pack_self,
     )
 
 
@@ -1197,19 +1201,25 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         proxy=None,
         virtual_funcs=None,
         extra_module_dirs=None,
+        pack_self=None,
     ):  # pylint: disable=W0231
         """
         In pack, if any of the values are None they will be replaced with an
         empty context-specific dict
         """
 
+        self.parent_loader = None
         self.inject_globals = {}
         self.pack = {} if pack is None else pack
+        for i in self.pack:
+            if isinstance(self.pack[i], salt.loader_context.NamedLoaderContext):
+                self.pack[i] = self.pack[i].value()
         if opts is None:
             opts = {}
         threadsafety = not opts.get("multiprocessing")
         self.context_dict = salt.utils.context.ContextDict(threadsafe=threadsafety)
         self.opts = self.__prep_mod_opts(opts)
+        self.pack_self = pack_self
 
         self.module_dirs = module_dirs
         self.tag = tag
@@ -1276,10 +1286,14 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         to last-minute inject globals
         """
         func = super(LazyLoader, self).__getitem__(item)
-        if self.inject_globals:
-            return global_injector_decorator(self.inject_globals)(func)
-        else:
-            return func
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if self.inject_globals:
+                run_func = global_injector_decorator(self.inject_globals)(func)
+            else:
+                run_func = func
+            return self.run(run_func, *args, **kwargs)
+        return wrapper
 
     def __getattr__(self, mod_name):
         """
@@ -1682,7 +1696,9 @@ class LazyLoader(salt.utils.lazy.LazyDict):
                         # loading using exec_module has been causing odd things
                         # with the magic dunders we pack into the loaded
                         # modules, most notably with salt-ssh's __opts__.
-                        mod = spec.loader.load_module()
+                        #print(fpath)
+                        mod = self.run(spec.loader.load_module)
+                        #mod = spec.loader.load_module()
                         # mod = importlib.util.module_from_spec(spec)
                         # spec.loader.exec_module(mod)
                         # pylint: enable=no-member
@@ -1736,14 +1752,30 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             sys.path.remove(fpath_dirname)
             self.__clean_sys_path()
 
-        if hasattr(mod, "__opts__"):
-            mod.__opts__.update(self.opts)
+        loader_context = salt.loader_context.LoaderContext()
+        if hasattr(mod, '__salt_loader__'):
+            if not isinstance(mod.__loader__, salt.loader_context.LoaderContext):
+                log.warn("Override  __salt_loader__: %s", mod)
+                mod.__loader__ = loader_context
         else:
-            mod.__opts__ = self.opts
+            mod.__loader__ = loader_context
+
+        #if hasattr(mod, "__opts__"):
+        #    mod.__opts__.update(self.opts)
+        #else:
+        mod.__opts__ = self.opts
 
         # pack whatever other globals we were asked to
         for p_name, p_value in six.iteritems(self.pack):
-            setattr(mod, p_name, p_value)
+            named_context = loader_context.named_context(p_name)
+            mod_named_context = getattr(mod, p_name, None)
+            if mod_named_context is None:
+                setattr(mod, p_name, named_context)
+            elif named_context != mod_named_context:
+                log.debug("Override  %s: %s", p_name, mod)
+                setattr(mod, p_name, named_context)
+            else:
+                setattr(mod, p_name, named_context)
 
         module_name = mod.__name__.rsplit(".", 1)[-1]
 
@@ -2069,6 +2101,37 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             return (False, module_name, error_reason, virtual_aliases)
 
         return (True, module_name, None, virtual_aliases)
+
+
+    def run(self, method, *args, **kwargs):
+        self._last_context = contextvars.copy_context()
+        return self._last_context.run(self._run_as, method, *args, **kwargs)
+
+    def _run_as(self, method, *args, **kwargs):
+        self.parent_loader = None
+        try:
+            self.parent_loader = salt.loader_context.loader_ctxvar.get()
+        except LookupError:
+            pass
+        token = salt.loader_context.loader_ctxvar.set(self)
+        try:
+            return method(*args, **kwargs)
+        finally:
+            self.parent_loader = None
+            salt.loader_context.loader_ctxvar.reset(token)
+
+    def run_in_thread(self, method, *args, **kwargs):
+        argslist = [self, method]
+        argslist.extend(args)
+        thread = threading.Thread(
+            target=self.target, args=argslist, kwargs=kwargs
+        )
+        thread.start()
+        return thread
+
+    @staticmethod
+    def target(loader, method, *args, **kwargs):
+        loader.run(method, *args, **kwargs)
 
 
 def global_injector_decorator(inject_globals):

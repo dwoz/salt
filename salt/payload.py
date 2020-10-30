@@ -25,6 +25,8 @@ from salt.exceptions import SaltDeserializationError, SaltReqTimeoutError
 # Import third party libs
 from salt.ext import six
 from salt.utils.data import CaseInsensitiveDict
+import salt.loader_context
+import collections.abc
 
 try:
     import zmq
@@ -33,6 +35,11 @@ except ImportError:
     pass
 
 log = logging.getLogger(__name__)
+
+def obj_hook(obj):
+    if isinstance(obj, salt.loader_context.NamedLoaderContext):
+        return dict(obj)
+    return obj
 
 
 def package(payload):
@@ -192,6 +199,8 @@ class Serial(object):
                 # msgpack can't handle set so translate it to tuple
                 return tuple(obj)
             elif isinstance(obj, CaseInsensitiveDict):
+                return dict(obj)
+            elif isinstance(obj, collections.abc.MutableMapping):
                 return dict(obj)
             # Nothing known exceptions found. Let msgpack raise its own.
             return obj

@@ -164,7 +164,7 @@ def items(sanitize=False):
                 out[key] = func(out[key])
         return out
     else:
-        return __grains__
+        return dict(__grains__)
 
 
 def item(*args, **kwargs):

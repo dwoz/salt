@@ -50,3 +50,5 @@ Mako
 
 # cassandra
 cassandra-driver>=2.0
+
+contextvars; python_version < '3.7'

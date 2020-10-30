@@ -1936,23 +1936,23 @@ class Minion(MinionBase):
                 ret["return"] = "ERROR executing '{0}': {1}".format(function_name, exc)
                 ret["out"] = "nested"
                 ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
-            except TypeError as exc:
-                msg = "Passed invalid arguments to {0}: {1}\n{2}".format(
-                    function_name, exc, func.__doc__ or ""
-                )
-                log.warning(msg, exc_info_on_loglevel=logging.DEBUG)
-                ret["return"] = msg
-                ret["out"] = "nested"
-                ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
-            except Exception:  # pylint: disable=broad-except
-                msg = "The minion function caused an exception"
-                log.warning(msg, exc_info_on_loglevel=True)
-                salt.utils.error.fire_exception(
-                    salt.exceptions.MinionError(msg), opts, job=data
-                )
-                ret["return"] = "{0}: {1}".format(msg, traceback.format_exc())
-                ret["out"] = "nested"
-                ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
+            #except TypeError as exc:
+            #    msg = "Passed invalid arguments to {0}: {1}\n{2}".format(
+            #        function_name, exc, func.__doc__ or ""
+            #    )
+            #    log.warning(msg, exc_info_on_loglevel=logging.DEBUG)
+            #    ret["return"] = msg
+            #    ret["out"] = "nested"
+            #    ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
+            #except Exception:  # pylint: disable=broad-except
+            #    msg = "The minion function caused an exception"
+            #    log.warning(msg, exc_info_on_loglevel=True)
+            #    salt.utils.error.fire_exception(
+            #        salt.exceptions.MinionError(msg), opts, job=data
+            #    )
+            #    ret["return"] = "{0}: {1}".format(msg, traceback.format_exc())
+            #    ret["out"] = "nested"
+            #    ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
         else:
             docs = minion_instance.functions["sys.doc"]("{0}*".format(function_name))
             if docs:
