@@ -4,6 +4,8 @@ directories for python loadable code and organizes the code into the
 plugin interfaces used by Salt.
 """
 
+import contextvars
+import copy
 import functools
 import inspect
 import logging
@@ -22,6 +24,7 @@ from zipimport import zipimporter
 import salt.config
 import salt.defaults.events
 import salt.defaults.exitcodes
+import salt.loader_context
 import salt.syspaths
 import salt.utils.args
 import salt.utils.context
@@ -253,9 +256,8 @@ def minion_mods(
         loaded_base_name=loaded_base_name,
         static_modules=static_modules,
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self="__salt__",
     )
-
-    ret.pack["__salt__"] = ret
 
     # Load any provider overrides from the configuration file providers option
     #  Note: Providers can be pkg, service, user or group - not to be confused
@@ -388,7 +390,7 @@ def returners(opts, functions, whitelist=None, context=None, proxy=None):
     )
 
 
-def utils(opts, whitelist=None, context=None, proxy=proxy):
+def utils(opts, whitelist=None, context=None, proxy=proxy, pack_self=None):
     """
     Returns the utility modules
     """
@@ -398,6 +400,7 @@ def utils(opts, whitelist=None, context=None, proxy=proxy):
         tag="utils",
         whitelist=whitelist,
         pack={"__context__": context, "__proxy__": proxy or {}},
+        pack_self=pack_self,
     )
 
 
@@ -1205,6 +1208,35 @@ class FilterDictWrapper(MutableMapping):
                 yield key.replace(self.suffix, "")
 
 
+class LoadedFunc:
+    """
+    The functions loaded by LazyLoader instances using subscript notation
+    'a[k]' will be wrapped with LoadedFunc.
+
+      - Makes sure functions are called with the correct loader's context.
+      - Provides access to a wrapped func's __global__ attribute
+
+    :param func callable: The callable to wrap.
+    :param dict loader: The loader to use in the context when the wrapped callable is called.
+    """
+
+    def __init__(self, func, loader):
+        self.func = func
+        self.loader = loader
+        functools.update_wrapper(self, func)
+
+    def __getattr__(self, name):
+        if name == "__globals__":
+            return self.func.__globals__
+
+    def __call__(self, *args, **kwargs):
+        if self.loader.inject_globals:
+            run_func = global_injector_decorator(self.loader.inject_globals)(self.func)
+        else:
+            run_func = self.func
+        return self.loader.run(run_func, *args, **kwargs)
+
+
 class LazyLoader(salt.utils.lazy.LazyDict):
     """
     A pseduo-dictionary which has a set of keys which are the
@@ -1226,6 +1258,7 @@ class LazyLoader(salt.utils.lazy.LazyDict):
     :param str virtual_funcs: The name of additional functions in the module to call to verify its functionality.
                                 If not true, the module will not load.
     :param list extra_module_dirs: A list of directories that will be able to import from
+    :param str pack_self: Pack this module into a variable by this name into modules loaded
     :returns: A LazyLoader object which functions as a dictionary. Keys are 'module.function' and values
     are function references themselves which are loaded on-demand.
     # TODO:
@@ -1249,27 +1282,31 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         proxy=None,
         virtual_funcs=None,
         extra_module_dirs=None,
+        pack_self=None,
     ):  # pylint: disable=W0231
         """
         In pack, if any of the values are None they will be replaced with an
         empty context-specific dict
         """
 
+        self.parent_loader = None
         self.inject_globals = {}
         self.pack = {} if pack is None else pack
+        for i in self.pack:
+            if isinstance(self.pack[i], salt.loader_context.NamedLoaderContext):
+                self.pack[i] = self.pack[i].value()
         if opts is None:
             opts = {}
         threadsafety = not opts.get("multiprocessing")
         self.context_dict = salt.utils.context.ContextDict(threadsafe=threadsafety)
         self.opts = self.__prep_mod_opts(opts)
+        self.pack_self = pack_self
 
         self.module_dirs = module_dirs
         self.tag = tag
         self._gc_finalizer = None
-        if loaded_base_name:
+        if loaded_base_name and loaded_base_name != LOADED_BASE_NAME:
             self.loaded_base_name = loaded_base_name
-        else:
-            self.loaded_base_name = "{}_{}".format(LOADED_BASE_NAME, id(self))
             # Remove any modules matching self.loaded_base_name that have been set to None previously
             self.clean_modules()
             # Make sure that, when this module is about to be GC'ed, we at least set any modules in
@@ -1282,6 +1319,8 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             )
             # This finalizer does not need to run when the process is exiting
             self._gc_finalizer.atexit = False
+        else:
+            self.loaded_base_name = LOADED_BASE_NAME
         self.mod_type_check = mod_type_check or _mod_type
 
         if "__context__" not in self.pack:
@@ -1352,10 +1391,7 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         to last-minute inject globals
         """
         func = super().__getitem__(item)
-        if self.inject_globals:
-            return global_injector_decorator(self.inject_globals)(func)
-        else:
-            return func
+        return LoadedFunc(func, self)
 
     def __getattr__(self, mod_name):
         """
@@ -1783,7 +1819,7 @@ class LazyLoader(salt.utils.lazy.LazyDict):
                         # loading using exec_module has been causing odd things
                         # with the magic dunders we pack into the loaded
                         # modules, most notably with salt-ssh's __opts__.
-                        mod = spec.loader.load_module()
+                        mod = self.run(spec.loader.load_module)
                         # mod = importlib.util.module_from_spec(spec)
                         # spec.loader.exec_module(mod)
                         # pylint: enable=no-member
@@ -1837,14 +1873,48 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             sys.path.remove(fpath_dirname)
             self.__clean_sys_path()
 
-        if hasattr(mod, "__opts__"):
-            mod.__opts__.update(self.opts)
+        loader_context = salt.loader_context.LoaderContext()
+        if hasattr(mod, "__salt_loader__"):
+            if not isinstance(mod.__salt_loader__, salt.loader_context.LoaderContext):
+                log.warning("Override  __salt_loader__: %s", mod)
+                mod.__salt_loader__ = loader_context
         else:
-            mod.__opts__ = self.opts
+            mod.__salt_loader__ = loader_context
+
+        if hasattr(mod, "__opts__"):
+            if not isinstance(mod.__opts__, salt.loader_context.NamedLoaderContext):
+                if not hasattr(mod, "__orig_opts__"):
+                    mod.__orig_opts__ = copy.deepcopy(mod.__opts__)
+                mod.__opts__ = copy.deepcopy(mod.__orig_opts__)
+                mod.__opts__.update(self.opts)
+        else:
+            if not hasattr(mod, "__orig_opts__"):
+                mod.__orig_opts__ = {}
+            mod.__opts__ = copy.deepcopy(mod.__orig_opts__)
+            mod.__opts__.update(self.opts)
 
         # pack whatever other globals we were asked to
         for p_name, p_value in self.pack.items():
-            setattr(mod, p_name, p_value)
+            named_context = loader_context.named_context(p_name)
+            mod_named_context = getattr(mod, p_name, None)
+            if mod_named_context is None:
+                setattr(mod, p_name, named_context)
+            elif named_context != mod_named_context:
+                log.debug("Override  %s: %s", p_name, mod)
+                setattr(mod, p_name, named_context)
+            else:
+                setattr(mod, p_name, named_context)
+
+        if self.pack_self is not None:
+            named_context = loader_context.named_context(self.pack_self)
+            mod_named_context = getattr(mod, self.pack_self, None)
+            if mod_named_context is None:
+                setattr(mod, self.pack_self, named_context)
+            elif named_context != mod_named_context:
+                log.debug("Override  %s: %s", self.pack_self, mod)
+                setattr(mod, self.pack_self, named_context)
+            else:
+                setattr(mod, self.pack_self, named_context)
 
         module_name = mod.__name__.rsplit(".", 1)[-1]
 
@@ -1852,7 +1922,7 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         module_init = getattr(mod, "__init__", None)
         if inspect.isfunction(module_init):
             try:
-                module_init(self.opts)
+                self.run(module_init, self.opts)
             except TypeError as e:
                 log.error(e)
             except Exception:  # pylint: disable=broad-except
@@ -2081,7 +2151,8 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             if hasattr(mod, "__virtual__") and inspect.isfunction(mod.__virtual__):
                 try:
                     start = time.time()
-                    virtual = getattr(mod, virtual_func)()
+                    virtual_attr = getattr(mod, virtual_func)
+                    virtual = self.run(virtual_attr)
                     if isinstance(virtual, tuple):
                         error_reason = virtual[1]
                         virtual = virtual[0]
@@ -2170,6 +2241,43 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             return (False, module_name, error_reason, virtual_aliases)
 
         return (True, module_name, None, virtual_aliases)
+
+    def run(self, method, *args, **kwargs):
+        """
+        Run the method in this loader's context
+        """
+        self._last_context = contextvars.copy_context()
+        return self._last_context.run(self._run_as, method, *args, **kwargs)
+
+    def _run_as(self, method, *args, **kwargs):
+        """
+        Handle setting up the context properly and call the method
+        """
+        self.parent_loader = None
+        try:
+            self.parent_loader = salt.loader_context.loader_ctxvar.get()
+        except LookupError:
+            pass
+        token = salt.loader_context.loader_ctxvar.set(self)
+        try:
+            return method(*args, **kwargs)
+        finally:
+            self.parent_loader = None
+            salt.loader_context.loader_ctxvar.reset(token)
+
+    def run_in_thread(self, method, *args, **kwargs):
+        """
+        Run the function in a new thread with the context of this loader
+        """
+        argslist = [self, method]
+        argslist.extend(args)
+        thread = threading.Thread(target=self.target, args=argslist, kwargs=kwargs)
+        thread.start()
+        return thread
+
+    @staticmethod
+    def target(loader, method, *args, **kwargs):
+        loader.run(method, *args, **kwargs)
 
 
 def global_injector_decorator(inject_globals):

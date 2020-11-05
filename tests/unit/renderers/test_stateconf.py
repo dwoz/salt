@@ -1,24 +1,13 @@
-# -*- coding: utf-8 -*-
-
-# Import Python libs
-from __future__ import absolute_import
-
 import os
 import os.path
 import tempfile
+from io import StringIO
 
 import salt.config
-
-# Import Salt libs
 import salt.loader
 from salt.exceptions import SaltRenderError
-
-# Import 3rd-party libs
-from salt.ext import six
-from salt.ext.six.moves import StringIO
+from tests.support.helpers import dedent
 from tests.support.runtests import RUNTIME_VARS
-
-# Import Salt Testing libs
 from tests.support.unit import TestCase
 
 REQUISITES = ["require", "require_in", "use", "use_in", "watch", "watch_in"]
@@ -109,21 +98,23 @@ test:
         )
         self.assertEqual(
             result["test"]["cmd.run"][0]["name"],
-            "echo sls_dir=path{0}to".format(os.sep),
+            "echo sls_dir=path{}to".format(os.sep),
         )
 
     def test_states_declared_with_shorthand_no_args(self):
         result = self._render_sls(
-            """
-test:
-  cmd.run:
-    - name: echo testing
-    - cwd: /
-test1:
-  pkg.installed
-test2:
-  user.present
-"""
+            dedent(
+                """
+                test:
+                  cmd.run:
+                    - name: echo testing
+                    - cwd: /
+                test1:
+                  pkg.installed
+                test2:
+                  user.present
+                """
+            )
         )
         self.assertEqual(len(result), 3)
         for args in (result["test1"]["pkg.installed"], result["test2"]["user.present"]):
@@ -179,7 +170,7 @@ state_id:
   cmd.run:
     - name: echo not renamed
     - cwd: /
-    - {0}:
+    - {}:
       - cmd: .test
 
     """.format(
@@ -206,7 +197,7 @@ state_id:
   cmd.run:
     - name: echo test
     - cwd: /
-    - {0}:
+    - {}:
       - cmd: .utils::some_state
 """.format(
                     req
@@ -248,7 +239,7 @@ state_id:
   cmd.run:
     - name: echo test
     - cwd: /
-    - {0}:
+    - {}:
       - cmd: ..utils::some_state
 """.format(
                     req
@@ -311,7 +302,7 @@ B:
         self.assertEqual(len(result), len("ABCDE") + 1)
 
         reqs = result["test.goalstate::goal"]["stateconf.set"][0]["require"]
-        self.assertEqual(set([next(six.itervalues(i)) for i in reqs]), set("ABCDE"))
+        self.assertEqual({next(iter(i.values())) for i in reqs}, set("ABCDE"))
 
     def test_implicit_require_with_goal_state(self):
         result = self._render_sls(
@@ -367,7 +358,7 @@ G:
         goal_args = result["test::goal"]["stateconf.set"]
         self.assertEqual(len(goal_args), 1)
         self.assertEqual(
-            [next(six.itervalues(i)) for i in goal_args[0]["require"]], list("ABCDEFG")
+            [next(iter(i.values())) for i in goal_args[0]["require"]], list("ABCDEFG")
         )
 
     def test_slsdir(self):

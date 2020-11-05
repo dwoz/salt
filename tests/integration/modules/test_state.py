@@ -8,6 +8,7 @@ import threading
 import time
 
 import pytest
+import salt.loader_context
 import salt.utils.atomicfile
 import salt.utils.files
 import salt.utils.path
@@ -56,7 +57,8 @@ class StateModuleTest(ModuleCase, SaltReturnAssertsMixin):
             cls.TIMEOUT = 600
             # Be sure to have everything sync'ed
             sminion = create_sminion()
-            sminion.functions.saltutil.sync_all()
+            with salt.loader_context.loader_context(sminion.functions):
+                sminion.functions.saltutil.sync_all()
         else:
             cls.TIMEOUT = 10
 

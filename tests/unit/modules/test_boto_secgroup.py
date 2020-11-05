@@ -1,6 +1,7 @@
 import os.path
 import random
 import string
+import sys
 from copy import deepcopy
 
 import salt.config
@@ -119,6 +120,7 @@ class BotoSecgroupTestCase(TestCase, LoaderModuleMockMixin):
         super().setUp()
         # __virtual__ must be caller in order for _get_conn to be injected
         boto_secgroup.__virtual__()
+        sys.modules["salt.loaded.int.utils.botomod"].__context__ = {}
 
     def test__split_rules(self):
         """

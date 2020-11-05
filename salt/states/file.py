@@ -6946,7 +6946,7 @@ def patch(
         try:
             orig_test = __opts__["test"]
             __opts__["test"] = False
-            sys.modules[__salt__["test.ping"].__module__].__opts__["test"] = False
+            sys.modules[__salt__["file.patch"].__module__].__opts__["test"] = False
             result = managed(
                 patch_file,
                 source=source_match,
@@ -6968,7 +6968,7 @@ def patch(
             log.debug("file.managed: %s", result)
         finally:
             __opts__["test"] = orig_test
-            sys.modules[__salt__["test.ping"].__module__].__opts__["test"] = orig_test
+            sys.modules[__salt__["file.patch"].__module__].__opts__["test"] = orig_test
 
         if not result["result"]:
             log.debug(
