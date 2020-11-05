@@ -3,6 +3,8 @@ Functions to work with MessagePack
 """
 import logging
 
+import salt.loader_context
+
 log = logging.getLogger(__name__)
 
 HAS_MSGPACK = False
@@ -71,6 +73,12 @@ def _sanitize_msgpack_kwargs(kwargs):
     return kwargs
 
 
+def object_hook(obj):
+    if isinstance(obj, salt.loader_context.NamedLoaderContext):
+        return dict(obj)
+    return obj
+
+
 def _sanitize_msgpack_unpack_kwargs(kwargs):
     """
     Clean up msgpack keyword arguments for unpack operations, based on
@@ -116,8 +124,11 @@ def pack(o, stream, **kwargs):
     By default, this function uses the msgpack module and falls back to
     msgpack_pure, if the msgpack is not available.
     """
+    sane_kwargs = _sanitize_msgpack_kwargs(kwargs)
+    if "default" not in sane_kwargs:
+        sane_kwargs["default"] = object_hook
     # Writes to a stream, there is no return
-    msgpack.pack(o, stream, **_sanitize_msgpack_kwargs(kwargs))
+    msgpack.pack(o, stream, **sane_kwargs)
 
 
 def packb(o, **kwargs):
@@ -130,7 +141,10 @@ def packb(o, **kwargs):
     By default, this function uses the msgpack module and falls back to
     msgpack_pure, if the msgpack is not available.
     """
-    return msgpack.packb(o, **_sanitize_msgpack_kwargs(kwargs))
+    sane_kwargs = _sanitize_msgpack_kwargs(kwargs)
+    if "default" not in sane_kwargs:
+        sane_kwargs["default"] = object_hook
+    return msgpack.packb(o, **sane_kwargs)
 
 
 def unpack(stream, **kwargs):

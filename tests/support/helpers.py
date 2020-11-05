@@ -32,6 +32,7 @@ from contextlib import contextmanager
 import pytest
 import salt.ext.tornado.ioloop
 import salt.ext.tornado.web
+import salt.loader_context
 import salt.utils.files
 import salt.utils.platform
 import salt.utils.pycrypto
@@ -1714,9 +1715,10 @@ class VirtualEnv:
 
     def _create_virtualenv(self):
         sminion = create_sminion()
-        sminion.functions.virtualenv.create(
-            self.venv_dir, python=self._get_real_python()
-        )
+        with salt.loader_context.loader_context(sminion.functions):
+            sminion.functions.virtualenv.create(
+                self.venv_dir, python=self._get_real_python()
+            )
         self.install("-U", "pip")
         # https://github.com/pypa/setuptools/issues?q=is%3Aissue+setuptools+50+
         self.install("-U", "setuptools<50.0.0")

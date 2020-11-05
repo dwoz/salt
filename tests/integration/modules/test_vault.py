@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Integration tests for the vault execution module
 """
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 import logging
 import time
@@ -32,52 +30,55 @@ class VaultTestCase(ModuleCase):
     def setUpClass(cls):
         cls.sminion = sminion = create_sminion()
         config = '{"backend": {"file": {"path": "/vault/file"}}, "default_lease_ttl": "168h", "max_lease_ttl": "720h", "disable_mlock": true}'
-        sminion.states.docker_image.present(name="vault", tag="0.9.6")
-        login_attempts = 1
-        container_created = False
-        while True:
-            if container_created:
-                sminion.states.docker_container.stopped(name="vault")
-                sminion.states.docker_container.absent(name="vault")
-            ret = sminion.states.docker_container.running(
-                name="vault",
-                image="vault:0.9.6",
-                port_bindings="8200:8200",
-                environment={
-                    "VAULT_DEV_ROOT_TOKEN_ID": "testsecret",
-                    "VAULT_LOCAL_CONFIG": config,
-                },
-            )
-            log.debug("docker_container.running return: %s", ret)
-            container_created = ret["result"]
-            time.sleep(5)
-            ret = sminion.functions.cmd.run_all(
-                cmd="{} login token=testsecret".format(VAULT_BINARY_PATH),
-                env={"VAULT_ADDR": "http://127.0.0.1:8200"},
-                hide_output=False,
-            )
-            if ret["retcode"] == 0:
-                break
-            log.debug("Vault login failed. Return: %s", ret)
-            login_attempts += 1
+        with salt.loader_context.loader_context(cls.sminion.states):
+            sminion.states.docker_image.present(name="vault", tag="0.9.6")
+            login_attempts = 1
+            container_created = False
+            with salt.loader_context.loader_context(cls.sminion.functions):
+                while True:
+                    if container_created:
+                        sminion.states.docker_container.stopped(name="vault")
+                        sminion.states.docker_container.absent(name="vault")
+                    ret = sminion.states.docker_container.running(
+                        name="vault",
+                        image="vault:0.9.6",
+                        port_bindings="8200:8200",
+                        environment={
+                            "VAULT_DEV_ROOT_TOKEN_ID": "testsecret",
+                            "VAULT_LOCAL_CONFIG": config,
+                        },
+                    )
+                    log.debug("docker_container.running return: %s", ret)
+                    container_created = ret["result"]
+                    time.sleep(5)
+                    ret = sminion.functions.cmd.run_all(
+                        cmd="{} login token=testsecret".format(VAULT_BINARY_PATH),
+                        env={"VAULT_ADDR": "http://127.0.0.1:8200"},
+                        hide_output=False,
+                    )
+                    if ret["retcode"] == 0:
+                        break
+                    log.debug("Vault login failed. Return: %s", ret)
+                    login_attempts += 1
 
-            if login_attempts >= 3:
-                raise SkipTest("unable to login to vault")
+                    if login_attempts >= 3:
+                        raise SkipTest("unable to login to vault")
 
-        ret = sminion.functions.cmd.retcode(
-            cmd="{} policy write testpolicy {}/vault.hcl".format(
-                VAULT_BINARY_PATH, RUNTIME_VARS.FILES
-            ),
-            env={"VAULT_ADDR": "http://127.0.0.1:8200"},
-        )
-        if ret != 0:
-            raise SkipTest("unable to assign policy to vault")
+                ret = sminion.functions.cmd.retcode(
+                    cmd="{} policy write testpolicy {}/vault.hcl".format(
+                        VAULT_BINARY_PATH, RUNTIME_VARS.FILES
+                    ),
+                    env={"VAULT_ADDR": "http://127.0.0.1:8200"},
+                )
+                if ret != 0:
+                    raise SkipTest("unable to assign policy to vault")
 
     @classmethod
     def tearDownClass(cls):
-        cls.sminion.states.docker_container.stopped(name="vault")
-        cls.sminion.states.docker_container.absent(name="vault")
-        cls.sminion.states.docker_image.absent(name="vault", force=True)
+        with salt.loader_context.loader_context(cls.sminion.states):
+            cls.sminion.states.docker_container.stopped(name="vault")
+            cls.sminion.states.docker_container.absent(name="vault")
+            cls.sminion.states.docker_image.absent(name="vault", force=True)
         cls.sminion = None
 
     @slowTest
@@ -153,52 +154,55 @@ class VaultTestCaseCurrent(ModuleCase):
     def setUpClass(cls):
         cls.sminion = sminion = create_sminion()
         config = '{"backend": {"file": {"path": "/vault/file"}}, "default_lease_ttl": "168h", "max_lease_ttl": "720h", "disable_mlock": true}'
-        sminion.states.docker_image.present(name="vault", tag="1.3.1")
-        login_attempts = 1
-        container_created = False
-        while True:
-            if container_created:
-                sminion.states.docker_container.stopped(name="vault")
-                sminion.states.docker_container.absent(name="vault")
-            ret = sminion.states.docker_container.running(
-                name="vault",
-                image="vault:1.3.1",
-                port_bindings="8200:8200",
-                environment={
-                    "VAULT_DEV_ROOT_TOKEN_ID": "testsecret",
-                    "VAULT_LOCAL_CONFIG": config,
-                },
-            )
-            log.debug("docker_container.running return: %s", ret)
-            container_created = ret["result"]
-            time.sleep(5)
-            ret = sminion.functions.cmd.run_all(
-                cmd="{} login token=testsecret".format(VAULT_BINARY_PATH),
-                env={"VAULT_ADDR": "http://127.0.0.1:8200"},
-                hide_output=False,
-            )
-            if ret["retcode"] == 0:
-                break
-            log.debug("Vault login failed. Return: %s", ret)
-            login_attempts += 1
+        with salt.loader_context.loader_context(cls.sminion.states):
+            sminion.states.docker_image.present(name="vault", tag="1.3.1")
+            login_attempts = 1
+            container_created = False
+            with salt.loader_context.loader_context(cls.sminion.functions):
+                while True:
+                    if container_created:
+                        sminion.states.docker_container.stopped(name="vault")
+                        sminion.states.docker_container.absent(name="vault")
+                    ret = sminion.states.docker_container.running(
+                        name="vault",
+                        image="vault:1.3.1",
+                        port_bindings="8200:8200",
+                        environment={
+                            "VAULT_DEV_ROOT_TOKEN_ID": "testsecret",
+                            "VAULT_LOCAL_CONFIG": config,
+                        },
+                    )
+                    log.debug("docker_container.running return: %s", ret)
+                    container_created = ret["result"]
+                    time.sleep(5)
+                    ret = sminion.functions.cmd.run_all(
+                        cmd="{} login token=testsecret".format(VAULT_BINARY_PATH),
+                        env={"VAULT_ADDR": "http://127.0.0.1:8200"},
+                        hide_output=False,
+                    )
+                    if ret["retcode"] == 0:
+                        break
+                    log.debug("Vault login failed. Return: %s", ret)
+                    login_attempts += 1
 
-            if login_attempts >= 3:
-                raise SkipTest("unable to login to vault")
+                    if login_attempts >= 3:
+                        raise SkipTest("unable to login to vault")
 
-        ret = sminion.functions.cmd.retcode(
-            cmd="{} policy write testpolicy {}/vault.hcl".format(
-                VAULT_BINARY_PATH, RUNTIME_VARS.FILES
-            ),
-            env={"VAULT_ADDR": "http://127.0.0.1:8200"},
-        )
-        if ret != 0:
-            raise SkipTest("unable to assign policy to vault")
+                ret = sminion.functions.cmd.retcode(
+                    cmd="{} policy write testpolicy {}/vault.hcl".format(
+                        VAULT_BINARY_PATH, RUNTIME_VARS.FILES
+                    ),
+                    env={"VAULT_ADDR": "http://127.0.0.1:8200"},
+                )
+                if ret != 0:
+                    raise SkipTest("unable to assign policy to vault")
 
     @classmethod
     def tearDownClass(cls):
-        cls.sminion.states.docker_container.stopped(name="vault")
-        cls.sminion.states.docker_container.absent(name="vault")
-        cls.sminion.states.docker_image.absent(name="vault", force=True)
+        with salt.loader_context.loader_context(cls.sminion.states):
+            cls.sminion.states.docker_container.stopped(name="vault")
+            cls.sminion.states.docker_container.absent(name="vault")
+            cls.sminion.states.docker_image.absent(name="vault", force=True)
         cls.sminion = None
 
     @slowTest

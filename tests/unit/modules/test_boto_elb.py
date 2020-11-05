@@ -1,12 +1,12 @@
 import logging
 import os.path
+import sys
 from copy import deepcopy
-
-import pkg_resources
 
 import salt.config
 import salt.loader
 import salt.modules.boto_elb as boto_elb
+import salt.utils.botomod
 import salt.utils.versions
 from salt.ext import six
 from tests.support.mixins import LoaderModuleMockMixin
@@ -28,6 +28,7 @@ except ImportError:
 
 try:
     from moto import mock_ec2_deprecated, mock_elb_deprecated
+    import pkg_resources
 
     HAS_MOTO = True
 except ImportError:
@@ -128,6 +129,7 @@ class BotoElbTestCase(TestCase, LoaderModuleMockMixin):
         TestCase.setUp(self)
         # __virtual__ must be caller in order for _get_conn to be injected
         boto_elb.__virtual__()
+        sys.modules["salt.loaded.int.utils.botomod"].__context__ = {}
 
     @mock_ec2_deprecated
     @mock_elb_deprecated
@@ -163,6 +165,7 @@ class BotoElbTestCase(TestCase, LoaderModuleMockMixin):
         boto_elb.register_instances(
             elb_name, reservations.instances[0].id, **conn_parameters
         )
+        salt.utils.botomod.__context__ = {}
         load_balancer_refreshed = conn_elb.get_all_load_balancers(elb_name)[0]
         registered_instance_ids = [
             instance.id for instance in load_balancer_refreshed.instances
