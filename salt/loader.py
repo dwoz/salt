@@ -370,10 +370,8 @@ def proxy(
             "__context__": context,
         },
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self='__proxy__',
     )
-
-    ret.pack["__proxy__"] = ret
-
     return ret
 
 
@@ -399,7 +397,7 @@ def utils(opts, whitelist=None, context=None, proxy=proxy, pack_self=None):
         opts,
         tag="utils",
         whitelist=whitelist,
-        pack={"__context__": context, "__proxy__": proxy or {}},
+        pack={"__context__": context or {}, "__proxy__": proxy or {}},
         pack_self=pack_self,
     )
 
@@ -415,8 +413,8 @@ def pillars(opts, functions, context=None):
         tag="pillar",
         pack={"__salt__": functions, "__context__": context, "__utils__": _utils},
         extra_module_dirs=_utils.module_dirs,
+        pack_self='__ext_pillar__',
     )
-    ret.pack["__ext_pillar__"] = ret
     return FilterDictWrapper(ret, ".ext_pillar")
 
 
@@ -551,8 +549,7 @@ def thorium(opts, functions, runners):
     Load the thorium runtime modules
     """
     pack = {"__salt__": functions, "__runner__": runners, "__context__": {}}
-    ret = LazyLoader(_module_dirs(opts, "thorium"), opts, tag="thorium", pack=pack)
-    ret.pack["__thorium__"] = ret
+    ret = LazyLoader(_module_dirs(opts, "thorium"), opts, tag="thorium", pack=pack, pack_self="__thorium__")
     return ret
 
 
@@ -584,8 +581,8 @@ def states(
         pack={"__salt__": functions, "__proxy__": proxy or {}},
         whitelist=whitelist,
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self="__states__",
     )
-    ret.pack["__states__"] = ret
     ret.pack["__utils__"] = utils
     ret.pack["__serializers__"] = serializers
     ret.pack["__context__"] = context
@@ -983,9 +980,8 @@ def runner(opts, utils=None, context=None, whitelist=None):
         pack={"__utils__": utils, "__context__": context},
         whitelist=whitelist,
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self='__salt__',
     )
-    # TODO: change from __salt__ to something else, we overload __salt__ too much
-    ret.pack["__salt__"] = ret
     return ret
 
 
@@ -1299,6 +1295,8 @@ class LazyLoader(salt.utils.lazy.LazyDict):
             opts = {}
         threadsafety = not opts.get("multiprocessing")
         self.context_dict = salt.utils.context.ContextDict(threadsafe=threadsafety)
+        #if '__context__' in self.pack:
+        #    print(repr(self.pack['__context__']))
         self.opts = self.__prep_mod_opts(opts)
         self.pack_self = pack_self
 

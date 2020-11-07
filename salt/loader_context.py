@@ -32,7 +32,13 @@ class NamedLoaderContext(collections.abc.MutableMapping):
 
     @property
     def loader(self):
-        return self.loader_context.loader
+        try:
+            return self.loader_context.loader
+        except LookupError:
+            print("*" * 80)
+            print(self.name)
+            print("*" * 80)
+            raise
 
     def value(self):
         if self.name == "__context__":

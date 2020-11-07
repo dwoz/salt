@@ -197,12 +197,12 @@ class NamespacedDictWrapper(MutableMapping, dict):
     """
 
     def __init__(self, d, pre_keys):  # pylint: disable=W0231
+        super().__init__(d)
         self.__dict = d
         if isinstance(pre_keys, str):
             self.pre_keys = (pre_keys,)
         else:
             self.pre_keys = pre_keys
-        super().__init__(self._dict())
 
     def _dict(self):
         r = self.__dict

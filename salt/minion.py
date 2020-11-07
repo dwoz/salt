@@ -1961,15 +1961,15 @@ class Minion(MinionBase):
                 ret["return"] = msg
                 ret["out"] = "nested"
                 ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
-            except Exception:  # pylint: disable=broad-except
-                msg = "The minion function caused an exception"
-                log.warning(msg, exc_info_on_loglevel=True)
-                salt.utils.error.fire_exception(
-                    salt.exceptions.MinionError(msg), opts, job=data
-                )
-                ret["return"] = "{}: {}".format(msg, traceback.format_exc())
-                ret["out"] = "nested"
-                ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
+            #except Exception:  # pylint: disable=broad-except
+            #    msg = "The minion function caused an exception"
+            #    log.warning(msg, exc_info_on_loglevel=True)
+            #    salt.utils.error.fire_exception(
+            #        salt.exceptions.MinionError(msg), opts, job=data
+            #    )
+            #    ret["return"] = "{}: {}".format(msg, traceback.format_exc())
+            #    ret["out"] = "nested"
+            #    ret["retcode"] = salt.defaults.exitcodes.EX_GENERIC
         else:
             docs = minion_instance.functions["sys.doc"]("{}*".format(function_name))
             if docs:

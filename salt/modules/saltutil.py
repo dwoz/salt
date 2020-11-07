@@ -84,19 +84,26 @@ def _get_top_file_envs():
     """
     Get all environments from the top file
     """
+    __opts__['pillar'] = dict(__opts__['pillar'])
+    #import pprint
+    #pprint.pprint(__opts__)
     try:
-        return __context__["saltutil._top_file_envs"]
+        ret =  __context__["saltutil._top_file_envs"]
+        log.warning("YEP1")
+        return ret
     except KeyError:
         try:
-            st_ = salt.state.HighState(__opts__, initial_pillar=__pillar__)
+            st_ = salt.state.HighState(__opts__, initial_pillar=dict(__pillar__))
             top = st_.get_top()
             if top:
                 envs = list(st_.top_matches(top).keys()) or "base"
             else:
                 envs = "base"
         except SaltRenderError as exc:
+            log.warning("YEP2")
             raise CommandExecutionError("Unable to render top file(s): {0}".format(exc))
         __context__["saltutil._top_file_envs"] = envs
+        log.warning("YEP4")
         return envs
 
 

@@ -1446,6 +1446,8 @@ class RemoteClient(Client):
         )
         # TODO: Change back to _master_tops
         # for 3002 release
+        #import pprint
+        #pprint.pprint(self.opts)
         load = {"cmd": "_ext_nodes", "id": self.opts["id"], "opts": self.opts}
         if self.auth:
             load["tok"] = self.auth.gen_token(b"salt")
