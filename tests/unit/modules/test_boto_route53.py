@@ -104,7 +104,6 @@ class BotoRoute53TestCase(TestCase, LoaderModuleMockMixin):
         # __virtual__ must be caller in order for _get_conn to be injected
         boto_route53.__virtual__()
         boto_route53.__init__(self.opts)
-        sys.modules["salt.loaded.int.utils.botomod"].__context__ = {}
 
     def tearDown(self):
         del self.opts

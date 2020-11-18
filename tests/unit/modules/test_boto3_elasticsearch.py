@@ -137,6 +137,7 @@ class Boto3ElasticsearchTestCase(TestCase, LoaderModuleMockMixin):
 
     def setup_loader_modules(self):
         self.opts = salt.config.DEFAULT_MINION_OPTS.copy()
+
         utils = salt.loader.utils(
             self.opts,
             whitelist=["boto3", "args", "systemd", "path", "platform"],
@@ -147,7 +148,6 @@ class Boto3ElasticsearchTestCase(TestCase, LoaderModuleMockMixin):
     def setUp(self):
         super().setUp()
         boto3_elasticsearch.__init__(self.opts)
-        sys.modules["salt.loaded.int.utils.boto3mod"].__context__ = {}
         del self.opts
 
         # Set up MagicMock to replace the boto3 session

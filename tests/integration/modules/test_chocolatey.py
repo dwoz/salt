@@ -1,5 +1,4 @@
 import pytest
-import salt.loader_context
 import salt.utils.path
 import salt.utils.platform
 from tests.support.case import ModuleCase
@@ -23,8 +22,7 @@ class ChocolateyModuleTest(ModuleCase):
         """
         if salt.utils.path.which("chocolatey.exe") is None:
             sminion = create_sminion()
-            with salt.loader_context.loader_context(sminion.functions):
-                sminion.functions.chocolatey.bootstrap()
+            sminion.functions.chocolatey.bootstrap()
 
     def test_list_(self):
         ret = self.run_function("chocolatey.list", narrow="adobereader", exact=True)

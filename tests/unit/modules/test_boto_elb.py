@@ -129,7 +129,6 @@ class BotoElbTestCase(TestCase, LoaderModuleMockMixin):
         TestCase.setUp(self)
         # __virtual__ must be caller in order for _get_conn to be injected
         boto_elb.__virtual__()
-        sys.modules["salt.loaded.int.utils.botomod"].__context__ = {}
 
     @mock_ec2_deprecated
     @mock_elb_deprecated

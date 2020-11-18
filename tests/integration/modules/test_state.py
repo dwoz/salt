@@ -2295,6 +2295,7 @@ class StateModuleTest(ModuleCase, SaltReturnAssertsMixin):
 
         self._add_runtime_pillar(pillar={"test": True})
         ret = self.run_function("state.sls", ["core"])
+        print(ret)
 
         for key, val in ret.items():
             self.assertEqual(

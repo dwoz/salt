@@ -18,7 +18,6 @@ class HandleErrorTest(ModuleCase):
         Handling a case when function returns anything but a dictionary type
         """
         ret = self.run_function("state.sls", ["issue-9983-handleerror"])
-        print(repr(ret))
         self.assertTrue(
             "Data must be a dictionary type" in ret[[a for a in ret][0]]["comment"]
         )
