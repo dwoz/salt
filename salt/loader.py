@@ -341,12 +341,18 @@ def engines(opts, functions, runners, utils, proxy=None):
 
 
 def proxy(
-    opts, functions=None, returners=None, whitelist=None, utils=None, context=None
+    opts,
+    functions=None,
+    returners=None,
+    whitelist=None,
+    utils=None,
+    context=None,
+    pack_self="__proxy__",
 ):
     """
     Returns the proxy module for this salt-proxy-minion
     """
-    ret = LazyLoader(
+    return LazyLoader(
         _module_dirs(opts, "proxy"),
         opts,
         tag="proxy",
@@ -357,11 +363,8 @@ def proxy(
             "__context__": context,
         },
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self=pack_self,
     )
-
-    ret.pack["__proxy__"] = ret
-
-    return ret
 
 
 def returners(opts, functions, whitelist=None, context=None, proxy=None):
@@ -402,8 +405,8 @@ def pillars(opts, functions, context=None):
         tag="pillar",
         pack={"__salt__": functions, "__context__": context, "__utils__": _utils},
         extra_module_dirs=_utils.module_dirs,
+        pack_self="__ext_pillar__",
     )
-    ret.pack["__ext_pillar__"] = ret
     return FilterDictWrapper(ret, ".ext_pillar")
 
 
@@ -568,14 +571,17 @@ def states(
         _module_dirs(opts, "states"),
         opts,
         tag="states",
-        pack={"__salt__": functions, "__proxy__": proxy or {}},
+        pack={
+            "__salt__": functions,
+            "__proxy__": proxy or {},
+            "__utils__": utils,
+            "__serializers__": serializers,
+            "__context__": context,
+        },
         whitelist=whitelist,
         extra_module_dirs=utils.module_dirs if utils else None,
+        pack_self="__states__",
     )
-    ret.pack["__states__"] = ret
-    ret.pack["__utils__"] = utils
-    ret.pack["__serializers__"] = serializers
-    ret.pack["__context__"] = context
     return ret
 
 
@@ -686,7 +692,6 @@ def grain_funcs(opts, proxy=None, context=None):
     """
     _utils = utils(opts, proxy=proxy)
     pack = {"__utils__": utils(opts, proxy=proxy), "__context__": context}
-
     ret = LazyLoader(
         _module_dirs(opts, "grains", "grain", ext_type_dirs="grains_dirs",),
         opts,
@@ -963,17 +968,16 @@ def runner(opts, utils=None, context=None, whitelist=None):
         utils = {}
     if context is None:
         context = {}
-    ret = LazyLoader(
+    return LazyLoader(
         _module_dirs(opts, "runners", "runner", ext_type_dirs="runner_dirs"),
         opts,
         tag="runners",
         pack={"__utils__": utils, "__context__": context},
         whitelist=whitelist,
         extra_module_dirs=utils.module_dirs if utils else None,
+        # TODO: change from __salt__ to something else, we overload __salt__ too much
+        pack_self="__salt__",
     )
-    # TODO: change from __salt__ to something else, we overload __salt__ too much
-    ret.pack["__salt__"] = ret
-    return ret
 
 
 def queues(opts):
@@ -1085,8 +1089,8 @@ def executors(opts, functions=None, context=None, proxy=None):
             "__context__": context or {},
             "__proxy__": proxy or {},
         },
+        pack_self="__executors__",
     )
-    executors.pack["__executors__"] = executors
     return executors
 
 

@@ -56,53 +56,29 @@ class NamedLoaderContext(collections.abc.MutableMapping):
         return self.loader.pack[self.name].get(key, default)
 
     def __getitem__(self, item):
-        if self.name == "__context__":
-            return self.loader.pack[self.name][item]
-        if self.name == self.loader.pack_self:
-            return self.loader[item]
-        return self.loader.pack[self.name][item]
+        return self.value()[item]
 
     def __contains__(self, item):
-        if self.name == "__context__":
-            return item in self.loader.pack[self.name]
-        if self.name == self.loader.pack_self:
-            return item in self.loader
-        return item in self.loader.pack[self.name]
+        return item in self.value()
 
     def __setitem__(self, item, value):
-        if self.name == "__context__":
-            self.loader.pack[self.name][item] = value
-        if self.name == self.loader.pack_self:
-            self.loader[self.name] = value
-        self.loader.pack[self.name][item] = value
+        self.value()[item] = value
 
     def __bool__(self):
         try:
             self.loader
-        except:
+        except LookupError:
             return False
         return True
 
     def __len__(self):
-        if self.name == "__context__":
-            return self.loader.pack[self.name].__len__()
-        if self.name == self.loader.pack_self:
-            return self.loader.__len__()
-        return self.loader.pack[self.name].__len__()
+        return self.value().__len__()
 
     def __iter__(self):
-        if self.name == "__context__":
-            return self.loader.pack[self.name].__iter__()
-        if self.name == self.loader.pack_self:
-            return self.loader.__iter__()
-        return self.loader.pack[self.name].__iter__()
+        return iter(self.value())
 
     def __delitem__(self, item):
-        if self.name == "__context__":
-            return self.loader.pack[self.name].__delitem__(item)
-        if self.name == self.loader.pack_self:
-            return self.loader.__delitem__(item)
-        return self.loader.pack[self.name].__delitem__(item)
+        return self.value().__delitem__(item)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -117,11 +93,7 @@ class NamedLoaderContext(collections.abc.MutableMapping):
         self.loader_context = state["loader_context"]
 
     def __getattr__(self, name):
-        if self.name == "__context__":
-            return getattr(self.loader.pack[self.name], name)
-        if self.name == self.loader.pack_self:
-            return getattr(self.loader, name)
-        return getattr(self.loader.pack[self.name], name)
+        return getattr(self.value(), name)
 
 
 class LoaderContext:

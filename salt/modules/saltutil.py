@@ -14,6 +14,7 @@ import shutil
 import signal
 import sys
 import time
+import urllib.error
 
 import salt
 import salt.client
@@ -41,11 +42,6 @@ from salt.exceptions import (
     SaltReqTimeoutError,
 )
 
-# pylint: disable=no-name-in-module
-from salt.ext import six
-from salt.ext.six.moves.urllib.error import URLError
-
-# pylint: disable=import-error
 try:
     import esky
     from esky import EskyVersionError
@@ -165,7 +161,7 @@ def update(version=None):
     if not version:
         try:
             version = app.find_update()
-        except URLError as exc:
+        except urllib.error.URLError as exc:
             ret["_error"] = "Could not connect to update_url. Error: {}".format(exc)
             return ret
     if not version:
