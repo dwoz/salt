@@ -1182,6 +1182,25 @@ class LoadedFunc:
         return self.loader.run(run_func, *args, **kwargs)
 
 
+class LoadedMod:
+    def __init__(self, mod, loader):
+        """
+        Return the wrapped func's globals via this object's __globals__
+        attribute.
+        """
+        self.mod = mod
+        self.loader = loader
+
+    def __getattr__(self, name):
+        """
+        Run the wrapped function in the loader's context.
+        """
+        attr = getattr(self.mod, name)
+        if inspect.isfunction(attr) or inspect.ismethod(attr):
+            return LoadedFunc(attr, self.loader)
+        return attr
+
+
 class LazyLoader(salt.utils.lazy.LazyDict):
     """
     A pseduo-dictionary which has a set of keys which are the
@@ -1348,7 +1367,7 @@ class LazyLoader(salt.utils.lazy.LazyDict):
                 if self._load_module(name) and mod_name in self.loaded_modules:
                     break
         if mod_name in self.loaded_modules:
-            return self.loaded_modules[mod_name]
+            return LoadedMod(self.loaded_modules[mod_name], self)
         else:
             raise AttributeError(mod_name)
 
@@ -1816,8 +1835,12 @@ class LazyLoader(salt.utils.lazy.LazyDict):
 
         # pack whatever other globals we were asked to
         for p_name, p_value in self.pack.items():
-            named_context = loader_context.named_context(p_name)
             mod_named_context = getattr(mod, p_name, None)
+            if hasattr(mod_named_context, "default"):
+                default = copy.deepcopy(mod_named_context.default)
+            else:
+                default = None
+            named_context = loader_context.named_context(p_name, default)
             if mod_named_context is None:
                 setattr(mod, p_name, named_context)
             elif named_context != mod_named_context:
@@ -1827,8 +1850,12 @@ class LazyLoader(salt.utils.lazy.LazyDict):
                 setattr(mod, p_name, named_context)
 
         if self.pack_self is not None:
-            named_context = loader_context.named_context(self.pack_self)
             mod_named_context = getattr(mod, self.pack_self, None)
+            if hasattr(mod_named_context, "default"):
+                default = copy.deepcopy(mod_named_context.default)
+            else:
+                default = None
+            named_context = loader_context.named_context(self.pack_self, default)
             if mod_named_context is None:
                 setattr(mod, self.pack_self, named_context)
             elif named_context != mod_named_context:
@@ -2176,9 +2203,11 @@ class LazyLoader(salt.utils.lazy.LazyDict):
         """
         self.parent_loader = None
         try:
-            self.parent_loader = salt.loader_context.loader_ctxvar.get()
+            current_loader = salt.loader_context.loader_ctxvar.get()
         except LookupError:
-            pass
+            current_loader = None
+        if current_loader is not self:
+            self.parent_loader = current_loader
         token = salt.loader_context.loader_ctxvar.set(self)
         try:
             return method(*args, **kwargs)

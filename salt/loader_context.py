@@ -1,5 +1,5 @@
 """
-Manage the context a module loaded by salt's loader
+Manage the context a module loaded by Salt's loader
 """
 import collections.abc
 import contextlib
@@ -26,34 +26,38 @@ class NamedLoaderContext(collections.abc.MutableMapping):
     Salt's 'magic dunders' (__salt__, __utils__, ect).
     """
 
-    def __init__(self, name, loader_context):
+    def __init__(self, name, loader_context, default=None):
         self.name = name
         self.loader_context = loader_context
+        self.default = default
 
     @property
     def loader(self):
-        return self.loader_context.loader
-
-    def value(self):
-        if self.name == "__context__":
-            return self.loader.pack[self.name]
-        if self.name == self.loader.pack_self:
-            return self.loader
-        return self.loader.pack[self.name]
+        try:
+            return self.loader_context.loader()
+        except AttributeError:
+            return None
 
     @property
     def eldest_loader(self):
-        loader = self.loader
+        if self.loader() is None:
+            return None
+        loader = self.loader()
         while loader.parent_loader is not None:
             loader = loader.parent_loader
         return loader
 
-    def get(self, key, default=None):
+    def value(self):
+        if self.loader is None:
+            return self.default
         if self.name == "__context__":
-            return self.loader.pack[self.name].get(key, default)
+            return self.eldest_loader.pack[self.name]
         if self.name == self.loader.pack_self:
-            return self.loader.get(key, default)
-        return self.loader.pack[self.name].get(key, default)
+            return self.loader
+        return self.loader.pack[self.name]
+
+    def get(self, key, default=None):
+        return self.value().get(key, default)
 
     def __getitem__(self, item):
         return self.value()[item]
@@ -75,10 +79,10 @@ class NamedLoaderContext(collections.abc.MutableMapping):
         return self.value().__len__()
 
     def __iter__(self):
-        return iter(self.value())
+        return self.value().__iter__()
 
     def __delitem__(self, item):
-        return self.value().__delitem__(item)
+        return self.value().__delitem__(key)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -86,20 +90,25 @@ class NamedLoaderContext(collections.abc.MutableMapping):
         return self.loader_context == other.loader_context and self.name == other.name
 
     def __getstate__(self):
-        return {"name": self.name, "loader_context": self.loader_context}
+        return {
+            "name": self.name,
+            "loader_context": self.loader_context,
+            "default": None,
+        }
 
     def __setstate__(self, state):
         self.name = state["name"]
         self.loader_context = state["loader_context"]
+        self.default = state["default"]
 
     def __getattr__(self, name):
-        return getattr(self.value(), name)
+        return self.value().__getattr__(name)
 
 
 class LoaderContext:
     """
     A loader context object, this object is injected at <loaded
-    module>.__salt_loader__ by the salt-loader. It is responsible for providing
+    module>.__salt_loader__ by the Salt loader. It is responsible for providing
     access to the current context's loader
     """
 
@@ -109,12 +118,14 @@ class LoaderContext:
     def __getitem__(self, item):
         return self.loader[item]
 
-    @property
     def loader(self):
-        return self.loader_ctxvar.get()
+        try:
+            return self.loader_ctxvar.get()
+        except LookupError:
+            raise AttributeError("No loader context")
 
-    def named_context(self, name, ctx_class=NamedLoaderContext):
-        return ctx_class(name, self)
+    def named_context(self, name, default=None, ctx_class=NamedLoaderContext):
+        return ctx_class(name, self, default)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -126,3 +137,6 @@ class LoaderContext:
 
     def __setstate__(self, state):
         self.loader_ctxvar = contextvars.ContextVar(state["varname"])
+
+
+loader_context = LoaderContext()
