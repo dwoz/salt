@@ -5,6 +5,16 @@ Set up the version of Salt
 import platform
 import re
 import sys
+from collections import namedtuple
+
+# pylint: disable=blacklisted-module,no-name-in-module
+from distutils.version import LooseVersion as _LooseVersion
+from distutils.version import StrictVersion as _StrictVersion
+
+from salt.exceptions import SaltException
+
+# pylint: enable=blacklisted-module,no-name-in-module
+
 
 MAX_SIZE = sys.maxsize
 VERSION_LIMIT = MAX_SIZE - 200
@@ -29,6 +39,47 @@ VERSION_LIMIT = MAX_SIZE - 200
 # ALL OTHER VERSION INFORMATION IS EXTRACTED FROM THE GIT TAGS
 #
 # <---- ATTENTION ----------------------------------------------------------------------------------------------------
+
+
+class StrictVersion(_StrictVersion):
+    def parse(self, vstring):
+        _StrictVersion.parse(self, vstring)
+
+    def _cmp(self, other):
+        if isinstance(other, str):
+            other = StrictVersion(other)
+        return _StrictVersion._cmp(self, other)
+
+
+class LooseVersion(_LooseVersion):
+    def parse(self, vstring):
+        _LooseVersion.parse(self, vstring)
+        # Convert every part of the version to string in order to be able to compare
+        self._str_version = [
+            str(vp).zfill(8) if isinstance(vp, int) else vp for vp in self.version
+        ]
+
+    def _cmp(self, other):
+        if isinstance(other, str):
+            other = LooseVersion(other)
+
+        string_in_version = False
+        for part in self.version + other.version:
+            if not isinstance(part, int):
+                string_in_version = True
+                break
+
+        if string_in_version is False:
+            return _LooseVersion._cmp(self, other)
+
+        # If we reached this far, it means at least a part of the version contains a string
+        # In python 3, strings and integers are not comparable
+        if self._str_version == other._str_version:
+            return 0
+        if self._str_version < other._str_version:
+            return -1
+        if self._str_version > other._str_version:
+            return 1
 
 
 class SaltStackVersion:
@@ -788,6 +839,151 @@ def versions_report(include_salt_cloud=False):
 
     yield from info
 
+
+class RequirementNotRegistered(SaltException, AttributeError):
+    pass
+
+
+Getters = namedtuple("Getters", "module_getter, version_getter")
+
+
+def default_version_getter(module):
+    ver = None
+    if hasattr(module, "__version__"):
+        ver = module.__version__
+    if hasattr(module, "version"):
+        ver = module.version
+    if ver is None:
+        raise Exception("Version info not found")
+    elif isinstance(ver, tuple):
+        return ".".join([str(_) for _ in ver])
+    else:
+        return ver
+
+
+def default_module_getter(name):
+    try:
+        return __import__(name)
+    except ImportError:
+        pass
+
+
+class Requirement:
+    def __init__(
+        self,
+        name,
+        module_getter=default_module_getter,
+        version_getter=default_version_getter,
+        has_depend=None,
+        version=None,
+    ):
+        self.name = name
+        self.module_getter = module_getter
+        self.version_getter = version_getter
+        self.has_depend = has_depend
+        self.version = version
+        self.populate()
+
+    @property
+    def module(self):
+        return self.module_getter(self.name)
+
+    def populate(self):
+        if self.has_depend is None:
+            mod = self.module_getter(self.name)
+            if mod:
+                self.has_depend = True
+                self.version = self.version_getter(mod)
+            else:
+                self.has_depend = False
+
+    def __nonzero__(self):
+        return self.has_depend
+
+    def __eq__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver == other_ver
+
+    def __ne__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver != other_ver
+
+    def __lt__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver < other_ver
+
+    def __le__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver <= other_ver
+
+    def __gt__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver > other_ver
+
+    def __ge__(self, other):
+        other_ver = LooseVersion(other)
+        dep_ver = LooseVersion(self.version)
+        return dep_ver >= other_ver
+
+
+def msgpack_module_getter(name):
+    msgpack = None
+    try:
+        # Attempt to import msgpack
+        import msgpack
+
+        if msgpack.version >= (0, 4, 0):
+            if (
+                msgpack.loads(
+                    msgpack.dumps([1, 2, 3], use_bin_type=False), use_list=True
+                )
+                is None
+            ):
+                raise ImportError
+        else:
+            if msgpack.loads(msgpack.dumps([1, 2, 3]), use_list=True) is None:
+                raise ImportError
+    except ImportError:
+        # Fall back to msgpack_pure
+        try:
+            import msgpack_pure as msgpack  # pylint: disable=import-error
+        except ImportError:
+            return
+    return msgpack
+
+
+# To use a custom module or version getter for the depenency, map them here.
+DEPS_MAP = {
+    "msgpack": Getters(msgpack_module_getter, None),
+    "gnupg": Getters(None, None),
+}
+
+
+class Requirements:
+    def __init__(self, deps_map=None):
+        if deps_map is None:
+            self.deps_map = DEPS_MAP
+        else:
+            self.deps_map = deps_map
+
+    def __getattr__(self, val):
+        if val not in self.deps_map:
+            raise RequirementNotRegistered("Unknown dependency: {}".format(val))
+
+        module_getter, version_getter = self.deps_map[val]
+        return Requirement(
+            val,
+            module_getter or default_module_getter,
+            version_getter or default_version_getter,
+        )
+
+
+reqs = Requirements()
 
 if __name__ == "__main__":
     print(__version__)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     :codeauthor: Pedro Algarvio (pedro@algarvio.me)
 
@@ -9,19 +8,32 @@
     Test salt's regex git describe version parsing
 """
 
-# Import python libs
-from __future__ import absolute_import
 
+import os
 import re
+import shutil
+import sys
+import tempfile
 
+import salt.utils.files
 import salt.version
-
-# Import Salt libs
-from salt.version import SaltStackVersion, system_information, versions_report
+from salt.version import (
+    Getters,
+    Requirement,
+    RequirementNotRegistered,
+    Requirements,
+    SaltStackVersion,
+    default_module_getter,
+    default_version_getter,
+    system_information,
+    versions_report,
+)
 from tests.support.mock import MagicMock, patch
-
-# Import Salt Testing libs
 from tests.support.unit import TestCase, skipIf
+
+TEST_MOD = """
+__version__ = (1, 2, 3)
+"""
 
 
 class VersionTestCase(TestCase):
@@ -125,13 +137,11 @@ class VersionTestCase(TestCase):
         Validate padding in versions report is correct
         """
         # Get a set of all version report name lenghts including padding
-        line_lengths = set(
-            [
-                len(line.split(":")[0])
-                for line in list(versions_report())[4:]
-                if line != " " and line != "System Versions:"
-            ]
-        )
+        line_lengths = {
+            len(line.split(":")[0])
+            for line in list(versions_report())[4:]
+            if line != " " and line != "System Versions:"
+        }
         # Check that they are all the same size (only one element in the set)
         assert len(line_lengths) == 1
 
@@ -157,7 +167,7 @@ class VersionTestCase(TestCase):
         ver = SaltStackVersion(major=maj_ver, minor=min_ver)
         assert ver.minor == min_ver
         assert not ver.bugfix
-        assert ver.string == "{0}.{1}".format(maj_ver, min_ver)
+        assert ver.string == "{}.{}".format(maj_ver, min_ver)
 
     def test_string_new_version_minor_as_string(self):
         """
@@ -170,7 +180,7 @@ class VersionTestCase(TestCase):
         ver = SaltStackVersion(major=maj_ver, minor=min_ver)
         assert ver.minor == int(min_ver)
         assert not ver.bugfix
-        assert ver.string == "{0}.{1}".format(maj_ver, min_ver)
+        assert ver.string == "{}.{}".format(maj_ver, min_ver)
 
         # This only seems to happen on a cloned repo without its tags
         maj_ver = "3000"
@@ -190,7 +200,7 @@ class VersionTestCase(TestCase):
         min_ver = "2"
         ver = SaltStackVersion(major=maj_ver, minor=min_ver)
         assert ver.bugfix == 0
-        assert ver.string == "{0}.{1}.0".format(maj_ver, min_ver)
+        assert ver.string == "{}.{}.0".format(maj_ver, min_ver)
 
     def test_noc_info(self):
         """
@@ -427,3 +437,112 @@ class VersionTestCase(TestCase):
             versions = [item for item in system_information()]
             version = ("version", "2016Server 10.0.14393 SP0 Multiprocessor Free")
             self.assertIn(version, versions)
+
+
+class TestGetters(TestCase):
+    def test_default_module_getter(self):
+        mod = default_module_getter("socket")
+        assert mod is not None
+        assert mod.__name__ == "socket"
+
+    def test_default_module_getter_noexist(self):
+        mod = default_module_getter("this_module_does_not_exist")
+        assert mod is None
+
+    def test_default_version_getter_version(self):
+        class mock:
+            version = "1.2.1"
+
+        assert default_version_getter(mock) == "1.2.1"
+
+    def test_default_version_getter___version__(self):
+        class mock:
+            __version__ = "1.2.1"
+
+        assert default_version_getter(mock) == "1.2.1"
+
+    def test_default_version_getter_str(self):
+        class mock:
+            __version__ = "1.2.1"
+
+        assert default_version_getter(mock) == "1.2.1"
+
+    def test_default_version_getter_tuple(self):
+        class mock:
+            __version__ = (1, 2, 1)
+
+        assert default_version_getter(mock) == "1.2.1"
+
+
+class TestRequirement(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.mkdtemp()
+        cls.mod_path = os.path.join(cls.tmpdir, "test_module.py")
+        with salt.utils.files.fopen(cls.mod_path, "w") as fp:
+            fp.write(TEST_MOD)
+        sys.path.append(cls.tmpdir)
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.path.remove(cls.tmpdir)
+        shutil.rmtree(cls.tmpdir)
+
+    def test_depenency_exists(self):
+        dep = Requirement("test_module")
+        assert dep.has_depend is True
+        assert dep
+
+    def test_depenency_does_not_exist(self):
+        dep = Requirement("test_module_does_not_exit")
+        assert dep.has_depend is False
+        assert not dep
+
+    def test_depenency_version_eq(self):
+        dep = Requirement("test_module")
+        assert dep == "1.2.3"
+
+    def test_depenency_version_ne(self):
+        dep = Requirement("test_module")
+        assert dep != "1.2.3" is False
+        assert dep != "1.2.3.1"
+
+    def test_depenency_version_lt(self):
+        dep = Requirement("test_module")
+        assert dep < "1.2.3.1"
+
+    def test_depenency_version_le(self):
+        dep = Requirement("test_module")
+        assert dep <= "1.2.3"
+        assert dep <= "1.2.3.1"
+
+    def test_depenency_version_gt(self):
+        dep = Requirement("test_module")
+        assert dep > "1.2.3" is False
+        assert dep > "1.2.2"
+        assert dep > "1.2.2.1"
+
+    def test_depenency_version_ge(self):
+        dep = Requirement("test_module")
+        assert dep >= "1.2.3"
+        assert dep >= "1.2.3.1" is False
+        assert dep >= "1.2.4" is False
+
+
+class TestDepends(TestCase):
+    def test_depends_custom_getters(self):
+        def my_module_getter(name):
+            return True
+
+        def my_version_getter(mod):
+            return "1.2.3"
+
+        deps_map = {"foobar": Getters(my_module_getter, my_version_getter)}
+        reqs = Requirements(deps_map)
+        assert reqs.foobar
+        assert reqs.foobar == "1.2.3"
+
+    def test_depends_not_registered(self):
+        reqs = Requirements()
+        with self.assertRaises(RequirementNotRegistered):
+            reqs.module_not_registered == "0.0.0"  # pylint: disable=pointless-statement
