@@ -21,8 +21,8 @@ import time
 import salt.utils.files
 import salt.utils.path
 import salt.utils.stringutils
+import salt.version
 from salt.exceptions import SaltInvocationError
-from salt.utils.versions import LooseVersion as _LooseVersion
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -66,14 +66,8 @@ VERIFY_TRUST_LEVELS = {
     "4": "Ultimate",
 }
 
-GPG_1_3_1 = False
-try:
+if salt.version.reqs.gnupg:
     import gnupg
-
-    HAS_GPG_BINDINGS = True
-    GPG_1_3_1 = _LooseVersion(gnupg.__version__) >= _LooseVersion("1.3.1")
-except ImportError:
-    HAS_GPG_BINDINGS = False
 
 
 def _gpg():
@@ -97,7 +91,7 @@ def __virtual__():
 
     return (
         __virtualname__
-        if HAS_GPG_BINDINGS
+        if salt.version.reqs.gnupg
         else (
             False,
             "The gpg execution module cannot be loaded; the "
@@ -185,7 +179,7 @@ def _create_gpg(user=None, gnupghome=None):
     if not gnupghome:
         gnupghome = _get_user_gnupghome(user)
 
-    if GPG_1_3_1:
+    if salt.version.reqs.gnupg >= "1.3.1":
         gpg = gnupg.GPG(homedir=gnupghome)  # pylint: disable=unexpected-keyword-arg
     else:
         gpg = gnupg.GPG(gnupghome=gnupghome)
@@ -240,7 +234,7 @@ def search_keys(text, keyserver=None, user=None):
         salt '*' gpg.search_keys user@example.com keyserver=keyserver.ubuntu.com user=username
 
     """
-    if GPG_1_3_1:
+    if salt.version.reqs.gnupg >= "1.3.1":
         raise SaltInvocationError(
             "The search_keys function is not support with this version of python-gnupg."
         )
@@ -742,7 +736,7 @@ def import_key(text=None, filename=None, user=None, gnupghome=None):
 
     imported_data = gpg.import_keys(text)
 
-    if GPG_1_3_1:
+    if salt.version.reqs.gnupg >= "1.3.1":
         counts = imported_data.counts
         if counts.get("imported") or counts.get("imported_rsa"):
             ret["message"] = "Successfully imported key(s)."
@@ -1019,15 +1013,14 @@ def sign(
 
     # Check for at least one secret key to sign with
 
-    gnupg_version = _LooseVersion(gnupg.__version__)
     if text:
-        if gnupg_version >= _LooseVersion("1.3.1"):
+        if salt.version.reqs.gnupg >= "1.3.1":
             signed_data = gpg.sign(text, default_key=keyid, passphrase=gpg_passphrase)
         else:
             signed_data = gpg.sign(text, keyid=keyid, passphrase=gpg_passphrase)
     elif filename:
         with salt.utils.files.flopen(filename, "rb") as _fp:
-            if gnupg_version >= _LooseVersion("1.3.1"):
+            if salt.version.reqs.gnupg >= "1.3.1":
                 signed_data = gpg.sign(
                     text, default_key=keyid, passphrase=gpg_passphrase
                 )
@@ -1203,7 +1196,7 @@ def encrypt(
     if text:
         result = gpg.encrypt(text, recipients, passphrase=gpg_passphrase)
     elif filename:
-        if GPG_1_3_1:
+        if salt.version.reqs.gnupg >= "1.3.1":
             # This version does not allow us to encrypt using the
             # file stream # have to read in the contents and encrypt.
             with salt.utils.files.flopen(filename, "rb") as _fp:
