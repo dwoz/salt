@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 In-memory caching used by Salt
 """
-# Import Python libs
-from __future__ import absolute_import, print_function, unicode_literals
 
 import logging
 import os
 import re
 import time
 
-# Import salt libs
 import salt.config
 import salt.payload
 import salt.utils.atomicfile
@@ -18,15 +14,12 @@ import salt.utils.data
 import salt.utils.dictupdate
 import salt.utils.files
 import salt.utils.msgpack
-
-# Import third party libs
-from salt.ext.six.moves import range  # pylint: disable=import-error,redefined-builtin
 from salt.utils.zeromq import zmq
 
 log = logging.getLogger(__name__)
 
 
-class CacheFactory(object):
+class CacheFactory:
     """
     Cache which can use a number of backends
     """
@@ -89,7 +82,7 @@ class CacheDisk(CacheDict):
     """
 
     def __init__(self, ttl, path, *args, **kwargs):
-        super(CacheDisk, self).__init__(ttl, *args, **kwargs)
+        super().__init__(ttl, *args, **kwargs)
         self._path = path
         self._dict = {}
         self._read()
@@ -137,7 +130,7 @@ class CacheDisk(CacheDict):
         """
         Read in from disk
         """
-        if not salt.utils.msgpack.HAS_MSGPACK or not os.path.exists(self._path):
+        if not salt.version.reqs.msgpack or not os.path.exists(self._path):
             return
         with salt.utils.files.fopen(self._path, "rb") as fp_:
             cache = salt.utils.data.decode(
@@ -158,7 +151,7 @@ class CacheDisk(CacheDict):
         """
         Write out to disk
         """
-        if not salt.utils.msgpack.HAS_MSGPACK:
+        if not salt.version.reqs.msgpack:
             return
         # TODO Add check into preflight to ensure dir exists
         # TODO Dir hashing?
@@ -170,7 +163,7 @@ class CacheDisk(CacheDict):
             salt.utils.msgpack.dump(cache, fp_, use_bin_type=True)
 
 
-class CacheCli(object):
+class CacheCli:
     """
     Connection client for the ConCache. Should be used by all
     components that need the list of currently connected minions
@@ -213,7 +206,7 @@ class CacheCli(object):
         return min_list
 
 
-class CacheRegex(object):
+class CacheRegex:
     """
     Create a regular expression object cache for the most frequently
     used patterns to minimize compilation of the same patterns over
@@ -267,20 +260,18 @@ class CacheRegex(object):
             pass
         if len(self.cache) > self.size:
             self.sweep()
-        regex = re.compile("{0}{1}{2}".format(self.prepend, pattern, self.append))
+        regex = re.compile("{}{}{}".format(self.prepend, pattern, self.append))
         self.cache[pattern] = [1, regex, pattern, time.time()]
         return regex
 
 
-class ContextCache(object):
+class ContextCache:
     def __init__(self, opts, name):
         """
         Create a context cache
         """
         self.opts = opts
-        self.cache_path = os.path.join(
-            opts["cachedir"], "context", "{0}.p".format(name)
-        )
+        self.cache_path = os.path.join(opts["cachedir"], "context", "{}.p".format(name))
         self.serial = salt.payload.Serial(self.opts)
 
     def cache_context(self, context):
@@ -337,4 +328,4 @@ if __name__ == "__main__":
     ccli.put_cache(["test12"])
     ccli.put_cache(["test18"])
     ccli.put_cache(["test21"])
-    print("minions: {0}".format(ccli.get_cached()))
+    print("minions: {}".format(ccli.get_cached()))

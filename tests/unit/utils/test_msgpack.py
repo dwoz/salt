@@ -9,6 +9,7 @@ import sys
 from io import BytesIO
 
 import salt.utils.msgpack
+import salt.version
 from salt.ext.six.moves import range
 from salt.utils.odict import OrderedDict
 from tests.support.unit import TestCase, skipIf
@@ -23,7 +24,7 @@ except ImportError:
 raw = {"raw": False} if msgpack.version > (0, 5, 2) else {}
 
 
-@skipIf(not salt.utils.msgpack.HAS_MSGPACK, "msgpack module required for these tests")
+@skipIf(not salt.version.reqs.msgpack, "msgpack module required for these tests")
 class TestMsgpack(TestCase):
     """
     In msgpack, the following aliases exist:
