@@ -57,6 +57,7 @@ import hashlib
 import logging
 import os
 import time
+import traceback
 from collections.abc import MutableMapping
 
 import salt.config
@@ -232,7 +233,7 @@ class SaltEvent:
             self.io_loop = io_loop
             self._run_io_loop_sync = False
         else:
-            self.io_loop = salt.ext.tornado.ioloop.IOLoop()
+            self.io_loop = salt.ext.tornado.ioloop.IOLoop.current()
             self._run_io_loop_sync = True
         self.cpub = False
         self.cpush = False
@@ -839,8 +840,9 @@ class SaltEvent:
         if self.pusher is not None:
             self.close_pull()
         if self._run_io_loop_sync and not self.keep_loop:
-            log.error("** Loop close A \n%s", self.tb)
-            self.io_loop.close()
+            #log.error("** Loop close A \n%s", self.tb)
+            #self.io_loop.close()
+            pass
 
     def _fire_ret_load_specific_fun(self, load, fun_index=0):
         """
