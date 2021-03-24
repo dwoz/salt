@@ -265,6 +265,7 @@ class SaltEvent:
             # and don't read out events from the buffer on an on-going basis,
             # the buffer will grow resulting in big memory usage.
             self.connect_pub()
+        self.tb = "\n".join(traceback.format_stack())
 
     @classmethod
     def __load_cache_regex(cls):
@@ -838,6 +839,7 @@ class SaltEvent:
         if self.pusher is not None:
             self.close_pull()
         if self._run_io_loop_sync and not self.keep_loop:
+            log.error("** Loop close A \n%s", self.tb)
             self.io_loop.close()
 
     def _fire_ret_load_specific_fun(self, load, fun_index=0):
@@ -1143,6 +1145,7 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
         self.io_loop = None
         self.puller = None
         self.publisher = None
+        self.tb = "\n".join(traceback.format_stack())
 
     # __setstate__ and __getstate__ are only used on Windows.
     # We do this so that __init__ will be invoked on Windows in the child
@@ -1238,6 +1241,7 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
             self.puller.close()
             self.puller = None
         if self.io_loop is not None:
+            log.error("** Loop close B \n%s", self.tb)
             self.io_loop.close()
             self.io_loop = None
 
