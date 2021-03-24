@@ -69,6 +69,8 @@ class IPCMessagePubSubCase(salt.ext.tornado.testing.AsyncTestCase):
                 raise
         try:
             self.sub_channel.close()
+        except RuntimeError as exc:
+            pass
         except OSError as exc:
             if exc.errno != errno.EBADF:
                 # If its not a bad file descriptor error, raise

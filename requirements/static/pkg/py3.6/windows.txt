@@ -53,6 +53,7 @@ six==1.15.0               # via cheroot, pyopenssl, python-dateutil, tempora
 smmap==3.0.4              # via gitdb
 tempora==1.14.1           # via portend
 timelib==0.2.5
+tornado==5.1
 urllib3==1.24.3           # via requests
 wheel==0.36.2
 wmi==1.5.1

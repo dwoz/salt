@@ -51,7 +51,10 @@ class VendorTornadoTest(TestCase):
         )
         p.wait()
         pout = p.stdout.read().strip().decode()
-        assert pout == "salt.ext.tornado", pout
+        if salt.USE_VENDORED_TORNADO is True:
+            assert pout == "salt.ext.tornado", pout
+        else:
+            assert pout == "tornado", pout
 
     def test_regression_56063(self):
         importer = salt.TornadoImporter()

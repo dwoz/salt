@@ -5,3 +5,4 @@ MarkupSafe
 requests>=1.0.0
 distro>=1.0.1
 contextvars; python_version < '3.7'
+tornado==5.1
