@@ -71,6 +71,7 @@ def get_local_client(
     skip_perm_errors=False,
     io_loop=None,
     auto_reconnect=False,
+    keep_loop=False,
 ):
     """
     .. versionadded:: 2014.7.0
@@ -98,6 +99,7 @@ def get_local_client(
         skip_perm_errors=skip_perm_errors,
         io_loop=io_loop,
         auto_reconnect=auto_reconnect,
+        keep_loop=keep_loop,
     )
 
 
