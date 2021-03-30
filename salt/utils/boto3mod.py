@@ -30,7 +30,7 @@ import logging
 import sys
 from functools import partial
 
-import salt.loader_context
+import salt.loader.context
 import salt.utils.stringutils
 import salt.utils.versions
 from salt.exceptions import SaltInvocationError

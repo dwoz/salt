@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 
-import salt.loader_context
+import salt.loader.context
 import salt.utils.stringutils
 from salt.exceptions import SaltInvocationError
 
