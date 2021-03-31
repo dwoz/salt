@@ -55,7 +55,7 @@ log = logging.getLogger(__name__)
 
 __salt__ = None
 __virtualname__ = "boto"
-__salt_loader__ = salt.loader_context.LoaderContext()
+__salt_loader__ = salt.loader.context.LoaderContext()
 __context__ = __salt_loader__.named_context("__context__", {})
 
 
