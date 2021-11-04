@@ -7,12 +7,12 @@ import logging
 
 log = logging.getLogger(__name__)
 
-# XXX: Add depreication warnings to start using salt.channel.client
+# XXX: Add deprecation warnings to start using salt.channel.client
 
 
 class ReqChannel:
     """
-    Factory class to create a sychronous communication channels to the master's
+    Factory class to create a synchronous communication channels to the master's
     ReqServer. ReqChannels connect to the ReqServer on the ret_port (default:
     4506)
     """

@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 
 class ReqChannel:
     """
-    Factory class to create a sychronous communication channels to the master's
+    Factory class to create a synchronous communication channels to the master's
     ReqServer. ReqChannels connect to the ReqServer on the ret_port (default:
     4506)
     """
@@ -346,7 +346,7 @@ class AsyncPubChannel:
             # else take the relayed publish_port master reports
             else:
                 publish_port = self.auth.creds["publish_port"]
-            # TODO: The zeromq transport does not use connect_callback and
+            # TODO: The zeromq and rabbitmq transport does not use connect_callback and
             # disconnect_callback.
             yield self.transport.connect(
                 publish_port, self.connect_callback, self.disconnect_callback

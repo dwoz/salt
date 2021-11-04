@@ -1,10 +1,10 @@
 """
 Rabbitmq transport classes
-This is a copy/modify of zeromq implementation with zeromq-specific bits removed.
-TODO: refactor transport implementations so that tcp, zeromq, rabbitmq share common code
 """
-import errno
+import hashlib
 import logging
+import signal
+import sys
 import threading
 import time
 from typing import Any, Callable
@@ -30,55 +30,27 @@ import salt.utils.verify
 import salt.utils.versions
 import salt.utils.zeromq
 from pika import BasicProperties, SelectConnection
-from pika.exceptions import ChannelClosedByBroker
+from pika.exceptions import ChannelClosedByBroker, ConnectionClosedByBroker
 from pika.exchange_type import ExchangeType
 from pika.spec import PERSISTENT_DELIVERY_MODE
-from salt.exceptions import SaltException, SaltReqTimeoutError
+from salt.exceptions import SaltReqTimeoutError
+from salt.ext import tornado
 
 # pylint: enable=3rd-party-module-not-gated
-
-
-try:
-    from M2Crypto import RSA
-
-    HAS_M2 = True
-except ImportError:
-    HAS_M2 = False
-    try:
-        from Cryptodome.Cipher import PKCS1_OAEP
-    except ImportError:
-        from Crypto.Cipher import PKCS1_OAEP  # nosec
 
 log = logging.getLogger(__name__)
 
 
-def _get_master_uri(master_ip, master_port):
-    """
-    TODO: this method is a zeromq remnant and likely should be removed
-    """
-    from salt.utils.zeromq import ip_bracket
-
-    master_uri = "tcp://{master_ip}:{master_port}".format(
-        master_ip=ip_bracket(master_ip), master_port=master_port
-    )
-
-    return master_uri
-
-
 class RMQConnectionWrapperBase:
     def __init__(self, opts, **kwargs):
+        self.log = (
+            kwargs["log"]
+            if "log" in kwargs
+            else logging.getLogger(self.__class__.__name__)
+        )
+
         self._opts = opts
         self._validate_set_broker_topology(self._opts, **kwargs)
-
-        # TODO: think about a better way to generate queue names
-        # each possibly running on different machine
-        master_port = (
-            self._opts["master_port"]
-            if "master_port" in self._opts
-            else self._opts["ret_port"]
-        )
-        if not master_port:
-            raise KeyError("master_port must be set")
 
         self._connection = None
         self._channel = None
@@ -89,44 +61,32 @@ class RMQConnectionWrapperBase:
         Validate broker topology and set private variables. For example:
             {
                 "transport: rabbitmq",
-                "transport_rabbitmq_address": "localhost",
-                "transport_rabbitmq_auth": { "username": "user", "password": "bitnami"},
-                "transport_rabbitmq_vhost": "/",
+                "transport_rabbitmq_url": "amqp://salt:salt@localhost",
                 "transport_rabbitmq_create_topology_ondemand": "True",
                 "transport_rabbitmq_publisher_exchange_name":" "exchange_to_publish_messages",
                 "transport_rabbitmq_consumer_exchange_name": "exchange_to_bind_queue_to_receive_messages_from",
                 "transport_rabbitmq_consumer_queue_name": "queue_to_consume_messages_from",
 
-                "transport_rabbitmq_consumer_queue_declare_arguments": "",
+                "transport_rabbitmq_consumer_queue_declare_arguments": {
+                    "x-expires": 600000,
+                    "x-max-length": 10000,
+                    "x-queue-type": "quorum",
+                    "x-queue-mode": "lazy",
+                    "x-message-ttl": 259200000,
+                },
                 "transport_rabbitmq_publisher_exchange_declare_arguments": ""
                 "transport_rabbitmq_consumer_exchange_declare_arguments": ""
             }
         """
 
-        # rmq broker address
-        self._host = (
-            opts["transport_rabbitmq_address"]
-            if "transport_rabbitmq_address" in opts
-            else "localhost"
+        # rmq broker url (encodes credentials, address, vhost). See https://www.rabbitmq.com/uri-spec.html
+        self._url = (
+            opts["transport_rabbitmq_url"]
+            if "transport_rabbitmq_url" in opts
+            else "amqp://salt:salt@localhost"
         )
-        if not self._host:
-            raise ValueError("Host must be set")
-
-        # rmq broker credentials (TODO: support other types of auth. eventually)
-        creds_key = "transport_rabbitmq_auth"
-        if creds_key not in opts:
-            raise KeyError("Missing key {!r}".format(creds_key))
-        creds = opts[creds_key]
-
-        if "username" not in creds and "password" not in creds:
-            raise KeyError("username or password must be set")
-        self._creds = pika.PlainCredentials(creds["username"], creds["password"])
-
-        # rmq broker vhost
-        vhost_key = "transport_rabbitmq_vhost"
-        if vhost_key not in opts:
-            raise KeyError("Missing key {!r}".format(vhost_key))
-        self._vhost = opts[vhost_key]
+        if not self._url:
+            raise ValueError("RabbitMQ URL must be set")
 
         # optionally create the RMQ topology if instructed
         # some use cases require topology creation out-of-band with permissions
@@ -222,17 +182,19 @@ class RMQConnectionWrapperBase:
             try:
                 if self._channel and self._channel.is_open:
                     self._channel.close()
+                    self._channel = None
             except pika.exceptions.ChannelWrongStateError:
                 pass
 
             try:
                 if self._connection and self._connection.is_open:
                     self._connection.close()
+                    self._connection = None
             except pika.exceptions.ConnectionClosedByBroker:
                 pass
             self._closing = True
         else:
-            log.debug("Already closing. Do nothing")
+            self.log.debug("Already closing. Do nothing")
 
 
 class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
@@ -247,67 +209,82 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
     def __init__(self, opts, **kwargs):
         super().__init__(opts, **kwargs)
 
-        self._connect(self._host, self._creds, self._vhost)
+        self._connect(self._url)
 
         if self._create_topology_ondemand:
             try:
                 self._create_topology()
             except:
-                log.exception("Exception when creating RMQ topology.")
+                self.log.exception("Exception when creating RMQ topology.")
                 raise
         else:
             log.info("Skipping rmq topology creation.")
 
-    def _connect(self, host, creds, vhost):
-        log.debug("Connecting to host [%s] and vhost [%s]", host, vhost)
-        self._connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=host, credentials=creds, virtual_host=vhost)
-        )
+    def _connect(self, url):
+        self.log.info("Connecting to amqp broker identified by URL [%s]", self._url)
+        self._connection = pika.BlockingConnection(pika.URLParameters(url))
         self._channel = self._connection.channel()
 
     def _create_topology(self):
-        ret = self._channel.exchange_declare(
-            exchange=self._publisher_exchange_name,
-            exchange_type=ExchangeType.fanout,
-            durable=True,
-            arguments=self._publisher_exchange_declare_arguments,
-        )
-        log.info(
-            "declared publisher exchange: %s",
-            self._publisher_exchange_name,
-        )
 
-        ret = self._channel.exchange_declare(
-            exchange=self._consumer_exchange_name,
-            exchange_type=ExchangeType.fanout,
-            durable=True,
-            arguments=self._consumer_exchange_declare_arguments,
-        )
-        log.info(
-            "declared consumer exchange: %s",
-            self._consumer_exchange_name,
-        )
+        if self._publisher_exchange_name:
+            ret = self._channel.exchange_declare(
+                exchange=self._publisher_exchange_name,
+                exchange_type=ExchangeType.fanout,
+                durable=True,
+                auto_delete=True,
+                arguments=self._publisher_exchange_declare_arguments,
+            )
+            self.log.info(
+                "Declared publisher exchange: %s",
+                self._publisher_exchange_name,
+            )
+        else:
+            self.log.info("Skipping publisher exchange declaration")
 
-        ret = self._channel.queue_declare(
-            self._consumer_queue_name,
-            durable=True,
-            arguments=self._consumer_queue_declare_arguments,  # expire the quorum queue if unused
-        )
-        log.info(
-            "declared queue: %s",
-            self._consumer_queue_name,
-        )
+        if self._consumer_exchange_name:
+            ret = self._channel.exchange_declare(
+                exchange=self._consumer_exchange_name,
+                exchange_type=ExchangeType.fanout,
+                durable=True,
+                auto_delete=True,
+                arguments=self._consumer_exchange_declare_arguments,
+            )
+            self.log.info(
+                "Declared consumer exchange: %s",
+                self._consumer_exchange_name,
+            )
+        else:
+            self.log.info("Skipping consumer exchange declaration")
 
-        log.info(
-            "Binding queue [%s] to exchange [%s]",
-            self._consumer_queue_name,
-            self._consumer_exchange_name,
-        )
-        ret = self._channel.queue_bind(
-            self._consumer_queue_name,
-            self._consumer_exchange_name,
-            routing_key=self._consumer_queue_name,
-        )
+        if self._consumer_queue_name:
+            ret = self._channel.queue_declare(
+                self._consumer_queue_name,
+                durable=True,
+                arguments=self._consumer_queue_declare_arguments,
+            )
+            self.log.info(
+                "declared queue: %s",
+                self._consumer_queue_name,
+            )
+
+            self.log.info(
+                "Binding queue [%s] to exchange [%s]",
+                self._consumer_queue_name,
+                self._consumer_exchange_name,
+            )
+            ret = self._channel.queue_bind(
+                self._consumer_queue_name,
+                self._consumer_exchange_name,
+                routing_key=self._consumer_queue_name,
+            )
+            self.log.info(
+                "Bound queue [%s] to exchange [%s]",
+                self._consumer_queue_name,
+                self._consumer_exchange_name,
+            )
+        else:
+            self.log.info("Skipping consumer queue binding to consumer exchange")
 
     def publish(
         self,
@@ -334,9 +311,7 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
             try:
                 self._publish(
                     payload,
-                    exchange_name=exchange_name
-                    if exchange_name
-                    else self._publisher_exchange_name,
+                    exchange_name=exchange_name or self._publisher_exchange_name,
                     routing_key=routing_key,
                     reply_queue_name=reply_queue_name,
                 )
@@ -346,26 +321,26 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
             except pika.exceptions.ConnectionClosedByBroker:
                 # Connection may have been terminated cleanly by the broker, e.g.
                 # as a result of "rabbitmqtl" cli call. Attempt to reconnect anyway.
-                log.exception("Connection exception when publishing.")
-                log.info("Attempting to re-establish RMQ connection.")
-                self._connect(self._host, self._creds, self._vhost)
+                self.log.exception("Connection exception when publishing.")
+                self.log.info("Attempting to re-establish RMQ connection.")
+                self._connect(self._url)
             except pika.exceptions.ChannelWrongStateError:
                 # Note: RabbitMQ uses heartbeats to detect and close "dead" connections and to prevent network devices
                 # (firewalls etc.) from terminating "idle" connections.
                 # From version 3.5.5 on, the default timeout is set to 60 seconds
-                log.exception("Channel exception when publishing.")
-                log.info("Attempting to re-establish RMQ connection.")
-                self._connect(self._host, self._creds, self._vhost)
+                self.log.exception("Channel exception when publishing.")
+                self.log.info("Attempting to re-establish RMQ connection.")
+                self._connect(self._url)
 
     def _publish(
         self,
         payload,
         exchange_name=None,
-        routing_key=None,
+        routing_key="",  # must be a string
         reply_queue_name=None,
     ):
         """
-        Publishes ``payload`` to the specified ``queue_name`` (via direct exchange or via fanout/broadcast),
+        Publishes ``payload`` to the specified ``exchange_name`` (via direct exchange or via fanout/broadcast),
         passes along optional name of the reply queue in message metadata. Non-blocking.
         Alternatively, broadcasts the ``payload`` to all bound queues (via fanout exchange).
 
@@ -378,12 +353,12 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
         properties = pika.BasicProperties()
         properties.reply_to = reply_queue_name if reply_queue_name else None
         properties.app_id = str(threading.get_ident())  # use this for tracing
-        # enable perisistent message delivery
+        # enable persistent message delivery
         # see https://www.rabbitmq.com/confirms.html#publisher-confirms and
         # https://kousiknath.medium.com/dabbling-around-rabbit-mq-persistence-durability-message-routing-f4efc696098c
         properties.delivery_mode = PERSISTENT_DELIVERY_MODE
 
-        log.info(
+        self.log.info(
             "Sending payload to exchange [%s]: %s. Payload properties: %s",
             exchange_name,
             payload,
@@ -398,14 +373,14 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
                 properties=properties,  # added reply queue to the properties
                 mandatory=True,
             )
-            log.info(
+            self.log.info(
                 "Sent payload to exchange [%s] with routing_key [%s]: [%s]",
                 exchange_name,
                 routing_key,
                 payload,
             )
         except:
-            log.exception(
+            self.log.exception(
                 "Error publishing to exchange [%s] with routing_key [%s]",
                 exchange_name,
                 routing_key,
@@ -424,7 +399,7 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
         if not reply_to:
             raise ValueError("properties.reply_to must be set")
 
-        log.info(
+        self.log.info(
             "Sending reply payload with reply_to [%s]: %s. Payload properties: %s",
             reply_to,
             payload,
@@ -444,7 +419,7 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
         :param timeout:
         :return:
         """
-        log.info("Consuming payload on queue [%s]", queue_name)
+        self.log.info("Consuming payload on queue [%s]", queue_name)
 
         queue_name = queue_name or self._consumer_queue_name
         (method, properties, body) = next(
@@ -456,33 +431,35 @@ class RMQBlockingConnectionWrapper(RMQConnectionWrapperBase):
 
     def register_reply_callback(self, callback, reply_queue_name=None):
         """
-        Registers RPC reply callback
+        Registers RPC reply callback on the reply queue
         :param callback:
         :param reply_queue_name:
         :return:
         """
 
         def _callback(ch, method, properties, body):
-            log.info(
+            self.log.info(
                 "Received reply on queue [%s]: %s. Reply payload properties: %s",
                 reply_queue_name,
                 body,
                 properties,
             )
             callback(body)
-            log.info("Processed callback for reply on queue [%s]", reply_queue_name)
+            self.log.info(
+                "Processed callback for reply on queue [%s]", reply_queue_name
+            )
 
             # Stop consuming so that auto_delete queue will be deleted
             self._channel.stop_consuming()
-            log.info("Done consuming reply on queue [%s]", reply_queue_name)
+            self.log.info("Done consuming reply on queue [%s]", reply_queue_name)
 
-        log.info("Starting basic_consume reply on queue [%s]", reply_queue_name)
+        self.log.info("Starting basic_consume reply on queue [%s]", reply_queue_name)
 
         consumer_tag = self._channel.basic_consume(
             queue=reply_queue_name, on_message_callback=_callback, auto_ack=True
         )
 
-        log.info("Started basic_consume reply on queue [%s]", reply_queue_name)
+        self.log.info("Started basic_consume reply on queue [%s]", reply_queue_name)
 
     def start_consuming(self):
         """
@@ -499,33 +476,85 @@ class RMQNonBlockingConnectionWrapper(RMQConnectionWrapperBase):
     Declares and binds a queue to a fanout exchange for publishing messages.
     Caches connection and channel for reuse.
     Not thread safe.
-    TODO: implement event-based connection recovery and error handling (see rabbitmq docs for examples).
+    Implements some event-based connection recovery
     """
 
     def __init__(self, opts, io_loop=None, **kwargs):
         super().__init__(opts, **kwargs)
 
-        self._io_loop = io_loop or salt.ext.tornado.ioloop.IOLoop.instance()
-        self._io_loop.make_current()
+        self._io_loop = io_loop or tornado.ioloop.IOLoop()
 
         self._channel = None
-        self._callback = None
+        self._message_callback = None
+        self._connection_future = (
+            None  # a future that is complete when connection is ready or in error
+        )
 
-    def connect(self):
+    @salt.ext.tornado.gen.coroutine
+    def connect(self, message_callback=None):
+        """
+        Do not reconnect if we are already connected
+        :return:
+        """
+        if (
+            self._connection
+            and self._connection.is_open
+            and self._channel
+            and self._channel.is_open
+        ):
+            self.log.info("Already connected")
+            return
+
+        if message_callback:
+            self._message_callback = message_callback
+
+        self._connection_future = salt.ext.tornado.concurrent.Future()
+        res = yield self._connect()
+        return res
+
+    @salt.ext.tornado.gen.coroutine
+    def _connect(self):
         """
 
         :return:
         """
-        log.debug("Connecting to host [%s] and vhost [%s]", self._host, self._vhost)
+        self.log.info("Connecting to amqp broker identified by URL [%s]", self._url)
 
         self._connection = SelectConnection(
-            parameters=pika.ConnectionParameters(
-                host=self._host, credentials=self._creds, virtual_host=self._vhost
-            ),
+            parameters=pika.URLParameters(self._url),
             on_open_callback=self._on_connection_open,
             on_open_error_callback=self._on_connection_error,
             custom_ioloop=self._io_loop,
         )
+
+        res = yield self._connection_future
+        return res
+
+    def register_message_callback(self, message_callback=None):
+        """
+
+        :param message_callback:
+        :return:
+        """
+        self._message_callback = message_callback
+
+    def _reconnect(self):
+        """Will be invoked by the IOLoop timer if the connection is
+        closed. See the on_connection_closed method.
+
+        Note: RabbitMQ uses heartbeats to detect and close "dead" connections and to prevent network devices
+        (firewalls etc.) from terminating "idle" connections.
+        From version 3.5.5 on, the default timeout is set to 60 seconds
+
+        """
+        if not self._closing:
+            # Create a new connection
+            self.log.info("Reconnecting...")
+            # sleep for a bit so that if for some reason we get into a reconnect loop we won't kill the system
+            time.sleep(2)
+            self._connection = None
+            self._channel = None
+            self.connect(message_callback=self._message_callback)
 
     def _on_connection_open(self, connection):
         """
@@ -533,13 +562,15 @@ class RMQNonBlockingConnectionWrapper(RMQConnectionWrapperBase):
         :param connection:
         :return:
         """
+        self._connection = connection
         connection.add_on_close_callback(self._on_connection_closed)
+
         self._channel = connection.channel(on_open_callback=self._on_channel_open)
         self._channel.add_on_close_callback(self._on_channel_closed)
 
     def _on_connection_error(self, connection, exception):
         """
-        Invoked by pika when connection on connection error
+        Invoked by pika on connection error
         :param connection:
         :param exception:
         :return:
@@ -556,42 +587,32 @@ class RMQNonBlockingConnectionWrapper(RMQConnectionWrapperBase):
             connection.
 
         """
-        log.warning("Connection closed for reason [%s]", reason)
-        if isinstance(reason, ChannelClosedByBroker):
+        self.log.debug("Connection closed for reason [%s]", reason)
+        if isinstance(reason, ChannelClosedByBroker) or isinstance(
+            reason, ConnectionClosedByBroker
+        ):
             if reason.reply_code == 404:
-                log.warning("Not recovering from 404. Make sure RMQ topology exists.")
+                self.log.debug(
+                    "Not recovering from 404. Make sure RMQ topology exists."
+                )
                 raise reason
             else:
                 self._reconnect()
 
     def _on_channel_closed(self, channel, reason):
-        log.warning("Channel closed for reason [%s]", reason)
+        self.log.debug("Channel closed for reason [%s]", reason)
         if isinstance(reason, ChannelClosedByBroker):
             if reason.reply_code == 404:
-                log.warning("Not recovering from 404. Make sure RMQ topology exists.")
+                self.log.warning(
+                    "Not recovering from 404. Make sure RMQ topology exists."
+                )
                 raise reason
             else:
                 self._reconnect()
         else:
-            log.warning(
+            self.log.debug(
                 "Not attempting to recover. Channel likely closed for legitimate reasons."
             )
-
-    def _reconnect(self):
-        """Will be invoked by the IOLoop timer if the connection is
-        closed. See the on_connection_closed method.
-
-        Note: RabbitMQ uses heartbeats to detect and close "dead" connections and to prevent network devices
-        (firewalls etc.) from terminating "idle" connections.
-        From version 3.5.5 on, the default timeout is set to 60 seconds
-
-        """
-        if not self._closing:
-            # Create a new connection
-            log.info("Reconnecting...")
-            # sleep for a bit so that if for some reason we get into a reconnect loop we won't kill the system
-            time.sleep(2)
-            self.connect()
 
     def _on_channel_open(self, channel):
         """
@@ -599,99 +620,246 @@ class RMQNonBlockingConnectionWrapper(RMQConnectionWrapperBase):
         :param channel:
         :return:
         """
+        self.log.info("Channel opened: %s", channel)
+
+        self._channel = channel
         if self._create_topology_ondemand:
-            self._channel.exchange_declare(
+            channel.exchange_declare(
                 exchange=self._publisher_exchange_name,
                 exchange_type=ExchangeType.fanout,
                 durable=True,
-                callback=self._on_exchange_declared,
+                auto_delete=True,
+                callback=self._on_publisher_exchange_declared,
             )
         else:
-            log.info("Skipping rmq topology creation.")
-            self._start_consuming(method=None)
+            self.log.info("Skipping rmq topology creation.")
+            if self._message_callback:
+                self.start_consuming(self._message_callback, self._connection_future)
+            else:
+                self._connection_done(self._connection_future)
 
-    def _on_exchange_declared(self, method):
+    def _connection_done(self, future):
+        if not future.done():
+            future.set_result(self._channel)
+
+    def _on_publisher_exchange_declared(self, method):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
         """
-        log.info("Exchange declared: %s", self._publisher_exchange_name)
-        self._channel.queue_declare(
-            queue=self._consumer_queue_name,
-            durable=True,
-            arguments=self._consumer_queue_declare_arguments,
-            callback=self._on_queue_declared,
-        )
+        self.log.info("Publisher exchange declared: %s", self._publisher_exchange_name)
+        if not self._channel:
+            raise ValueError("_channel must be set")
 
-    def _on_queue_declared(self, method):
+        if self._consumer_exchange_name:
+            self._channel.exchange_declare(
+                exchange=self._consumer_exchange_name,
+                exchange_type=ExchangeType.fanout,
+                durable=True,
+                auto_delete=True,
+                callback=self._on_consumer_exchange_declared,
+            )
+        else:
+            log.info(
+                "No consumer exchange configured. Skipping consumer exchange declaration"
+            )
+            self._connection_done(self._connection_future)
+
+    def _on_consumer_exchange_declared(self, method):
+        """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
+        command.
+        """
+        self.log.info("Consumer exchange declared: %s", self._consumer_exchange_name)
+        if not self._channel:
+            raise ValueError("_channel must be set")
+
+        if self.queue_name:
+            self._channel.queue_declare(
+                queue=self._consumer_queue_name,
+                durable=True,
+                arguments=self._consumer_queue_declare_arguments,
+                callback=self._on_consumer_queue_declared,
+            )
+        else:
+            log.info(
+                "No consumer queue configured. Skipping basic_consume on queue %s",
+                self.queue_name,
+            )
+            self._connection_done(self._connection_future)
+
+    def _on_consumer_queue_declared(self, method):
         """
         Invoked by pika when queue is declared successfully
         :param method:
         :return:
         """
-        log.info("Queue declared: %s", method.method.queue)
+        self.log.info("Consumer queue declared: %s", method.method.queue)
+        if not self._channel:
+            raise ValueError("_channel must be set")
 
         self._channel.queue_bind(
             method.method.queue,
             self._consumer_exchange_name,
             routing_key=method.method.queue,
-            callback=self._start_consuming,
+            callback=self._on_consumer_queue_bound,
         )
 
-    def _start_consuming(self, method):
+    def _on_consumer_queue_bound(self, method):
         """
         Invoked by pika when queue bound successfully. Set up consumer message callback as well.
         :param method:
         :return:
         """
 
-        log.info("Starting consuming on queue [%s]", self.queue_name)
+        self.log.info("Queue bound [%s]", self.queue_name)
+        if self._message_callback:
+            self.start_consuming(self._message_callback, self._connection_future)
+        else:
+            log.info(
+                "No message callback configured. Skipping basic_consume on queue %s",
+                self.queue_name,
+            )
+            self._connection_done(self._connection_future)
 
-        def _callback_wrapper(channel, method, properties, payload):
-            if self._callback:
-                log.info("Calling message callback")
-                return self._callback(payload, properties)
-
-        self._channel.basic_consume(self.queue_name, _callback_wrapper, auto_ack=True)
-
-    def register_message_callback(
-        self, callback: Callable[[Any, BasicProperties], None]
+    @salt.ext.tornado.gen.coroutine
+    def start_consuming(
+        self, callback: Callable[[Any, BasicProperties], None], future=None
     ):
         """
-        Register a callback that receives message on a queue
+        :param future:
         :param callback:
         :return:
         """
-        self._callback = callback
+        future = future or salt.ext.tornado.concurrent.Future()
+
+        def _callback_consumer_registered(method):
+            if not future.done():
+                future.set_result(self._channel)
+
+        def _on_message_callback_wrapper(channel, method, properties, payload):
+            self.log.info(
+                "Received message on queue [%s]: %s. Payload properties: %s",
+                self.queue_name,
+                payload,
+                properties,
+            )
+
+            if callback:
+                callback(payload, message_properties=properties)
+                log.info(
+                    "Processed callback for message on queue [%s]", self.queue_name
+                )
+
+        if not self._channel:
+            raise ValueError("_channel must be set")
+
+        self._channel.basic_consume(
+            self.queue_name,
+            callback=_callback_consumer_registered,
+            on_message_callback=_on_message_callback_wrapper,
+            auto_ack=True,
+        )
+
+        self.log.info("Starting basic_consume on queue [%s]", self.queue_name)
+
+        yield future
+
+    @salt.ext.tornado.gen.coroutine
+    def consume_reply(self, callback, reply_queue_name=None):
+        """
+        Registers RPC reply callback on the designated reply queue
+        :param callback:
+        :param reply_queue_name:
+        :return:
+        """
+        future = salt.ext.tornado.concurrent.Future()
+
+        def _callback_consumer_registered(method):
+            future.set_result(method.method.consumer_tag)
+
+        def _on_message_callback(ch, method, properties, body):
+            self.log.info(
+                "Received reply on queue [%s]: %s. Reply payload properties: %s",
+                reply_queue_name,
+                body,
+                properties,
+            )
+            callback(body, properties.correlation_id)
+            self.log.info(
+                "Processed callback for reply on queue [%s]", reply_queue_name
+            )
+
+        self.log.info("Starting basic_consume reply on queue [%s]", reply_queue_name)
+
+        if not self._channel:
+            raise ValueError("_channel must be set")
+
+        consumer_tag = "rmq_direct_reply_consumer"  # an arbitrarily chosen consumer tag
+        try:
+            consumer_tag = self._channel.basic_consume(
+                consumer_tag=consumer_tag,
+                queue=reply_queue_name,
+                on_message_callback=_on_message_callback,
+                auto_ack=True,
+                callback=_callback_consumer_registered,
+            )
+        except pika.exceptions.DuplicateConsumerTag:
+            # this could happen when retrying to send the request multiple times and the retry loop will end up here
+            # see ```timeout_message``` for reference
+            self.log.warning(
+                "Ignoring attempt to set up a second consumer with consumer tag [%s]",
+                consumer_tag,
+            )
+            future.set_result(consumer_tag)
+
+        self.log.info(
+            "Started basic_consume reply on queue [%s] with consumer tag [%s]",
+            reply_queue_name,
+            consumer_tag,
+        )
+
+        yield future
 
     @salt.ext.tornado.gen.coroutine
     def publish(
         self,
         payload,
         exchange_name=None,
-        routing_key=None,
+        routing_key="",  # must be a string
+        reply_queue_name=None,
+        correlation_id=None,
     ):
         """
-        Publishes ``payload`` with the routing key ``queue_name`` (via direct exchange or via fanout/broadcast),
+        Publishes ``payload`` to the specified exchange ``exchange_name`` with the routing key ``routing_key``
+        (via direct exchange or via fanout/broadcast),
         passes along optional name of the reply queue in message metadata. Non-blocking.
         Alternatively, broadcasts the ``payload`` to all bound queues (via fanout exchange).
+
+        :param correlation_id: optional message correlation id (used in RPC request/response pattern)
         :param payload: message body
-        :param routing_key: routing key
-        :param exchange_name: exchange name to publish to
+        :param exchange_name: exchange name
+        :param routing_key: and exchange-specific routing key
+        :param reply_queue_name: optional name of the reply queue
         :return:
         """
-
         properties = pika.BasicProperties()
-        properties.reply_to = routing_key if routing_key else None
+        properties.reply_to = reply_queue_name if reply_queue_name else None
         properties.app_id = str(threading.get_ident())  # use this for tracing
         # enable persistent message delivery
         # see https://www.rabbitmq.com/confirms.html#publisher-confirms and
         # https://kousiknath.medium.com/dabbling-around-rabbit-mq-persistence-durability-message-routing-f4efc696098c
         properties.delivery_mode = PERSISTENT_DELIVERY_MODE
+        # This property helps relate request/response when using amq.rabbitmq.reply-to pattern
+        properties.correlation_id = correlation_id or str(hash(payload))
 
-        log.info(
-            "Sending payload to exchange [%s] with routing key [%s]: %s. Payload properties: %s",
+        # Note: exchange name that is an empty string ("") has meaning -- it is the name of the "direct exchange"
+        exchange_name = (
+            exchange_name
+            if exchange_name is not None
+            else self._publisher_exchange_name
+        )
+        self.log.info(
+            "Sending payload to exchange [%s]: %s. Payload properties: %s",
             exchange_name,
-            routing_key,
             payload,
             properties,
         )
@@ -702,315 +870,117 @@ class RMQNonBlockingConnectionWrapper(RMQConnectionWrapperBase):
                 routing_key=routing_key,
                 body=payload,
                 properties=properties,
-                mandatory=True,  # see https://www.rabbitmq.com/confirms.html#publisher-confirms
+                mandatory=True,
             )
-
-            log.info(
-                "Sent payload to exchange [%s] with routing key [%s]: %s",
+            self.log.info(
+                "Sent payload to exchange [%s] with routing_key [%s]: [%s]",
                 exchange_name,
                 routing_key,
                 payload,
             )
         except:
-            log.exception(
-                "Error publishing to exchange [%s]",
+            self.log.exception(
+                "Error publishing to exchange [%s] with routing_key [%s]",
                 exchange_name,
+                routing_key,
             )
             raise
 
     @salt.ext.tornado.gen.coroutine
-    def publish_reply(self, payload, properties: BasicProperties):
+    def publish_reply(self, payload, **optional_transport_args):
         """
         Publishes reply ``payload`` routing it to the reply queue. Non-blocking.
         :param payload: message body
-        :param properties: payload properties/metadata
+        :param optional_transport_args: payload properties/metadata
         :return:
         """
-        routing_key = properties.reply_to
+
+        message_properties = None
+        if optional_transport_args:
+            message_properties = optional_transport_args.get("message_properties", None)
+            if not isinstance(message_properties, BasicProperties):
+                raise TypeError(
+                    "message_properties must be of type {!r} instead of {!r}".format(
+                        type(BasicProperties), type(message_properties)
+                    )
+                )
+
+        routing_key = message_properties.reply_to
 
         if not routing_key:
             raise ValueError("properties.reply_to must be set")
 
-        log.info(
+        self.log.info(
             "Sending reply payload to direct exchange with routing key [%s]: %s. Payload properties: %s",
             routing_key,
             payload,
-            properties,
+            message_properties,
         )
 
         # publish reply on a queue that will be deleted after consumer cancels or disconnects
         # do not broadcast replies
-        self.publish(
+        yield self.publish(
             payload,
-            exchange_name="",  # ExchangeType.direct,  # use the default exchange for replies
+            exchange_name="",  # use the special default/direct exchange for replies with the name that is empty string
             routing_key=routing_key,
+            correlation_id=message_properties.correlation_id,
         )
 
-    @salt.ext.tornado.gen.coroutine
-    def _async_queue_bind(self, queue_name: str, exchange: str):
-        future = salt.ext.tornado.concurrent.Future()
 
-        def callback(method):
-            log.info("bound queue: %s to exchange: %s", method.method.queue, exchange)
-            future.set_result(method)
-
-        res = self._channel.queue_bind(
-            queue_name,
-            exchange,
-            routing_key=queue_name,
-            callback=callback,
-        )
-        return future
-
-    @salt.ext.tornado.gen.coroutine
-    def _async_queue_declare(self, queue_name: str):
-        future = salt.ext.tornado.concurrent.Future()
-
-        def callback(method):
-            log.info("declared queue: %s", method.method.queue)
-            future.set_result(method)
-
-        if not self._channel:
-            raise ValueError("_channel must be set")
-
-        res = self._channel.queue_declare(
-            queue_name,
-            durable=True,
-            arguments=self._consumer_queue_declare_arguments,
-            callback=callback,
-        )
-        return future
-
-
-class AsyncRabbitMQReqClient(salt.transport.base.RequestClient):
-    """
-    Encapsulate sending routines to RabbitMQ broker. TODO: simplify this. Original implementation was copied from ZeroMQ.
-    RMQ Channels default to 'crypt=aes'
-    """
-
+class RabbitMQRequestClient(salt.transport.base.RequestClient):
     ttype = "rabbitmq"
 
-    # an init for the singleton instance to call
-    def __init__(self, opts, master_uri, io_loop, **kwargs):
-        super().__init__(opts, master_uri, io_loop, **kwargs)
-        self.opts = dict(opts)
-        if "master_uri" in kwargs:
-            self.opts["master_uri"] = kwargs["master_uri"]
+    def __init__(self, opts, io_loop, **kwargs):
+        super().__init__(opts, io_loop, **kwargs)
+        self.opts = opts
         self.message_client = AsyncReqMessageClient(
             self.opts,
-            self.master_uri,
-            io_loop=self._io_loop,
+            # self.master_uri,
+            io_loop=io_loop,
         )
-        self._closing = False
-
-    def close(self):
-        """
-        Since the message_client creates sockets and assigns them to the IOLoop we have to
-        specifically destroy them, since we aren't the only ones with references to the FDs
-        """
-        if self._closing:
-            return
-
-        if self._refcount > 1:
-            # Decrease refcount
-            with self._refcount_lock:
-                self._refcount -= 1
-            log.info(
-                "This is not the last %s instance. Not closing yet.",
-                self.__class__.__name__,
-            )
-            return
-
-        log.info("Closing %s instance", self.__class__.__name__)
-        self._closing = True
-        if hasattr(self, "message_client"):
-            self.message_client.close()
-
-        # Remove the entry from the instance map so that a closed entry may not
-        # be reused.
-        # This forces this operation even if the reference count of the entry
-        # has not yet gone to zero.
-        if self._io_loop in self.__class__.instance_map:
-            loop_instance_map = self.__class__.instance_map[self._io_loop]
-            if self._instance_key in loop_instance_map:
-                del loop_instance_map[self._instance_key]
-            if not loop_instance_map:
-                del self.__class__.instance_map[self._io_loop]
-
-    # pylint: disable=no-dunder-del
-    def __del__(self):
-        with self._refcount_lock:
-            # Make sure we actually close no matter if something
-            # went wrong with our ref counting
-            self._refcount = 1
-        try:
-            self.close()
-        except OSError as exc:
-            if exc.errno != errno.EBADF:
-                # If its not a bad file descriptor error, raise
-                raise
-
-    # pylint: enable=no-dunder-del
-
-    @property
-    def master_uri(self):
-        if "master_uri" in self.opts:
-            return self.opts["master_uri"]
-
-        # if by chance master_uri is not there..
-        if "master_ip" in self.opts:
-            return _get_master_uri(
-                self.opts["master_ip"],
-                self.opts["master_port"],
-            )
-
-        # if we've reached here something is very abnormal
-        raise SaltException("ReqChannel: missing master_uri/master_ip in self.opts")
-
-    def _package_load(self, load):
-        return {
-            "enc": self.crypt,
-            "load": load,
-        }
-
-    @salt.ext.tornado.gen.coroutine
-    def crypted_transfer_decode_dictentry(
-        self, load, dictkey=None, tries=3, timeout=60
-    ):
-        if not self.auth.authenticated:
-            # Return control back to the caller, continue when authentication succeeds
-            yield self.auth.authenticate()
-        # Return control to the caller. When send() completes, resume by populating ret with the Future.result
-        ret = yield self.message_client.send(
-            self._package_load(self.auth.crypticle.dumps(load)),
-            timeout=timeout,
-            tries=tries,
-        )
-        key = self.auth.get_keys()
-        if "key" not in ret:
-            # Reauth in the case our key is deleted on the master side.
-            yield self.auth.authenticate()
-            ret = yield self.message_client.send(
-                self._package_load(self.auth.crypticle.dumps(load)),
-                timeout=timeout,
-                tries=tries,
-            )
-        if HAS_M2:
-            aes = key.private_decrypt(ret["key"], RSA.pkcs1_oaep_padding)
-        else:
-            cipher = PKCS1_OAEP.new(key)
-            aes = cipher.decrypt(ret["key"])
-        pcrypt = salt.crypt.Crypticle(self.opts, aes)
-        data = pcrypt.loads(ret[dictkey])
-        data = salt.transport.frame.decode_embedded_strs(data)
-        raise salt.ext.tornado.gen.Return(data)
-
-    @salt.ext.tornado.gen.coroutine
-    def _crypted_transfer(self, load, tries=3, timeout=60, raw=False):
-        """
-        Send a load across the wire, with encryption
-
-        In case of authentication errors, try to renegotiate authentication
-        and retry the method.
-
-        Indeed, we can fail too early in case of a master restart during a
-        minion state execution call
-
-        :param dict load: A load to send across the wire
-        :param int tries: The number of times to make before failure
-        :param int timeout: The number of seconds on a response before failing
-        """
-
-        @salt.ext.tornado.gen.coroutine
-        def _do_transfer():
-            # Yield control to the caller. When send() completes, resume by populating data with the Future.result
-            data = yield self.message_client.send(
-                self._package_load(self.auth.crypticle.dumps(load)),
-                timeout=timeout,
-                tries=tries,
-            )
-            # we may not have always data
-            # as for example for saltcall ret submission, this is a blind
-            # communication, we do not subscribe to return events, we just
-            # upload the results to the master
-            if data:
-                data = self.auth.crypticle.loads(data, raw)
-            if not raw:
-                data = salt.transport.frame.decode_embedded_strs(data)
-            raise salt.ext.tornado.gen.Return(data)
-
-        if not self.auth.authenticated:
-            # Return control back to the caller, resume when authentication succeeds
-            yield self.auth.authenticate()
-        try:
-            # We did not get data back the first time. Retry.
-            ret = yield _do_transfer()
-        except salt.crypt.AuthenticationError:
-            # If auth error, return control back to the caller, continue when authentication succeeds
-            yield self.auth.authenticate()
-            ret = yield _do_transfer()
-        raise salt.ext.tornado.gen.Return(ret)
-
-    @salt.ext.tornado.gen.coroutine
-    def _uncrypted_transfer(self, load, tries=3, timeout=60):
-        """
-        Send a load across the wire in cleartext
-
-        :param dict load: A load to send across the wire
-        :param int tries: The number of times to make before failure
-        :param int timeout: The number of seconds on a response before failing
-        """
-        ret = yield self.message_client.send(
-            self._package_load(load),
-            timeout=timeout,
-            tries=tries,
-        )
-
-        raise salt.ext.tornado.gen.Return(ret)
 
     @salt.ext.tornado.gen.coroutine
     def send(self, load, tries=3, timeout=60):
-        """
-        Send a request, return a future which will complete when we send the message
-        """
-        ret = yield self.message_client.send(
-            load,
-            timeout=timeout,
-            tries=tries,
-        )
+        ret = yield self.message_client.send(load, timeout, tries)
         raise salt.ext.tornado.gen.Return(ret)
 
+    def close(self):
+        self.message_client.close()
 
-class AsyncRabbitMQPubChannel(salt.transport.base.PublishClient):
+
+class RabbitMQPubClient(salt.transport.base.PublishClient):
     """
     A transport channel backed by RabbitMQ for a Salt Publisher to use to
-    publish commands to connected minions
+    publish commands to connected minions.
+    Typically, this class is instantiated by a minion
     """
 
-    ttype = "rabbitmq"
-
-    def __init__(self, opts, **kwargs):
-        super().__init__(opts, **kwargs)
+    def __init__(self, opts, io_loop, **kwargs):
+        super().__init__(opts, io_loop, **kwargs)
+        self.log = logging.getLogger(self.__class__.__name__)
         self.opts = opts
-        self.io_loop = (
-            kwargs.get("io_loop") or salt.ext.tornado.ioloop.IOLoop.instance()
-        )
+        self.ttype = "rabbitmq"
+        self.io_loop = io_loop
         if not self.io_loop:
             raise ValueError("self.io_loop must be set")
+
         self._closing = False
+
+        self.hexid = hashlib.sha1(
+            salt.utils.stringutils.to_bytes(self.opts["id"])
+        ).hexdigest()
+        self.auth = salt.crypt.AsyncAuth(self.opts, io_loop=self.io_loop)
+        self.serial = salt.payload.Serial(self.opts)
         self._rmq_non_blocking_connection_wrapper = RMQNonBlockingConnectionWrapper(
             self.opts,
             io_loop=self.io_loop,
-            transport_rabbitmq_consumer_queue_name="salt_minion_command_queue",
-            transport_rabbitmq_publisher_exchange_name="salt_minion_command_exchange",
-            transport_rabbitmq_consumer_exchange_name="salt_minion_command_exchange",
+            log=self.log,
         )
-        self._rmq_non_blocking_connection_wrapper.connect()
 
     def close(self):
         if self._closing is True:
             return
-
+        self._rmq_non_blocking_connection_wrapper.close()
         self._closing = True
 
     # pylint: disable=no-dunder-del
@@ -1026,32 +996,98 @@ class AsyncRabbitMQPubChannel(salt.transport.base.PublishClient):
 
     # TODO: this is the time to see if we are connected, maybe use the req channel to guess?
     @salt.ext.tornado.gen.coroutine
-    def connect(self, publish_port, connect_callback=None, disconnect_callback=None):
+    def connect(
+        self, publish_port=None, connect_callback=None, disconnect_callback=None
+    ):
         """
         Connects minion to master.
-        TODO: anything else that needs to be done for broker-based connections?
         :return:
         """
+        # connect() deserves its own method wrapped in a coroutine called by the upstream layer when appropriate
+        yield self._rmq_non_blocking_connection_wrapper.connect()
+
+        if not self.auth.authenticated:
+            yield self.auth.authenticate()
+
+        log.info(
+            "Minion already authenticated with master. Nothing else to do for broker-based transport."
+        )
+
+    @salt.ext.tornado.gen.coroutine
+    def _decode_messages(self, messages):
+        """
+        Take the rmq messages, decrypt/decode them into a payload
+
+        :param list messages: A list of messages to be decoded
+        """
+        messages = [
+            messages
+        ]  # TODO: FIXME - figure out why this does not match zeromq payload packing
+        messages_len = len(messages)
+        # if it was one message, then its old style
+        if messages_len == 1:
+            if isinstance(messages[0], dict):
+                return messages[0]
+            else:
+                payload = salt.payload.loads(messages[0])
+                payload = (
+                    salt.payload.loads(payload["payload"])
+                    if "payload" in payload
+                    else payload
+                )
+        # 2 includes a header which says who should do it
+        elif messages_len == 2:
+            message_target = salt.utils.stringutils.to_str(messages[0])
+            if (
+                self.opts.get("__role") != "syndic"
+                and message_target not in ("broadcast", self.hexid)
+            ) or (
+                self.opts.get("__role") == "syndic"
+                and message_target not in ("broadcast", "syndic")
+            ):
+                log.info("Publish received for not this minion: %s", message_target)
+                raise salt.ext.tornado.gen.Return(None)
+            payload = salt.payload.loads(messages[1])
+        else:
+            raise Exception(
+                (
+                    "Invalid number of messages ({}) in rabbitmq pub"
+                    "message from master"
+                ).format(len(messages_len))
+            )
+        # Yield control back to the caller. When the payload has been decoded, assign
+        # the decoded payload to 'ret' and resume operation
+        # ret = yield self._decode_payload(payload)
+        raise salt.ext.tornado.gen.Return(payload)
 
     def on_recv(self, callback):
         """
         Register an on_recv callback
         """
-        self._rmq_non_blocking_connection_wrapper.register_message_callback(
-            callback=callback
-        )
+        if callback:
+
+            @salt.ext.tornado.gen.coroutine
+            def wrap_callback(messages, **kwargs):
+                payload = yield self._decode_messages(messages)
+                if payload is not None:
+                    callback(payload)
+
+            self._rmq_non_blocking_connection_wrapper.start_consuming(wrap_callback)
 
 
-class RabbitMQReqServerChannel(salt.transport.RequestServer):
+class RabbitMQReqServer(salt.transport.base.RequestServer):
     """
     Encapsulate synchronous operations for a request channel
+    Typically, this class is instantiated by a master
     """
 
     def __init__(self, opts):
+        super().__init__(opts)
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.opts = opts
         self._closing = False
         self._monitor = None
         self._w_monitor = None
-        self._rmq_blocking_connection_wrapper = RMQBlockingConnectionWrapper(opts)
 
     def close(self):
         """
@@ -1060,65 +1096,78 @@ class RabbitMQReqServerChannel(salt.transport.RequestServer):
         if self._closing:
             return
 
-    def pre_fork(self, process_manager):
-        """
-        Pre-fork we need to generate AES encryption key
-
-        :param func process_manager: An instance of salt.utils.process.ProcessManager
-        """
-
-    def post_fork(self, payload_handler, io_loop):
+    def post_fork(self, message_handler, io_loop):
         """
         After forking we need to set up handlers to listen to the
         router
 
-        :param func payload_handler: A function to called to handle incoming payloads as
+        :param func message_handler: A function to called to handle incoming payloads as
                                      they are picked up off the wire
         :param IOLoop io_loop: An instance of a Tornado IOLoop, to handle event scheduling
         """
 
         if not io_loop:
             raise ValueError("io_loop must be set")
-        self.payload_handler = payload_handler
-        self.io_loop = io_loop
+
+        self.payload_handler = message_handler
         self._rmq_nonblocking_connection_wrapper = RMQNonBlockingConnectionWrapper(
-            self.opts, io_loop=io_loop
+            self.opts, io_loop=io_loop, log=self.log
         )
-        self._rmq_nonblocking_connection_wrapper.register_message_callback(
-            self.handle_message
+
+        # PR - FIXME. Consider moving the connect() call into a coroutine to that we can yield it
+        self._rmq_nonblocking_connection_wrapper.connect(
+            message_callback=self.handle_message
         )
-        self._rmq_nonblocking_connection_wrapper.connect()
 
     @salt.ext.tornado.gen.coroutine
-    def handle_message(self, payload, message_properties: pika.BasicProperties):
-        """
-        Handle incoming messages from underlying streams
-
-        :param rmq_connection_wrapper:
-        :param dict payload: A payload to process
-        :param message_properties message metadata of type ``pika.BasicProperties``
-        """
-
-        rmq_connection_wrapper = self._rmq_nonblocking_connection_wrapper
+    def handle_message(
+        self, payload, **optional_transport_args
+    ):  # message_properties: pika.BasicProperties
         payload = self.decode_payload(payload)
-        reply = yield self.message_handler(payload)
-        rmq_connection_wrapper.publish_reply(
-            self.encode_payload(reply), message_properties
+        reply = yield self.payload_handler(payload, **optional_transport_args)
+        yield self._rmq_nonblocking_connection_wrapper.publish_reply(
+            self.encode_payload(reply), **optional_transport_args
         )
 
+    def encode_payload(self, payload):
+        return salt.payload.dumps(payload)
 
-class RabbitMQPubServerChannel(salt.transport.base.PublishServer):
+    def decode_payload(self, payload):
+        payload = salt.payload.loads(payload)
+        return payload
+
+    def __setup_signals(self):
+        signal.signal(signal.SIGINT, self._handle_signals)
+        signal.signal(signal.SIGTERM, self._handle_signals)
+
+    def _handle_signals(self, signum, sigframe):
+        msg = "{} received a ".format(self.__class__.__name__)
+        if signum == signal.SIGINT:
+            msg += "SIGINT"
+        elif signum == signal.SIGTERM:
+            msg += "SIGTERM"
+        msg += ". Exiting"
+        log.info(msg)
+        self.close()
+        sys.exit(salt.defaults.exitcodes.EX_OK)
+
+
+class RabbitMQPublishServer(salt.transport.base.PublishServer):
     """
-    Encapsulate synchronous operations for a publisher channel
+    Encapsulate synchronous operations for a publisher channel.
+    Typically, this class is instantiated by a master
     """
 
     def __init__(self, opts):
+        super().__init__()
+        self.log = logging.getLogger(self.__class__.__name__)
         self.opts = opts
+        self.serial = salt.payload.Serial(self.opts)  # TODO: in init?
+        self.ckminions = salt.utils.minions.CkMinions(self.opts)
+
         self._rmq_blocking_connection_wrapper = RMQBlockingConnectionWrapper(
             opts,
-            transport_rabbitmq_consumer_queue_name="salt_minion_command_queue",
-            transport_rabbitmq_publisher_exchange_name="salt_minion_command_exchange",
-            transport_rabbitmq_consumer_exchange_name="salt_minion_command_exchange",
+            log=self.log,
         )
 
     def connect(self):
@@ -1133,18 +1182,30 @@ class RabbitMQPubServerChannel(salt.transport.base.PublishServer):
         :param func process_manager: A ProcessManager, from salt.utils.process.ProcessManager
         """
 
-    def publish(self, payload, **kwargs):
+    def pub_connect(self):
+        """
+        Do nothing, assuming RMQ broker is running
+        """
+
+    def publish(self, payload, **optional_transport_args):
         """
         Publish "load" to minions. This sends the load to the RMQ broker
         process which does the actual sending to minions.
 
-        :param dict load: A load to be sent across the wire to minions
+        :param dict payload: A load to be sent across the wire to minions
         """
 
-        payload = salt.payload.dumps(payload)
+        payload_serialized = salt.payload.dumps(payload)
+
+        log.info(
+            "Sending payload to rabbitmq publish daemon. jid=%s size=%d",
+            payload.get("jid", None),
+            len(payload_serialized),
+        )
+
         message_properties = None
-        if kwargs:
-            message_properties = kwargs.get("message_properties", None)
+        if optional_transport_args:
+            message_properties = optional_transport_args.get("message_properties", None)
             if not isinstance(message_properties, BasicProperties):
                 raise TypeError(
                     "message_properties must be of type {!r} instead of {!r}".format(
@@ -1154,14 +1215,29 @@ class RabbitMQPubServerChannel(salt.transport.base.PublishServer):
 
         # send
         self._rmq_blocking_connection_wrapper.publish(
-            payload,
+            payload_serialized,
             reply_queue_name=message_properties.reply_to
             if message_properties
             else None,
         )
         log.info("Sent payload to rabbitmq publish daemon.")
 
+    @property
+    def topic_support(self):
+        # we may support this eventually
+        return False
 
+    def close(self):
+        self._rmq_blocking_connection_wrapper.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+
+
+# TODO: unit tests!
 class AsyncReqMessageClient:
     """
     This class gives a future-based
@@ -1170,43 +1246,67 @@ class AsyncReqMessageClient:
     message sends in this class. In the future if we decide to attempt to multiplex
     we can manage a pool of REQ/REP sockets-- but for now we'll just do them in serial
 
-    TODO: this implementation was adapted from ZeroMQ. Simplify this for RMQ.
     """
 
-    def __init__(self, opts, addr, io_loop=None):
+    def __init__(self, opts, io_loop=None):
         """
         Create an asynchronous message client
 
         :param dict opts: The salt opts dictionary
-        :param str addr: The interface IP address to bind to
         :param IOLoop io_loop: A Tornado IOLoop event scheduler [tornado.ioloop.IOLoop]
         """
-        self.opts = opts
-        self.addr = addr
-        self._rmq_blocking_connection_wrapper = RMQBlockingConnectionWrapper(opts)
 
-        if io_loop is None:
-            self.io_loop = salt.ext.tornado.ioloop.IOLoop.current()
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.io_loop = io_loop or salt.ext.tornado.ioloop.IOLoop()
+        self.opts = opts
+
+        if (
+            self.opts.get("__role") == "master"
+        ):  # TODO: fix this so that this check is done upstream
+            # local client uses master config file but acts as a client to the master
+            # swap the exchange to that we can reach the master
+            self._rmq_non_blocking_connection_wrapper = RMQNonBlockingConnectionWrapper(
+                self.opts,
+                io_loop=self.io_loop,
+                log=self.log,
+                transport_rabbitmq_publisher_exchange_name=self.opts[
+                    "transport_rabbitmq_consumer_exchange_name"
+                ],
+                transport_rabbitmq_consumer_exchange_name=None,
+                transport_rabbitmq_consumer_queue_name=None,
+            )
         else:
-            self.io_loop = io_loop
+            self._rmq_non_blocking_connection_wrapper = RMQNonBlockingConnectionWrapper(
+                self.opts, io_loop=self.io_loop, log=self.log
+            )
 
         self.serial = salt.payload.Serial(self.opts)
 
         self.send_queue = []
-        # mapping of message -> future
+        # mapping of str(hash(message)) -> future
         self.send_future_map = {}
+
+        self.send_timeout_map = {}  # message -> timeout
         self._closing = False
 
+    # TODO: timeout all in-flight sessions, or error
     def close(self):
         try:
             if self._closing:
                 return
+            self._rmq_non_blocking_connection_wrapper.close()
         except AttributeError:
             # We must have been called from __del__
             # The python interpreter has nuked most attributes already
             return
         else:
             self._closing = True
+
+    # pylint: disable=no-dunder-del
+    def __del__(self):
+        self.close()
+
+    # pylint: enable=no-dunder-del
 
     def timeout_message(self, message):
         """
@@ -1215,14 +1315,13 @@ class AsyncReqMessageClient:
 
         :raises: SaltReqTimeoutError
         """
-        future = self.send_future_map.pop(message, None)
+        future = self.send_future_map.pop(str(hash(message)), None)
         # In a race condition the message might have been sent by the time
         # we're timing it out. Make sure the future is not None
         if future is not None:
-            del self.send_timeout_map[message]
             if future.attempts < future.tries:
                 future.attempts += 1
-                log.info(
+                log.debug(
                     "SaltReqTimeoutError, retrying. (%s/%s)",
                     future.attempts,
                     future.tries,
@@ -1231,24 +1330,34 @@ class AsyncReqMessageClient:
                     message,
                     timeout=future.timeout,
                     tries=future.tries,
-                    future=future,
+                    reply_future=future,
                 )
 
             else:
                 future.set_exception(SaltReqTimeoutError("Message timed out"))
 
     @salt.ext.tornado.gen.coroutine
-    def send(self, message, timeout=None, tries=3, future=None, callback=None):
+    def send(
+        self,
+        message,
+        timeout=None,
+        tries=3,
+        reply_future=None,
+        callback=None,
+    ):
         """
         Return a future which will be completed when the message has a response
         """
-        if future is None:
-            future = salt.ext.tornado.concurrent.Future()
-            future.tries = tries
-            future.attempts = 0
-            future.timeout = timeout
+
+        yield self._rmq_non_blocking_connection_wrapper.connect()
+
+        if reply_future is None:
+            reply_future = salt.ext.tornado.concurrent.Future()
+            reply_future.tries = tries
+            reply_future.attempts = 0
+            reply_future.timeout = timeout
             # if a future wasn't passed in, we need to serialize the message
-            message = self.serial.dumps(message)
+            message = salt.payload.dumps(message)
 
         if callback is not None:
 
@@ -1256,35 +1365,41 @@ class AsyncReqMessageClient:
                 response = future.result()
                 self.io_loop.add_callback(callback, response)
 
-            future.add_done_callback(handle_future)
-        # Add this future to the mapping
-        self.send_future_map[message] = future
+            reply_future.add_done_callback(handle_future)
+
+        # Add this future to the mapping; use message hash as key
+        correlation_id = str(hash(message))
+        self.send_future_map[correlation_id] = reply_future
 
         if self.opts.get("detect_mode") is True:
-            timeout = 1
+            # This code path is largely untested in the product
+            timeout = 5
 
         if timeout is not None:
             send_timeout = self.io_loop.call_later(
                 timeout, self.timeout_message, message
             )
 
-        # send
-        def mark_future(msg):
+        def mark_reply_future(reply_msg, corr_id):
+            # reference the mutable map in this closure so that we complete the correct future,
+            # as this callback can be called multiple times for multiple invocations of the outer send() function
+            future = self.send_future_map[corr_id]
             if not future.done():
-                data = self.serial.loads(msg)
+                data = salt.payload.loads(reply_msg)
                 future.set_result(data)
+                self.send_future_map.pop(corr_id)
 
         # send message and consume reply; callback must be configured first when using amq.rabbitmq.reply-to pattern
         # See https://www.rabbitmq.com/direct-reply-to.html
-        self._rmq_blocking_connection_wrapper.register_reply_callback(
-            mark_future, reply_queue_name="amq.rabbitmq.reply-to"
+        consumer_tag = yield self._rmq_non_blocking_connection_wrapper.consume_reply(
+            mark_reply_future, reply_queue_name="amq.rabbitmq.reply-to"
         )
 
-        self._rmq_blocking_connection_wrapper.publish(
+        yield self._rmq_non_blocking_connection_wrapper.publish(
             message,
-            # Use a special reserved direct-rely queue. See https://www.rabbitmq.com/direct-reply-to.html
+            # Use a special reserved direct-reply queue. See https://www.rabbitmq.com/direct-reply-to.html
             reply_queue_name="amq.rabbitmq.reply-to",
         )
 
-        self._rmq_blocking_connection_wrapper.start_consuming()
-        yield future
+        recv = yield reply_future
+        raise salt.ext.tornado.gen.Return(recv)

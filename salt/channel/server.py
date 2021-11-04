@@ -24,6 +24,7 @@ import salt.utils.files
 import salt.utils.minions
 import salt.utils.stringutils
 import salt.utils.verify
+from salt.transport.base import DaemonizedRequestServer
 from salt.utils.cache import CacheCli
 
 try:
@@ -77,7 +78,8 @@ class ReqServerChannel:
                 ),
                 "reload": salt.crypt.Crypticle.generate_key_string,
             }
-        self.transport.pre_fork(process_manager)
+        if isinstance(self.transport, DaemonizedRequestServer):
+            self.transport.pre_fork(process_manager)
 
     def post_fork(self, payload_handler, io_loop):
         """
@@ -115,7 +117,7 @@ class ReqServerChannel:
         self.transport.post_fork(self.handle_message, io_loop)
 
     @salt.ext.tornado.gen.coroutine
-    def handle_message(self, payload):
+    def handle_message(self, payload, **optional_transport_args):
         try:
             payload = self._decode_payload(payload)
         except Exception as exc:  # pylint: disable=broad-except
@@ -160,7 +162,9 @@ class ReqServerChannel:
         try:
             # Take the payload_handler function that was registered when we created the channel
             # and call it, returning control to the caller until it completes
-            ret, req_opts = yield self.payload_handler(payload)
+            ret, req_opts = yield self.payload_handler(
+                payload, **optional_transport_args
+            )
         except Exception as e:  # pylint: disable=broad-except
             # always attempt to return an error to the minion
             log.error("Some exception handling a payload from minion", exc_info=True)
@@ -640,6 +644,7 @@ class PubServerChannel:
                 # be handled here. Otherwise, it will be handled in the
                 # 'Maintenance' process.
                 presence_events = True
+
         transport = salt.transport.publish_server(opts, **kwargs)
         return cls(opts, transport, presence_events=presence_events)
 
@@ -684,7 +689,7 @@ class PubServerChannel:
 
         :param func process_manager: A ProcessManager, from salt.utils.process.ProcessManager
         """
-        if hasattr(self.transport, 'publish_daemon'):
+        if hasattr(self.transport, "publish_daemon"):
             process_manager.add_process(self._publish_daemon, kwargs=kwargs)
 
     def _publish_daemon(self, log_queue=None, log_queue_level=None):
@@ -796,7 +801,7 @@ class PubServerChannel:
         # add some targeting stuff for lists only (for now)
         if load["tgt_type"] == "list":
             int_payload["topic_lst"] = load["tgt"]
-        # If topics are upported, target matching has to happen master side
+        # If topics are supported, target matching has to happen master side
         match_targets = ["pcre", "glob", "list"]
         if self.transport.topic_support and load["tgt_type"] in match_targets:
             if isinstance(load["tgt"], str):
@@ -806,7 +811,7 @@ class PubServerChannel:
                 )
                 match_ids = _res["minions"]
                 log.debug("Publish Side Match: %s", match_ids)
-                # Send list of miions thru so zmq can target them
+                # Send list of minions thru so zmq can target them
                 int_payload["topic_lst"] = match_ids
             else:
                 int_payload["topic_lst"] = load["tgt"]

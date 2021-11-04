@@ -35,9 +35,13 @@ def request_server(opts, **kwargs):
     elif ttype == "local":
         import salt.transport.local
 
-        transport = salt.transport.local.LocalServerChannel(opts)
+        return salt.transport.local.LocalServerChannel(opts)
     else:
-        raise Exception("Channels are only defined for ZeroMQ and TCP")
+        raise Exception(
+            "Unsupported transport {!r}. Channels are only defined for ZeroMQ, TCP and RabbitMQ".format(
+                ttype
+            )
+        )
         # return NewKindOfChannel(opts, **kwargs)
 
 
@@ -63,9 +67,13 @@ def request_client(opts, io_loop):
     elif ttype == "rabbitmq":
         import salt.transport.rabbitmq
 
-        return salt.transportrabbitmq.RabbitMQRequestClient(opts, io_loop=io_loop)
+        return salt.transport.rabbitmq.RabbitMQRequestClient(opts, io_loop=io_loop)
     else:
-        raise Exception("Channels are only defined for tcp, zeromq")
+        raise Exception(
+            "Unsupported transport {!r}. Channels are only defined for TCP, ZeroMQ or RabbitMQ".format(
+                ttype
+            )
+        )
 
 
 def publish_server(opts, **kwargs):
@@ -88,7 +96,7 @@ def publish_server(opts, **kwargs):
     elif ttype == "rabbitmq":
         import salt.transport.rabbitmq
 
-        return salt.transport.rabbitmq.RabbitMQPubServer(opts, **kwargs)
+        return salt.transport.rabbitmq.RabbitMQPublishServer(opts, **kwargs)
     elif ttype == "local":  # TODO:
         import salt.transport.local
 
@@ -161,8 +169,8 @@ class RequestServer:
         Close the underlying network connection.
         """
 
-class DaemonizedRequestServer(RequestServer):
 
+class DaemonizedRequestServer(RequestServer):
     def pre_fork(self, process_manager):
         """ """
 
@@ -176,7 +184,7 @@ class DaemonizedRequestServer(RequestServer):
 
 class PublishServer:
     """
-    The PublishServer publishes messages to PublishClients or to a borker
+    The PublishServer publishes messages to PublishClients or to a broker
     service.
     """
 
@@ -208,9 +216,8 @@ class DaemonizedPublishServer(PublishServer):
         **kwargs
     ):
         """
-        If a deamon is needed to act as a broker impliment it here.
+        If a daemon is needed to act as a broker implement it here.
         """
-
 
 
 class PublishClient:
@@ -227,7 +234,9 @@ class PublishClient:
         """
 
     @salt.ext.tornado.gen.coroutine
-    def connect(self, publish_port, connect_callback=None, disconnect_callback=None):
+    def connect(
+        self, publish_port=None, connect_callback=None, disconnect_callback=None
+    ):
         """
         Create a network connection to the the PublishServer or broker.
         """
