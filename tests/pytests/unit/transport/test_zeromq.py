@@ -118,7 +118,6 @@ def run_loop_in_thread(loop, evt):
 class MockSaltMinionMaster:
     mock = MagicMock()
 
-
     def __init__(self, temp_salt_minion, temp_salt_master):
         self.process_manager = salt.utils.process.ProcessManager(
             name="ReqServer_ProcessManager"
@@ -137,15 +136,10 @@ class MockSaltMinionMaster:
         )
         self.server_thread.start()
         minion_opts = temp_salt_minion.config.copy()
-        minion_opts.update(
-            {
-                "master_ip": "127.0.0.1"
-            }
-        )
+        minion_opts.update({"master_ip": "127.0.0.1"})
         self.channel = salt.transport.client.ReqChannel.factory(
             minion_opts, crypt="clear"
         )
-
 
     def __del__(self):
         self.channel.close()
@@ -164,7 +158,6 @@ class MockSaltMinionMaster:
         del self.io_loop
         del self.process_manager
         del self.server_thread
-
 
     @classmethod
     @salt.ext.tornado.gen.coroutine
