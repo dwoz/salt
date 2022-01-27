@@ -7,6 +7,7 @@ import threading
 import time
 
 import salt.channel.client
+import salt.channel.server
 import salt.config
 import salt.exceptions
 import salt.ext.tornado.gen
@@ -123,7 +124,7 @@ class MockSaltMinionMaster:
             name="ReqServer_ProcessManager"
         )
 
-        self.server_channel = salt.transport.server.ReqServerChannel.factory(
+        self.server_channel = salt.channel.server.ReqServerChannel.factory(
             temp_salt_master.config.copy()
         )
         self.server_channel.pre_fork(self.process_manager)
@@ -137,7 +138,7 @@ class MockSaltMinionMaster:
         self.server_thread.start()
         minion_opts = temp_salt_minion.config.copy()
         minion_opts.update({"master_ip": "127.0.0.1"})
-        self.channel = salt.transport.client.ReqChannel.factory(
+        self.channel = salt.channel.client.ReqChannel.factory(
             minion_opts, crypt="clear"
         )
 
