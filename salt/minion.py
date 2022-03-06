@@ -1221,6 +1221,8 @@ class MinionManager(MinionBase):
             self.event = None
 
     def destroy(self):
+        if hasattr(minion, 'process_manager'):
+            minion.process_manager.destroy()
         for minion in self.minions:
             minion.destroy()
         if self.event_publisher is not None:
@@ -1316,7 +1318,7 @@ class Minion(MinionBase):
             time.sleep(sleep_time)
 
         self.process_manager = ProcessManager(name="MinionProcessManager")
-        self.io_loop.create_task(self.process_manager.async_run())
+        self.process_manager.thread_run()
         # We don't have the proxy setup yet, so we can't start engines
         # Engines need to be able to access __proxy__
         if not salt.utils.platform.is_proxy():

@@ -283,7 +283,7 @@ def test_source_address():
 
 # Tests for _handle_decoded_payload in the salt.minion.Minion() class: 3
 @pytest.mark.slow_test
-async def test_handle_decoded_payload_jid_match_in_jid_queue():
+async def test_handle_decoded_payload_jid_match_in_jid_queue(event_loop):
     """
     Tests that the _handle_decoded_payload function returns when a jid is given that is already present
     in the jid_queue.
@@ -299,7 +299,7 @@ async def test_handle_decoded_payload_jid_match_in_jid_queue():
     minion = salt.minion.Minion(
         mock_opts,
         jid_queue=copy.copy(mock_jid_queue),
-        io_loop=asyncio.get_event_loop(),
+        io_loop=event_loop,
     )
     try:
         ret = await minion._handle_decoded_payload(mock_data)
@@ -703,15 +703,15 @@ def test_gen_modules_executors():
 
 @patch("salt.utils.process.default_signals")
 @pytest.mark.slow_test
-def test_reinit_crypto_on_fork(def_mock):
+@pytest.mark.asyncio
+async def test_reinit_crypto_on_fork(def_mock, event_loop):
     """
     Ensure salt.utils.crypt.reinit_crypto() is executed when forking for new job
     """
     mock_opts = salt.config.DEFAULT_MINION_OPTS.copy()
     mock_opts["multiprocessing"] = True
 
-    io_loop = asyncio.get_event_loop()
-    minion = salt.minion.Minion(mock_opts, io_loop=io_loop)
+    minion = salt.minion.Minion(mock_opts, io_loop=event_loop)
 
     job_data = {"jid": "test-jid", "fun": "test.ping"}
 
@@ -730,9 +730,8 @@ def test_reinit_crypto_on_fork(def_mock):
         # pylint: enable=comparison-with-callable
 
     with patch.object(salt.utils.process.SignalHandlingProcess, "start", mock_start):
-        salt.utils.asynchronous.run_sync(
-            lambda: minion._handle_decoded_payload(job_data)
-        )
+            await minion._handle_decoded_payload(job_data)
+    minion.process_manager.terminate()
 
 
 def test_minion_manage_schedule():
@@ -787,6 +786,7 @@ def test_minion_manage_schedule():
                 minion.manage_schedule(tag, data)
                 assert "test_job" in minion.opts["schedule"]
             finally:
+                minion.process_manager.terminate()
                 del minion.schedule
                 minion.destroy()
                 del minion
@@ -889,7 +889,7 @@ def test_sock_path_len():
 
 
 @pytest.mark.skip_on_windows(reason="Skippin, no Salt master running on Windows.")
-def test_master_type_failover():
+async def test_master_type_failover():
     """
     Tests master_type "failover" to not fall back to 127.0.0.1 address when master does not resolve in DNS
     """
@@ -930,10 +930,10 @@ def test_master_type_failover():
     ), patch("salt.loader.grains", MagicMock(return_value=[])):
         with pytest.raises(SaltClientError):
             minion = salt.minion.Minion(mock_opts)
-            yield minion.connect_master()
+            await minion.connect_master()
 
 
-def test_master_type_failover_no_masters():
+async def test_master_type_failover_no_masters():
     """
     Tests master_type "failover" to not fall back to 127.0.0.1 address when no master can be resolved
     """
@@ -956,7 +956,7 @@ def test_master_type_failover_no_masters():
     ):
         with pytest.raises(SaltClientError):
             minion = salt.minion.Minion(mock_opts)
-            yield minion.connect_master()
+            await minion.connect_master()
 
 
 def test_config_cache_path_overrides():

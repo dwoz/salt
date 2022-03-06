@@ -449,9 +449,6 @@ def get_test_timeout(pyfuncitem):
         return marker.kwargs.get("seconds") or default_timeout
     return default_timeout
 
-import inspect
-import functools
-
 
 #@pytest.mark.tryfirst
 #def pytest_pycollect_makeitem(collector, name, obj):
@@ -467,51 +464,51 @@ import functools
 #            item.fixturenames.append("io_loop")
 
 
-class CoroTestFunction:
-   def __init__(self, func, kwargs):
-       self.func = func
-       self.kwargs = kwargs
-       functools.update_wrapper(self, func)
-
-   async def __call__(self):
-       ret = await self.func(**self.kwargs)
-       return ret
-
-
-@pytest.mark.tryfirst
-def pytest_pyfunc_call(pyfuncitem):
-   if not inspect.iscoroutinefunction(pyfuncitem.obj):
-       return
-
-   funcargs = pyfuncitem.funcargs
-   testargs = {arg: funcargs[arg] for arg in pyfuncitem._fixtureinfo.argnames}
-
-   try:
-       loop = funcargs["io_loop"]
-   except KeyError:
-       loop = asyncio.get_event_loop()
-
-   salt.utils.asynchronous.run_sync(
-       CoroTestFunction,
-       args=(pyfuncitem.obj, testargs),
-       io_loop=loop,
-       timeout=get_test_timeout(pyfuncitem),
-   )
-   return True
-
-
-@pytest.fixture
-def io_loop():
-    """
-    Create new io loop for each test, and tear it down after.
-    """
-    loop = asyncio.new_event_loop()
-    try:
-        yield loop
-    finally:
-        # loop.clear_current()
-        # loop.close(all_fds=True)
-        loop.close()
+#class CoroTestFunction:
+#   def __init__(self, func, kwargs):
+#       self.func = func
+#       self.kwargs = kwargs
+#       functools.update_wrapper(self, func)
+#
+#   async def __call__(self):
+#       ret = await self.func(**self.kwargs)
+#       return ret
+#
+#
+#@pytest.mark.tryfirst
+#def pytest_pyfunc_call(pyfuncitem):
+#   if not inspect.iscoroutinefunction(pyfuncitem.obj):
+#       return
+#
+#   funcargs = pyfuncitem.funcargs
+#   testargs = {arg: funcargs[arg] for arg in pyfuncitem._fixtureinfo.argnames}
+#
+#   try:
+#       loop = funcargs["io_loop"]
+#   except KeyError:
+#       loop = asyncio.get_event_loop()
+#
+#   salt.utils.asynchronous.run_sync(
+#       CoroTestFunction,
+#       args=(pyfuncitem.obj, testargs),
+#       io_loop=loop,
+#       timeout=get_test_timeout(pyfuncitem),
+#   )
+#   return True
+#
+#
+#@pytest.fixture
+#def io_loop():
+#    """
+#    Create new io loop for each test, and tear it down after.
+#    """
+#    loop = asyncio.new_event_loop()
+#    try:
+#        yield loop
+#    finally:
+#        # loop.clear_current()
+#        # loop.close(all_fds=True)
+#        loop.close()
 
 
 # <---- Async Test Fixtures ------------------------------------------------------------------------------------------

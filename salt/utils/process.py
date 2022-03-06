@@ -603,6 +603,34 @@ class ProcessManager:
                 # Otherwise, it's a dead process, remove it from the process map
                 del self._process_map[pid]
 
+    def _thread_run(self):
+        while not self._stop_event.is_set():
+            log.trace("Process manager iteration")
+            try:
+                # in case someone died while we were waiting...
+                self.check_children()
+                # The event-based subprocesses management code was removed from here
+                # because os.wait() conflicts with the subprocesses management logic
+                # implemented in `multiprocessing` package. See #35480 for details.
+                time.sleep(10)
+                if not self._process_map:
+                    break
+            # OSError is raised if a signal handler is called (SIGTERM) during os.wait
+            except OSError:
+                break
+            except OSError as exc:  # pylint: disable=duplicate-except
+                # IOError with errno of EINTR (4) may be raised
+                # when using time.sleep() on Windows.
+                if exc.errno != errno.EINTR:
+                    raise
+                break
+
+    def thread_run(self):
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._thread_run)
+        self._thread.start()
+
+
     def sync_run(self):
         log.debug("Process Manager starting!")
         if multiprocessing.current_process().name != "MainProcess":
@@ -812,6 +840,9 @@ class ProcessManager:
         """
         Properly terminate this process manager instance
         """
+        if hasattr(self, '_thread'):
+            self._stop_event.set()
+            self._thread.join()
         self.stop_restarting()
         self.send_signal_to_processes(signal.SIGTERM)
         self.kill_children()
