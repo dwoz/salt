@@ -179,8 +179,13 @@ class IPCServer:
         else:
             msgpack_kwargs = {"encoding": "utf-8"}
         unpacker = salt.utils.msgpack.Unpacker(**msgpack_kwargs)
+        wire_bytes = ''
         while not stream.closed():
             try:
+                # Avoid memory leaks in older versions of msgpack
+                # https://github.com/msgpack/msgpack-python/issues/283
+                if len(wire_bytes) != 4096:
+                    unpacker = salt.utils.msgpack.Unpacker(**msgpack_kwargs)
                 wire_bytes = yield stream.read_bytes(4096, partial=True)
                 unpacker.feed(wire_bytes)
                 for framed_msg in unpacker:
