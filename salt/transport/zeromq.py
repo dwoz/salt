@@ -872,11 +872,13 @@ class ZeroMQPubServerChannel(salt.transport.server.PubServerChannel):
     def connect(self):
         return salt.ext.tornado.gen.sleep(5)
 
-    def _publish_daemon(self, log_queue=None):
+    def _publish_daemon(self, master_secrets=None, log_queue=None):
         """
         Bind to the interface specified in the configuration file
         """
         salt.utils.process.appendproctitle(self.__class__.__name__)
+        if master_secrets is not None:
+            salt.master.SMaster.secrets = master_secrets
 
         if self.opts["pub_server_niceness"] and not salt.utils.platform.is_windows():
             log.info(

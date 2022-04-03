@@ -184,6 +184,7 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
         self.loop_interval = int(self.opts["loop_interval"])
         # Track key rotation intervals
         self.rotate = int(time.time())
+        self.master_secrets = kwargs.get("master_secrets", None)
         # A serializer for general maint operations
 
     def _post_fork_init(self):
@@ -193,6 +194,8 @@ class Maintenance(salt.utils.process.SignalHandlingProcess):
         in the parent process, then once the fork happens you'll start getting
         errors like "WARNING: Mixing fork() and threads detected; memory leaked."
         """
+        if self.master_secrets is not None:
+            SMaster.secrets = master_secrets
         # Load Runners
         ropts = dict(self.opts)
         ropts["quiet"] = True
@@ -532,7 +535,7 @@ class Master(SMaster):
                 "may result in loss of contact with minions. Please "
                 "upgrade your ZMQ!"
             )
-        SMaster.__init__(self, opts)
+        super().__init__(opts)
 
     def __set_max_open_files(self):
         if not HAS_RESOURCE:
@@ -709,7 +712,9 @@ class Master(SMaster):
             log_queue = salt.log.setup.get_multiprocessing_logging_queue()
             for _, opts in iter_transport_opts(self.opts):
                 chan = salt.transport.server.PubServerChannel.factory(opts)
-                chan.pre_fork(self.process_manager, kwargs={"log_queue": log_queue})
+                chan.pre_fork(self.process_manager, kwargs={
+                    "master_secrets": SMaster.secrets,
+                    "log_queue": log_queue})
                 pub_channels.append(chan)
 
             log.info("Creating master event publisher process")
@@ -735,7 +740,7 @@ class Master(SMaster):
 
             # must be after channels
             log.info("Creating master maintenance process")
-            self.process_manager.add_process(Maintenance, args=(self.opts,))
+            self.process_manager.add_process(Maintenance, args=(self.opts,), kwargs=(master_secrets=SMaster.secrets))
 
             if self.opts.get("event_return"):
                 log.info("Creating master event return process")
