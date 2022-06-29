@@ -9,14 +9,14 @@ pkg/deb/debian/debhelper*
 pkg/deb/debian/files*
 pkg/deb/debian/*.debhelper
 pkg/deb/debian/*.substvars
-pkg/deb/debian/salt-api
-pkg/deb/debian/salt-ssh
-pkg/deb/debian/salt-minion
-pkg/deb/debian/salt-master
-pkg/deb/debian/salt-syndic
-pkg/deb/debian/salt-cloud
-pkg/deb/debian/salt-common
-pkg/deb/debian/salt
+pkg/deb/debian/salt-api*
+pkg/deb/debian/salt-ssh*
+pkg/deb/debian/salt-minion*
+pkg/deb/debian/salt-master*
+pkg/deb/debian/salt-syndic*
+pkg/deb/debian/salt-cloud*
+pkg/deb/debian/salt-common*
+pkg/deb/debian/salt*
 
 
 __pycache__/
