@@ -3,9 +3,10 @@ PYTHON_VERSION ?= 3.8.13
 PY_SUFFIX ?= $(shell echo $(PYTHON_VERSION) | sed -r 's/([0-9]+)(\.[0-9]+)(\.[0-9]+)/\1\2/')
 TARGET_DIRNAME := $(shell dirname $(TARGET_DIR))
 TARGET_BASENAME := $(shell basename $(TARGET_DIR))
+DYNLOAD = $(TARGET_DIR)/lib/python$(PY_SUFFIX)/lib-dynload/*.so
 
 
-.PHONY: all $(SCRIPTS)
+.PHONY: all $(SCRIPTS) $(DYNLOAD)
 
 all: $(SCRIPTS_DIR)/salt
 
@@ -30,14 +31,22 @@ $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION): $(TARGET_DIRNAME)/Python-$(PYTHON_VE
 
 $(TARGET_DIR)/bin/python$(PY_SUFFIX):  $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION)
 	cd $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION); \
-	./configure --prefix=$(TARGET_DIR) --enable-optimizations; \
+	./configure --prefix=$(TARGET_DIR) ; \ #--enable-optimizations; \
 	make -j4; make install; \
 
 $(SCRIPTS_DIR)/salt-pip: $(TARGET_DIR)/bin/python$(PY_SUFFIX)
 	cp $(PWD)/scripts/salt-pip $(SCRIPTS_DIR)/salt-pip
 	sed -i 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $@;
 
-$(SCRIPTS_DIR)/salt: $(SCRIPTS_DIR)/salt-pip
+$(DYNLOAD):
+	patchelf --set-rpath '$$ORIGIN/' $@
+
+DYNLIB := libssl.so.10 libcrypto.so.10 libcrypt.so
+
+$(DYNLIB):
+	cp $(realpath /lib64/$@) $(TARGET_DIR)/lib/python$(PY_SUFFIX)/lib-dynload/$@
+
+$(SCRIPTS_DIR)/salt: $(SCRIPTS_DIR)/salt-pip $(DYNLOAD) $(DYNLIB)
 	$(SCRIPTS_DIR)/salt-pip install .
 	patchelf --set-rpath '$$ORIGIN/' $(TARGET_DIR)/lib/python$(PY_SUFFIX)/site-packages/pyzmq.libs/libzmq-68c212d3.so.5.2.4
 
@@ -45,6 +54,7 @@ $(SCRIPTS_DIR)/salt: $(SCRIPTS_DIR)/salt-pip
 $(SCRIPTS): $(SCRIPTS_DIR)/salt
 	mv $(TARGET_DIR)/bin/$@ $(SCRIPTS_DIR);
 	sed -i 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $(SCRIPTS_DIR)/$@;
+
 
 salt.tar.xz: $(SCRIPTS)
 	find $(TARGET_DIR) -name '*.pyc' -exec rm -f {} \;
