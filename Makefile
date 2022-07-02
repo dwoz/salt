@@ -4,6 +4,7 @@ PY_SUFFIX ?= $(shell echo $(PYTHON_VERSION) | sed -r 's/([0-9]+)(\.[0-9]+)(\.[0-
 TARGET_DIRNAME := $(shell dirname $(TARGET_DIR))
 TARGET_BASENAME := $(shell basename $(TARGET_DIR))
 DYNLOAD = $(TARGET_DIR)/lib/python$(PY_SUFFIX)/lib-dynload/*.so
+DYNLIB := libssl.so.10 libcrypto.so.10 libcrypt.so libffi.so.6
 
 
 .PHONY: all $(SCRIPTS) $(DYNLOAD)
@@ -41,7 +42,6 @@ $(SCRIPTS_DIR)/salt-pip: $(TARGET_DIR)/bin/python$(PY_SUFFIX)
 $(DYNLOAD):
 	patchelf --set-rpath '$$ORIGIN/' $@
 
-DYNLIB := libssl.so.10 libcrypto.so.10 libcrypt.so
 
 $(DYNLIB):
 	cp $(realpath /lib64/$@) $(TARGET_DIR)/lib/python$(PY_SUFFIX)/lib-dynload/$@
