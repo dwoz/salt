@@ -1,10 +1,8 @@
 """
 Test salt.utils.zeromq
 """
-
-
-import salt.utils.zeromq
 import zmq
+
 from salt.exceptions import SaltSystemExit
 from tests.support.mock import patch
 from tests.support.unit import TestCase, skipIf
