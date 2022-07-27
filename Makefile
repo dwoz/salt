@@ -1,4 +1,5 @@
 include config.mk
+UNAME_S := $(shell uname -s)
 PYTHON_VERSION ?= 3.8.13
 PY_SUFFIX ?= $(shell echo $(PYTHON_VERSION) | sed -r 's/([0-9]+)(\.[0-9]+)(\.[0-9]+)/\1\2/')
 TARGET_DIRNAME := $(shell dirname $(TARGET_DIR))
@@ -7,8 +8,12 @@ TARGET_BASENAME := $(shell basename $(TARGET_DIR))
 SALT_VERSION = $(shell $(TARGET_DIR)/salt --version | awk '{ print $$2 }')
 ARCH := $(shell uname -m)
 
+ifeq ($(UNAME_S), Darwin)
+  PKG_CONFIG = export PKG_CONFIG_PATH="$(shell brew --prefix tcl-tk)/lib/pkgconfig"
+  PY_CONFIG := --with-openssl=$(shell brew --prefix openssl) --with-tcltk-libs="$(shell pkg-config --libs tcl tk)" --with-tcltk-includes="$(shell pkg-config --cflags tcl tk)"
+endif
 
-.PHONY: all requirements onedir clean $(SCRIPTS)
+.PHONY: all requirements onedir clean $(SCRIPTS) download_python python
 
 all: $(SCRIPTS_DIR)/salt
 
@@ -16,7 +21,7 @@ clean:
 	rm -rf $(TARGET_DIRNAME)
 
 
-onedir: salt-$(SALT_VERSION)_$(ARCH).tar.xz
+onedir: salt-$(SALT_VERSION)_$(UNAME_S)_$(ARCH).tar.xz
 	echo $(SALT_VERSION)
 
 $(TARGET_DIR):
@@ -26,6 +31,10 @@ $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION).tar.xz: $(TARGET_DIR)
 	curl https://www.python.org/ftp/python/$(PYTHON_VERSION)/Python-$(PYTHON_VERSION).tar.xz -o $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION).tar.xz
 	touch $@
 
+download_python: $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION).tar.xz
+
+python: $(TARGET_DIR)/bin/python$(PY_SUFFIX)
+
 $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION): $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION).tar.xz
 	cd $(TARGET_DIRNAME); \
 	tar xvf Python-$(PYTHON_VERSION).tar.xz; \
@@ -34,8 +43,8 @@ $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION): $(TARGET_DIRNAME)/Python-$(PYTHON_VE
 
 $(TARGET_DIR)/bin/python$(PY_SUFFIX):  $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION)
 	cd $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION); \
-	LDFLAGS="-Wl,--as-needed" ./configure --prefix=$(TARGET_DIR) ; \
-	make -j4; \
+	PKG_CONFIG_PATH="$(brew --prefix tcl-tk)/lib/pkgconfig" ./configure -v --prefix=$(TARGET_DIR) $(PY_CONFIG); \
+	PKG_CONFIG_PATH="$(brew --prefix tcl-tk)/lib/pkgconfig" make -j4; \
 	make install; \
 	cd $(TARGET_DIR)/bin; \
 	ln -sf python$(PY_SUFFIX) python; \
@@ -68,10 +77,10 @@ $(TARGET_DIR)/install-salt:
 $(TARGET_DIR)/uninstall-salt: fixlibs
 	cp $(PWD)/scripts/uninstall-salt $(SCRIPTS_DIR)/uninstall-salt
 
-salt-$(SALT_VERSION)_$(ARCH).tar.xz: $(SCRIPTS) $(TARGET_DIR)/install-salt $(TARGET_DIR)/uninstall-salt
+salt-$(SALT_VERSION)_$(UNAME_S)_$(ARCH).tar.xz: $(SCRIPTS) $(TARGET_DIR)/install-salt $(TARGET_DIR)/uninstall-salt
 	sh -c "find $(TARGET_DIR) -name '__pycache__' -type d -print0 |xargs -0 -n1 rm -rf --"
 	# Remove Python Headers
 	# rm -rf $(TARGET_DIR)/include
 	# Remove man pages
 	rm -rf $(TARGET_DIR)/share
-	tar cJvf salt-$(SALT_VERSION)_$(ARCH).tar.xz -C $(TARGET_DIRNAME) $(TARGET_BASENAME);
+	tar cJvf salt-$(SALT_VERSION)_$(UNAME_S)_$(ARCH).tar.xz -C $(TARGET_DIRNAME) $(TARGET_BASENAME);
