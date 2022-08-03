@@ -10,10 +10,12 @@ ARCH := $(shell uname -m)
 
 ifeq ($(UNAME_S), Darwin)
   PKG_CONFIG = export PKG_CONFIG_PATH="$(shell brew --prefix tcl-tk)/lib/pkgconfig"
-  PY_CONFIG := --with-openssl=$(shell brew --prefix openssl) --with-tcltk-libs="$(shell pkg-config --libs tcl tk)" --with-tcltk-includes="$(shell pkg-config --cflags tcl tk)"
+  PY_CONFIG := --with-openssl=$(shell brew --prefix openssl@1.1) --with-tcltk-libs="$(shell pkg-config --libs tcl tk)" --with-tcltk-includes="$(shell pkg-config --cflags tcl tk)"
   PY_MAKE_ENV := PKG_CONFIG_PATH="$(brew --prefix tcl-tk)/lib/pkgconfig"
+  SED_OPTS := -i ''
 else
   PY_MAKE_ENV := LDFLAGS="-Wl,--as-needed"
+  SED_OPTS := -i
 endif
 
 .PHONY: all requirements onedir clean $(SCRIPTS) download_python python
@@ -56,7 +58,7 @@ $(TARGET_DIR)/bin/python$(PY_SUFFIX):  $(TARGET_DIRNAME)/Python-$(PYTHON_VERSION
 
 $(SCRIPTS_DIR)/salt-pip: $(TARGET_DIR)/bin/python$(PY_SUFFIX) $(TARGET_DIR)/.onedir
 	cp $(PWD)/scripts/salt-pip $(SCRIPTS_DIR)/salt-pip
-	sed -i 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $@;
+	sed $(SED_OPTS) 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $@;
 
 $(SCRIPTS_DIR)/salt: $(SCRIPTS_DIR)/salt-pip
 	$(SCRIPTS_DIR)/salt-pip install wheel
@@ -65,7 +67,7 @@ $(SCRIPTS_DIR)/salt: $(SCRIPTS_DIR)/salt-pip
 
 $(SCRIPTS): $(SCRIPTS_DIR)/salt
 	mv $(TARGET_DIR)/bin/$@ $(SCRIPTS_DIR);
-	sed -i 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $(SCRIPTS_DIR)/$@;
+	sed $(SED_OPTS) 's/^#!.*$$/#!\/bin\/sh\n"exec" "`dirname $$0`\/$(PYBIN)" "$$0" "$$@"/' $(SCRIPTS_DIR)/$@;
 
 
 $(TARGET_DIR)/.onedir:
