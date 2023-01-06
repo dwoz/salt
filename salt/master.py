@@ -2189,18 +2189,20 @@ class ClearFuncs(TransportMethods):
             return {
                 "error": {
                     "name": "AuthorizationError",
-                    "message": "Authorization error occurred.",
+                    "message": "Authorization error occurred. -a",
                 }
             }
 
         # Retrieve the minions list
-        delimiter = clear_load.get("kwargs", {}).get("delimiter", DEFAULT_TARGET_DELIM)
+        kwargs = clear_load.get("kwargs", {})
+        delimiter = kwargs.get("delimiter", DEFAULT_TARGET_DELIM)
         _res = self.ckminions.check_minions(
             clear_load["tgt"], clear_load.get("tgt_type", "glob"), delimiter
         )
         minions = _res.get("minions", list())
         missing = _res.get("missing", list())
         ssh_minions = _res.get("ssh_minions", False)
+        auth_key = clear_load["key"]
 
         # Check for external auth calls and authenticate
         auth_type, err_name, key, sensitive_load_keys = self._prep_auth_info(extra)
@@ -2211,8 +2213,12 @@ class ClearFuncs(TransportMethods):
         else:
             auth_check = self.loadauth.check_authentication(extra, auth_type)
 
-        # Setup authorization list variable and error information
-        auth_list = auth_check.get("auth_list", [])
+        if 'auth_list' in kwargs and auth_key == key[self.opts.get("user", "root")]:
+            auth_list = kwargs.pop("auth_list")
+        else:
+            # Setup authorization list variable and error information
+            auth_list = auth_check.get("auth_list", [])
+
         err_msg = 'Authentication failure of type "{}" occurred.'.format(auth_type)
 
         if auth_check.get("error"):
@@ -2252,11 +2258,12 @@ class ClearFuncs(TransportMethods):
                         extra["eauth"],
                         extra["username"],
                     )
+                log.error("AUTHLIST %r", auth_list)
                 log.warning(err_msg)
                 return {
                     "error": {
                         "name": "AuthorizationError",
-                        "message": "Authorization error occurred.",
+                        "message": "Authorization error occurred. -b",
                     }
                 }
 
@@ -2288,6 +2295,7 @@ class ClearFuncs(TransportMethods):
         if jid is None:
             return {"enc": "clear", "load": {"error": "Master failed to assign jid"}}
         payload = self._prep_pub(minions, jid, clear_load, extra, missing)
+        payload['auth_list'] = auth_list
 
         # Send it!
         self._send_ssh_pub(payload, ssh_minions=ssh_minions)

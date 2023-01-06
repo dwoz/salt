@@ -3218,6 +3218,7 @@ class Syndic(Minion):
         Override this method if you wish to handle the decoded data
         differently.
         """
+        log.error("WTF %r", data)
         # TODO: even do this??
         data["to"] = int(data.get("to", self.opts["timeout"])) - 1
         # Only forward the command if it didn't originate from ourselves
@@ -3231,7 +3232,8 @@ class Syndic(Minion):
         # Set up default tgt_type
         if "tgt_type" not in data:
             data["tgt_type"] = "glob"
-        kwargs = {}
+
+        kwargs = {"auth_list": data.pop("auth_list")}
 
         # optionally add a few fields to the publish data
         for field in (
