@@ -684,8 +684,8 @@ def test_eauth_user_should_not_be_able_to_target_invalid_minions(
         f"salt -a pam --username bob --password '' {eauth_blocked_minions} test.arg hello -t 20 --out=json",
     )
     results = json_output_to_dict(res.stdout)
-    assert "Authorization error occurred" in res.stdout
-    assert sorted(results) == []
+    # No minion keys have been accepted. No jobs should run.
+    assert results == {}
 
 
 @pytest.mark.skip(reason="Not sure about blocklist")
