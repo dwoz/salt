@@ -1185,6 +1185,7 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
             os.nice(self.opts["event_publisher_niceness"])
 
         self.io_loop = salt.ext.tornado.ioloop.IOLoop()
+        tcp_master_pool_port = 4520
         with salt.utils.asynchronous.current_ioloop(self.io_loop):
             if self.opts["ipc_mode"] == "tcp":
                 epub_uri = int(self.opts["tcp_master_pub_port"])
@@ -1193,11 +1194,31 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
                 epub_uri = os.path.join(self.opts["sock_dir"], "master_event_pub.ipc")
                 epull_uri = os.path.join(self.opts["sock_dir"], "master_event_pull.ipc")
 
+
+            self.pushers = []
+            for master in self.opts.get("master_pool", []):
+                pulluri = f"{master}:{tcp_master_pool_port}"
+                pusher = salt.utils.asynchronous.SyncWrapper(
+                        salt.transport.ipc.IPCMessageClient,
+                        args=(pulluri,),
+                        kwargs={"io_loop": self.io_loop},
+                        loop_kwarg="io_loop",
+                    )
+                self.pushers.append(pusher)
+
+            self.pool_puller = salt.transport.ipc.IPCMessageServer(
+                self.opts,
+                tcp_master_pool_port,
+                io_loop=self.io_loop,
+                payload_handler=self.handle_pool_publish,
+            )
+
             self.publisher = salt.transport.ipc.IPCMessagePublisher(
                 self.opts, epub_uri, io_loop=self.io_loop
             )
 
             self.puller = salt.transport.ipc.IPCMessageServer(
+                self.opts,
                 epull_uri,
                 io_loop=self.io_loop,
                 payload_handler=self.handle_publish,
@@ -1206,6 +1227,7 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
             # Start the master event publisher
             with salt.utils.files.set_umask(0o177):
                 self.publisher.start()
+                self.pool_puller.start()
                 self.puller.start()
                 if self.opts["ipc_mode"] != "tcp" and (
                     self.opts["publisher_acl"] or self.opts["external_auth"]
@@ -1223,12 +1245,32 @@ class EventPublisher(salt.utils.process.SignalHandlingProcess):
                     # Make sure the IO loop and respective sockets are closed and destroyed
                     self.close()
 
+    def handle_pool_publish(self, package, _):
+        log.error("Got event from other master")
+        try:
+            self.publisher.publish(package)
+        # Add an extra fallback in case a forked process leeks through
+        except Exception:  # pylint: disable=broad-except
+            log.critical("Unexpected error while polling master events", exc_info=True)
+            return None
+
     def handle_publish(self, package, _):
         """
         Get something from epull, publish it out epub, and return the package (or None)
         """
         try:
             self.publisher.publish(package)
+            for pusher in self.pushers:
+                if not pusher.connected(): 
+                    try:
+                        log.error("Connect %s", pusher.socket_path)
+                        pusher.connect(timeout=10)
+                    except: pass
+                if pusher.connected():
+                    try:
+                        log.error("Send %s", pusher.socket_path)
+                        pusher.send(package)
+                    except: pass
             return package
         # Add an extra fallback in case a forked process leeks through
         except Exception:  # pylint: disable=broad-except

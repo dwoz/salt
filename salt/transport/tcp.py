@@ -1001,6 +1001,7 @@ class TCPPublishServer(salt.transport.base.DaemonizedPublishServer):
             pull_uri = os.path.join(self.opts["sock_dir"], "publish_pull.ipc")
         self.pub_server = pub_server
         pull_sock = salt.transport.ipc.IPCMessageServer(
+            self.opts,
             pull_uri,
             io_loop=io_loop,
             payload_handler=publish_payload,
