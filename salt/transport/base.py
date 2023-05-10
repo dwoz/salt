@@ -169,7 +169,7 @@ def ipc_publish_server(node, opts):
             kwargs.update(
                 pub_host="127.0.0.1",
                 pub_port=int(opts["tcp_master_pub_port"]),
-                pull_host="127.0.0.1",
+                pull_host=opts["interface"],
                 pull_port=int(opts["tcp_master_pull_port"]),
             )
         else:

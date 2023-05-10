@@ -98,7 +98,7 @@ class IPCServer:
         "close",
     ]
 
-    def __init__(self, socket_path, io_loop=None, payload_handler=None):
+    def __init__(self, opts, socket_path, io_loop=None, payload_handler=None):
         """
         Create a new Tornado IPC server
 
@@ -114,6 +114,7 @@ class IPCServer:
         :param func payload_handler: A function to customize handling of
                                      incoming data.
         """
+        self.opts = opts
         self.socket_path = socket_path
         self._started = False
         self.payload_handler = payload_handler
@@ -135,7 +136,7 @@ class IPCServer:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.setblocking(0)
-            self.sock.bind(("127.0.0.1", self.socket_path))
+            self.sock.bind((self.opts["interface"], self.socket_path))
             # Based on default used in tornado.netutil.bind_sockets()
             self.sock.listen(128)
         else:
@@ -328,8 +329,14 @@ class IPCClient:
             sock_type = socket.AF_INET
             sock_addr = ("127.0.0.1", self.socket_path)
         else:
-            sock_type = socket.AF_UNIX
-            sock_addr = self.socket_path
+            if ":" in self.socket_path:
+                addr, port = self.socket_path.rsplit(":", 1)
+                port = int(port)
+                sock_type = socket.AF_INET
+                sock_addr = (addr, port)
+            else:
+                sock_type = socket.AF_UNIX
+                sock_addr = self.socket_path
 
         self.stream = None
         if timeout is not None:
