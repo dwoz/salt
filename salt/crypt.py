@@ -1446,6 +1446,18 @@ class Crypticle:
         return b64key.replace("\n", "")
 
     @classmethod
+    def read_or_generate_key_string(cls, path, key_size=192):
+        try:
+            with open(path, "r") as fp:
+                return fp.read()
+        except:
+            pass
+        key = cls.generate_key_string(key_size)
+        with open(path, "w") as fp: 
+            fp.write(key)
+        return key
+
+    @classmethod
     def extract_keys(cls, key_string, key_size):
         key = salt.utils.stringutils.to_bytes(base64.b64decode(key_string))
         assert len(key) == key_size / 8 + cls.SIG_SIZE, "invalid key"

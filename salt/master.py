@@ -698,6 +698,11 @@ class Master(SMaster):
         # manager. We don't want the processes being started to inherit those
         # signal handlers
         with salt.utils.process.default_signals(signal.SIGINT, signal.SIGTERM):
+            keypath = os.path.join(self.opts["cachedir"], ".aes")
+            keygen = functools.partial(
+                 salt.crypt.Crypticle.read_or_generate_key_string,
+                 keypath,
+            )
 
             # Setup the secrets here because the PubServerChannel may need
             # them as well.
@@ -705,13 +710,13 @@ class Master(SMaster):
                 "secret": multiprocessing.Array(
                     ctypes.c_char,
                     salt.utils.stringutils.to_bytes(
-                        salt.crypt.Crypticle.generate_key_string()
+                        keygen()
                     ),
                 ),
                 "serial": multiprocessing.Value(
                     ctypes.c_longlong, lock=False  # We'll use the lock from 'secret'
                 ),
-                "reload": salt.crypt.Crypticle.generate_key_string,
+                "reload": keygen,
             }
 
             log.info("Creating master process manager")
