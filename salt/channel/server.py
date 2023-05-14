@@ -857,7 +857,11 @@ class PubServerChannel:
 
     def wrap_payload(self, load):
         payload = {"enc": "aes"}
-        load["serial"] = salt.master.SMaster.get_serial()
+        # When master_pool is used we do not yet have a way to share a serial
+        # value. This could be enabled in the future with redis, etcd, or
+        # memcache.
+        if self.opts.get("master_pool", []):
+            load["serial"] = salt.master.SMaster.get_serial()
         crypticle = salt.crypt.Crypticle(
             self.opts, salt.master.SMaster.secrets["aes"]["secret"].value
         )
