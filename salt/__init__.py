@@ -12,12 +12,13 @@ if sys.version_info < (3,):
     )
     sys.stderr.flush()
 
-try:
+
+if sys.platform.startswith("win"):
     import asyncio  # isort:skip
     import tornado.platform.asyncio  # isort:skip
+
     asyncio.set_event_loop_policy(tornado.platform.asyncio.AnyThreadEventLoopPolicy())
-except ImportError:
-    pass
+
 
 USE_VENDORED_TORNADO = False
 
@@ -50,7 +51,6 @@ class TornadoImporter:
 
 # Try our importer first
 sys.meta_path = [TornadoImporter()] + sys.meta_path
-
 
 
 # All salt related deprecation warnings should be shown once each!
