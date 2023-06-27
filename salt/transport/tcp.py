@@ -702,9 +702,6 @@ class MessageClient:
         source_ip=None,
         source_port=None,
     ):
-        # import traceback
-        # stack = "".join(traceback.format_stack())
-        # print(stack)
         self.opts = opts
         self.host = host
         self.port = port
@@ -732,9 +729,6 @@ class MessageClient:
 
         self.backoff = opts.get("tcp_reconnect_backoff", 1)
         self.callbacks = {}
-        import traceback
-
-        self.stack = "".join(traceback.format_stack())
         self.unpacker = salt.utils.msgpack.Unpacker()
         self._read_in_progress = Lock()
         self.task = None
