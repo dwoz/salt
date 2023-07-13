@@ -705,8 +705,13 @@ class AsyncAuth:
                     AsyncAuth.creds_map[key] = creds
                     self._creds = creds
                     self._crypticle = Crypticle(self.opts, creds["aes"])
-                elif self._creds["aes"] != creds["aes"]:
+                elif hasattr(self, "_creds") and self._creds["aes"] != creds["aes"]:
                     log.debug("%s The master's aes key has changed.", self)
+                    AsyncAuth.creds_map[key] = creds
+                    self._creds = creds
+                    self._crypticle = Crypticle(self.opts, creds["aes"])
+                else:
+                    log.debug("%s Got new master aes key.", self)
                     AsyncAuth.creds_map[key] = creds
                     self._creds = creds
                     self._crypticle = Crypticle(self.opts, creds["aes"])

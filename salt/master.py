@@ -15,6 +15,7 @@ import stat
 import sys
 import threading
 import time
+import concurrent.futures
 
 import salt.acl
 import salt.auth
@@ -989,6 +990,7 @@ class MWorker(salt.utils.process.SignalHandlingProcess):
         """
         self.io_loop = salt.ext.tornado.ioloop.IOLoop()
         self.io_loop.make_current()
+        self.executor = concurrent.futures.ThreadPoolExecutor(5)
         for req_channel in self.req_channels:
             req_channel.post_fork(
                 self._handle_payload, io_loop=self.io_loop
@@ -1021,9 +1023,15 @@ class MWorker(salt.utils.process.SignalHandlingProcess):
 
         :param dict payload: The payload route to the appropriate handler
         """
+        log.error("GOT payload %r",  payload["load"])
         key = payload["enc"]
         load = payload["load"]
-        ret = {"aes": self._handle_aes, "clear": self._handle_clear}[key](load)
+        #ret = {"aes": self._handle_aes, "clear": self._handle_clear}[key](load)
+        future = self.executor.submit(
+            {"aes": self._handle_aes, "clear": self._handle_clear}[key],
+            load,
+        )
+        ret = yield future
         raise salt.ext.tornado.gen.Return(ret)
 
     def _post_stats(self, start, cmd):
@@ -1199,7 +1207,12 @@ class AESFuncs(TransportMethods):
         "_symlink_list",
         "_file_envs",
         "_ext_nodes",  # To be removed in 3006 (Sulfur) #60980
+        "_time",
     )
+    def _time(self, clear_load):
+        log.error("GOT %r", clear_load)
+        time.sleep(20)
+        return {}
 
     def __init__(self, opts):
         """

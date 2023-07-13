@@ -167,7 +167,9 @@ class AsyncReqChannel:
         nonce = uuid.uuid4().hex
         load["nonce"] = nonce
         if not self.auth.authenticated:
+            print("authenticate")
             yield self.auth.authenticate()
+            print("authenticated")
         ret = yield self.transport.send(
             self._package_load(self.auth.crypticle.dumps(load)),
             timeout=timeout,
@@ -246,7 +248,11 @@ class AsyncReqChannel:
 
         if not self.auth.authenticated:
             # Return control back to the caller, resume when authentication succeeds
+            import threading
+            ident = threading.currentThread().ident
+            print(f"authenticate {ident}")
             yield self.auth.authenticate()
+            print(f"authenticated {ident}")
         try:
             # We did not get data back the first time. Retry.
             ret = yield _do_transfer()

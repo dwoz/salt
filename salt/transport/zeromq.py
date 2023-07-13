@@ -330,17 +330,34 @@ class RequestServer(salt.transport.base.DaemonizedRequestServer):
         log.error("ReqServer workers %s", self.w_uri)
         self.workers.bind(self.w_uri)
 
+        poller = zmq.Poller()
+        poller.register(self.clients, zmq.POLLIN)
+        poller.register(self.workers, zmq.POLLIN)
+
         while True:
-            if self.clients.closed or self.workers.closed:
-                break
-            try:
-                zmq.device(zmq.QUEUE, self.clients, self.workers)
-            except zmq.ZMQError as exc:
-                if exc.errno == errno.EINTR:
-                    continue
-                raise
-            except (KeyboardInterrupt, SystemExit):
-                break
+            socks = dict(poller.poll())
+            if socks.get(self.clients) == zmq.POLLIN:
+              message = self.clients.recv_multipart()
+              log.error("Client msg %r", message)
+              self.workers.send_multipart(message)
+
+            if socks.get(self.workers) == zmq.POLLIN:
+              message = self.workers.recv_multipart()
+              log.error("Worker msg %r", message)
+              self.clients.send_multipart(message)
+
+
+       # while True:
+       #     if self.clients.closed or self.workers.closed:
+       #         break
+       #     try:
+       #         zmq.device(zmq.QUEUE, self.clients, self.workers)
+       #     except zmq.ZMQError as exc:
+       #         if exc.errno == errno.EINTR:
+       #             continue
+       #         raise
+       #     except (KeyboardInterrupt, SystemExit):
+       #         break
         context.term()
 
     def close(self):
@@ -418,13 +435,24 @@ class RequestServer(salt.transport.base.DaemonizedRequestServer):
         self.stream = zmq.eventloop.zmqstream.ZMQStream(self._socket, io_loop=io_loop)
         self.message_handler = message_handler
         self.stream.on_recv_stream(self.handle_message)
+        log.info("Worker bound to socket %r %s", self.stream, self.w_uri)
+
+        self._socket2 = context.socket(zmq.REP)
+        self._socket2.setsockopt(zmq.LINGER, -1)
+        self._socket2.connect(self.w_uri)
+        # Linger -1 means we'll never discard messages.
+        self.stream2 = zmq.eventloop.zmqstream.ZMQStream(self._socket2, io_loop=io_loop)
+        log.info("Worker bound to socket %r %s", self.stream2, self.w_uri)
+        self.message_handler = message_handler
+        self.stream2.on_recv_stream(self.handle_message)
 
     @salt.ext.tornado.gen.coroutine
     def handle_message(self, stream, payload):
         payload = self.decode_payload(payload)
+        log.error("HANDLE MSG %r %r", stream, payload)
         # XXX: Is header really needed?
         reply = yield self.message_handler(payload)
-        self.stream.send(self.encode_payload(reply))
+        stream.send(self.encode_payload(reply))
 
     def encode_payload(self, payload):
         return salt.payload.dumps(payload)
