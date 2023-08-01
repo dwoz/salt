@@ -6,6 +6,7 @@ import asyncio
 import collections
 import copy
 import ctypes
+import functools
 import logging
 import multiprocessing
 import os
@@ -850,11 +851,11 @@ class Master(SMaster):
         sys.exit(0)
 
     def event_forwarder(self):
-        io_loop = salt.ext.tornado.ioloop.IOLoop()
+        io_loop = tornado.ioloop.IOLoop()
         io_loop.make_current()
         channels = []
 
-        @salt.ext.tornado.gen.coroutine
+        @tornado.gen.coroutine
         def handle_event(package):
             tag, data = salt.utils.event.SaltEvent.unpack(package)
             log.error("forwareder got event %r", package)
