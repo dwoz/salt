@@ -699,8 +699,8 @@ class Master(SMaster):
         with salt.utils.process.default_signals(signal.SIGINT, signal.SIGTERM):
             keypath = os.path.join(self.opts["cachedir"], ".aes")
             keygen = functools.partial(
-                 salt.crypt.Crypticle.read_or_generate_key_string,
-                 keypath,
+                salt.crypt.Crypticle.read_or_generate_key_string,
+                keypath,
             )
 
             # Setup the secrets here because the PubServerChannel may need
@@ -708,9 +708,7 @@ class Master(SMaster):
             SMaster.secrets["aes"] = {
                 "secret": multiprocessing.Array(
                     ctypes.c_char,
-                    salt.utils.stringutils.to_bytes(
-                        keygen()
-                    ),
+                    salt.utils.stringutils.to_bytes(keygen()),
                 ),
                 "serial": multiprocessing.Value(
                     ctypes.c_longlong, lock=False  # We'll use the lock from 'secret'
@@ -730,13 +728,18 @@ class Master(SMaster):
 
             log.info("Creating master event publisher process")
             ipc_publisher = salt.transport.ipc_publish_server("master", self.opts)
-            self.process_manager.add_process(
-                ipc_publisher.publish_daemon,
-                args=[
-                    ipc_publisher.publish_payload,
-                ],
-                name="EventPublisher",
+            ipc_publisher = salt.channel.server.MasterPubServerChannel.factory(
+                self.opts
             )
+            ipc_publisher.pre_fork(self.process_manager)
+
+            # self.process_manager.add_process(
+            #    ipc_publisher.publish_daemon,
+            #    args=[
+            #        ipc_publisher.publish_payload,
+            #    ],
+            #    name="EventPublisher",
+            # )
 
             self.process_manager.add_process(self.event_forwarder)
 
@@ -855,27 +858,23 @@ class Master(SMaster):
         io_loop.make_current()
         channels = []
 
-        @tornado.gen.coroutine
-        def handle_event(package):
+        async def handle_event(package):
             tag, data = salt.utils.event.SaltEvent.unpack(package)
             log.error("forwareder got event %r", package)
-            if tag.startswith('salt/job') and tag.endswith('/publish'):
+            if tag.startswith("salt/job") and tag.endswith("/publish"):
                 if not channels:
                     for transport, opts in iter_transport_opts(self.opts):
                         chan = salt.channel.server.PubServerChannel.factory(opts)
                         channels.append(chan)
                 for chan in channels:
-                    chan.publish(data)
-
+                    await chan.publish(data)
 
         with salt.utils.event.get_master_event(
             self.opts, self.opts["sock_dir"], io_loop=io_loop, listen=True
-            ) as event_bus:
+        ) as event_bus:
             event_bus.subscribe("")
             event_bus.set_event_handler(handle_event)
             io_loop.start()
-
-
 
 
 class ReqServer(salt.utils.process.SignalHandlingProcess):
@@ -2348,7 +2347,7 @@ class ClearFuncs(TransportMethods):
         self.event.fire_event(payload, tagify([jid, "publish"], "job"))
         self._send_ssh_pub(payload, ssh_minions=ssh_minions)
 
-        #self._send_pub(payload)
+        # self._send_pub(payload)
 
         return {
             "enc": "clear",
