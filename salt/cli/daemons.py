@@ -153,6 +153,8 @@ class Master(
                     self.config["syndic_dir"],
                     self.config["sqlite_queue_dir"],
                 ]
+                if self.config["master_key"]:
+                    v_dirs.append(self.config["master_key"])
                 verify_env(
                     v_dirs,
                     self.config["user"],

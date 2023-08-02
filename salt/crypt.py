@@ -360,8 +360,12 @@ class MasterKeys(dict):
     def __init__(self, opts):
         super().__init__()
         self.opts = opts
-        self.pub_path = os.path.join(self.opts["pki_dir"], "master.pub")
-        self.rsa_path = os.path.join(self.opts["pki_dir"], "master.pem")
+        if self.opts["master_key"]:
+            self.pub_path = os.path.join(self.opts["master_key"], "master.pub")
+            self.rsa_path = os.path.join(self.opts["master_key"], "master.pem")
+        else:
+            self.pub_path = os.path.join(self.opts["pki_dir"], "master.pub")
+            self.rsa_path = os.path.join(self.opts["pki_dir"], "master.pem")
 
         key_pass = salt.utils.sdb.sdb_get(self.opts["key_pass"], self.opts)
         self.key = self.__get_keys(passphrase=key_pass)
@@ -426,11 +430,16 @@ class MasterKeys(dict):
         """
         Returns a key object for a key in the pki-dir
         """
-        path = os.path.join(self.opts["pki_dir"], name + ".pem")
+        #path = os.path.join(self.opts["pki_dir"], name + ".pem")
+        if self.opts["master_key"]:
+            keydir = self.opts["master_key"]
+        else:
+            keydir = self.opts["pki_dir"]
+        path = os.path.join(keydir, name + ".pem")
         if not os.path.exists(path):
             log.info("Generating %s keys: %s", name, self.opts["pki_dir"])
             gen_keys(
-                self.opts["pki_dir"],
+                keydir,
                 name,
                 self.opts["keysize"],
                 self.opts.get("user"),

@@ -213,7 +213,10 @@ class ReqServerChannel:
             tosign = salt.payload.dumps(
                 {"key": pret["key"], "pillar": ret, "nonce": nonce}
             )
-            master_pem_path = os.path.join(self.opts["pki_dir"], "master.pem")
+            if self.opts["master_key"]:
+                master_pem_path = os.path.join(self.opts["master_key"], "master.pem")
+            else:
+                master_pem_path = os.path.join(self.opts["pki_dir"], "master.pem")
             signed_msg = {
                 "data": tosign,
                 "sig": salt.crypt.sign_message(master_pem_path, tosign),
@@ -224,7 +227,10 @@ class ReqServerChannel:
         return pret
 
     def _clear_signed(self, load):
-        master_pem_path = os.path.join(self.opts["pki_dir"], "master.pem")
+        if self.opts["master_key"]:
+            master_pem_path = os.path.join(self.opts["master_key"], "master.pem")
+        else:
+            master_pem_path = os.path.join(self.opts["pki_dir"], "master.pem")
         tosign = salt.payload.dumps(load)
         return {
             "enc": "clear",
