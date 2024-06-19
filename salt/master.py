@@ -1249,7 +1249,7 @@ class MWorker(salt.utils.process.SignalHandlingProcess):
             self._post_stats(start, cmd)
         return ret
 
-    def _handle_aes(self, data):
+    async def _handle_aes(self, data):
         """
         Process a command sent via an AES key
 
@@ -1371,7 +1371,10 @@ class AESFuncs(TransportMethods):
         "_dir_list",
         "_symlink_list",
         "_file_envs",
+        "publish",
     )
+
+    async_methods = ("publish",)
 
     def __init__(self, opts):
         """
@@ -2109,6 +2112,190 @@ class AESFuncs(TransportMethods):
             return ret, {"fun": "send_private", "key": "pillar", "tgt": load["id"]}
         # Encrypt the return
         return ret, {"fun": "send"}
+
+    def _prep_auth_info(self, clear_load):
+        sensitive_load_keys = []
+        key = None
+        if "token" in clear_load:
+            auth_type = "token"
+            err_name = "TokenAuthenticationError"
+            sensitive_load_keys = ["token"]
+        elif "eauth" in clear_load:
+            auth_type = "eauth"
+            err_name = "EauthAuthenticationError"
+            sensitive_load_keys = ["username", "password"]
+        else:
+            auth_type = "user"
+            err_name = "UserAuthenticationError"
+            key = self.key
+
+        return auth_type, err_name, key, sensitive_load_keys
+
+    async def publish(self, clear_load):
+        """
+        This method sends out publications to the minions, it can only be used
+        by the LocalClient.
+        """
+        extra = clear_load.get("kwargs", {})
+
+        publisher_acl = salt.acl.PublisherACL(self.opts["publisher_acl_blacklist"])
+
+        if publisher_acl.user_is_blacklisted(
+            clear_load["user"]
+        ) or publisher_acl.cmd_is_blacklisted(clear_load["fun"]):
+            log.error(
+                "%s does not have permissions to run %s. Please contact "
+                "your local administrator if you believe this is in "
+                "error.\n",
+                clear_load["user"],
+                clear_load["fun"],
+            )
+            return {
+                "error": {
+                    "name": "AuthorizationError",
+                    "message": "Authorization error occurred.",
+                }
+            }
+
+        # Retrieve the minions list
+        delimiter = extra.get("delimiter", DEFAULT_TARGET_DELIM)
+
+        _res = self.ckminions.check_minions(
+            clear_load["tgt"], clear_load.get("tgt_type", "glob"), delimiter
+        )
+        minions = _res.get("minions", list())
+        missing = _res.get("missing", list())
+        ssh_minions = _res.get("ssh_minions", False)
+
+        auth_key = clear_load.get("key", None)
+
+        # Check for external auth calls and authenticate
+        auth_type, err_name, key, sensitive_load_keys = self._prep_auth_info(extra)
+        if auth_type == "user":
+            auth_check = self.loadauth.check_authentication(
+                clear_load, auth_type, key=key
+            )
+        else:
+            auth_check = self.loadauth.check_authentication(extra, auth_type)
+
+        # Setup authorization list
+        syndic_auth_list = None
+        if "auth_list" in extra:
+            syndic_auth_list = extra.pop("auth_list", [])
+        # An auth_list was provided by the syndic and we're running as the same
+        # user as the salt master process.
+        if (
+            syndic_auth_list is not None
+            and auth_key == key[self.opts.get("user", "root")]
+        ):
+            auth_list = syndic_auth_list
+        else:
+            auth_list = auth_check.get("auth_list", [])
+
+        err_msg = f'Authentication failure of type "{auth_type}" occurred.'
+
+        if auth_check.get("error"):
+            # Authentication error occurred: do not continue.
+            log.warning(err_msg)
+            err = {
+                "error": {
+                    "name": "AuthenticationError",
+                    "message": "Authentication error occurred.",
+                }
+            }
+            if "jid" in clear_load:
+                self.event.fire_event(
+                    {**clear_load, **err}, tagify([clear_load["jid"], "error"], "job")
+                )
+            return err
+        # All Token, Eauth, and non-root users must pass the authorization check
+        if auth_type != "user" or (auth_type == "user" and auth_list):
+            # Authorize the request
+            authorized = self.ckminions.auth_check(
+                auth_list,
+                clear_load["fun"],
+                clear_load["arg"],
+                clear_load["tgt"],
+                clear_load.get("tgt_type", "glob"),
+                minions=minions,
+                # always accept find_job
+                whitelist=["saltutil.find_job"],
+            )
+
+            if not authorized:
+                # Authorization error occurred. Do not continue.
+                if (
+                    auth_type == "eauth"
+                    and not auth_list
+                    and "username" in extra
+                    and "eauth" in extra
+                ):
+                    log.debug(
+                        'Auth configuration for eauth "%s" and user "%s" is empty',
+                        extra["eauth"],
+                        extra["username"],
+                    )
+                log.warning(err_msg)
+                err = {
+                    "error": {
+                        "name": "AuthorizationError",
+                        "message": "Authorization error occurred.",
+                    }
+                }
+                if "jid" in clear_load:
+                    self.event.fire_event(
+                        {**clear_load, **err},
+                        tagify([clear_load["jid"], "error"], "job"),
+                    )
+                return err
+
+            # Perform some specific auth_type tasks after the authorization check
+            if auth_type == "token":
+                username = auth_check.get("username")
+                clear_load["user"] = username
+                log.debug('Minion tokenized user = "%s"', username)
+            elif auth_type == "eauth":
+                # The username we are attempting to auth with
+                clear_load["user"] = self.loadauth.load_name(extra)
+
+        # If we order masters (via a syndic), don't short circuit if no minions
+        # are found
+        if not self.opts.get("order_masters"):
+            # Check for no minions
+            if not minions:
+                return {
+                    "enc": "clear",
+                    "load": {
+                        "jid": None,
+                        "minions": minions,
+                        "error": (
+                            "Master could not resolve minions for target {}".format(
+                                clear_load["tgt"]
+                            )
+                        ),
+                    },
+                }
+        jid = self._prep_jid(clear_load, extra)
+        if jid is None:
+            return {"enc": "clear", "load": {"error": "Master failed to assign jid"}}
+        payload = self._prep_pub(minions, jid, clear_load, extra, missing)
+
+        if self.opts.get("order_masters"):
+            payload["auth_list"] = auth_list
+
+        # Send it!
+        # Copy the payload when firing event for now since it's adding a
+        # __pub_stamp field.
+        self.event.fire_event(payload.copy(), tagify([jid, "publish"], "job"))
+        # An alternative to copy may be to pop it
+        # payload.pop("_stamp")
+        self._send_ssh_pub(payload, ssh_minions=ssh_minions)
+
+        await self._send_pub(payload)
+        return {
+            "enc": "clear",
+            "load": {"jid": clear_load["jid"], "minions": minions, "missing": missing},
+        }
 
     def destroy(self):
         self.masterapi.destroy()

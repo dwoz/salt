@@ -939,6 +939,7 @@ class AsyncAuth:
             )
 
         sign_in_payload = self.minion_sign_in_payload()
+        log.error("WTF 2 %r", sign_in_payload)
         try:
             payload = yield channel.send(sign_in_payload, tries=tries, timeout=timeout)
         except SaltReqTimeoutError as e:
