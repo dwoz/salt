@@ -771,7 +771,10 @@ class ZeroMQSocketMonitor:
     def start_io_loop(self, io_loop):
         log.trace("Event monitor start!")
         self._running.set()
-        io_loop.spawn_callback(self.consume)
+        if hasattr(io_loop, "spawn_callback"):
+            io_loop.spawn_callback(self.consume)
+        else:
+            asyncio.ensure_future(self.consume())
 
     async def consume(self):
         while self._running.is_set():
@@ -888,12 +891,9 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         This method represents the Publish Daemon process. It is intended to be
         run in a thread or process as it creates and runs its own ioloop.
         """
-        ioloop = tornado.ioloop.IOLoop()
-        ioloop.add_callback(self.publisher, publish_payload, ioloop=ioloop)
-        try:
-            ioloop.start()
-        finally:
-            self.close()
+        ioloop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ioloop)
+        ioloop.run_until_complete(self.publisher(publish_payload, ioloop))
 
     def _get_sockets(self, context, ioloop):
         pub_sock = context.socket(zmq.PUB)
