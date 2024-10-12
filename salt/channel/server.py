@@ -142,7 +142,8 @@ class ReqServerChannel:
             or "enc" not in payload
             or "load" not in payload
         ):
-            raise SaltDeserializationError("bad load received on socket!")
+            log.warn("bad load received on socket")
+            raise tornado.gen.Return("bad load")
         version = payload.get("version", 0)
         try:
             payload = self._decode_payload(payload, version)

@@ -305,6 +305,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         publish_payload,
         presence_callback=None,
         remove_presence_callback=None,
+        started=None,
     ):
         """
         Bind to the interface specified in the configuration file
@@ -316,6 +317,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
             presence_callback,
             remove_presence_callback,
             io_loop,
+            started,
         )
         # run forever
         try:
@@ -331,12 +333,14 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         presence_callback=None,
         remove_presence_callback=None,
         io_loop=None,
+        started=None,
     ):
         if io_loop is None:
             io_loop = tornado.ioloop.IOLoop.current()
         if self._run is None:
             self._run = asyncio.Event()
         self._run.set()
+        started.set()
 
         ctx = None
         if self.ssl is not None:
