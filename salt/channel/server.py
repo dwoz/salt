@@ -12,6 +12,7 @@ import logging
 import os
 import pathlib
 import shutil
+import time
 
 import tornado.gen
 
@@ -61,6 +62,30 @@ class ReqServerChannel:
             self.opts, self.opts["sock_dir"], listen=False
         )
         self.master_key = salt.crypt.MasterKeys(self.opts)
+        (pathlib.Path(self.opts["cachedir"]) / "sessions").mkdir(exist_ok=True)
+        self.sessions = {}
+
+    def session_key(self, minion):
+        """
+        Returns a session key for the given minion id.
+        """
+        now = time.time()
+        if minion in self.sessions:
+            if now - self.sessions[minion][0] < self.opts["publish_session"]:
+                return self.sessions[minion][1]
+
+        path = pathlib.Path(self.opts["cachedir"]) / "sessions" / minion
+        try:
+            if now - path.stat().st_mtime > self.opts["publish_session"]:
+                salt.crypt.Crypticle.write_key(path)
+        except FileNotFoundError:
+            salt.crypt.Crypticle.write_key(path)
+
+        self.sessions[minion] = (
+            path.stat().st_mtime,
+            salt.crypt.Crypticle.read_key(path),
+        )
+        return self.sessions[minion][1]
 
     @property
     def aes_key(self):
@@ -112,8 +137,15 @@ class ReqServerChannel:
 
     @tornado.gen.coroutine
     def handle_message(self, payload):
+        if (
+            not isinstance(payload, dict)
+            or "enc" not in payload
+            or "load" not in payload
+        ):
+            raise SaltDeserializationError("bad load received on socket!")
+        version = payload.get("version", 0)
         try:
-            payload = self._decode_payload(payload)
+            payload = self._decode_payload(payload, version)
         except Exception as exc:  # pylint: disable=broad-except
             exc_type = type(exc).__name__
             if exc_type == "AuthenticationError":
@@ -145,10 +177,6 @@ class ReqServerChannel:
             log.error("Payload contains non-string id: %s", payload)
             raise tornado.gen.Return(f"bad load: id {id_} is not a string")
 
-        version = 0
-        if "version" in payload:
-            version = payload["version"]
-
         sign_messages = False
         if version > 1:
             sign_messages = True
@@ -156,11 +184,46 @@ class ReqServerChannel:
         # intercept the "_auth" commands, since the main daemon shouldn't know
         # anything about our key auth
         if payload["enc"] == "clear" and payload.get("load", {}).get("cmd") == "_auth":
-            raise tornado.gen.Return(self._auth(payload["load"], sign_messages))
+            raise tornado.gen.Return(
+                self._auth(payload["load"], sign_messages, version)
+            )
 
-        nonce = None
-        if version > 1:
-            nonce = payload["load"].pop("nonce", None)
+        if payload["enc"] == "aes":
+            nonce = None
+            if version > 1:
+                nonce = payload["load"].pop("nonce", None)
+
+            # Check validity of message ttl and id's match
+            if version > 2:
+                if self.opts["request_server_ttl"] > 0:
+                    ttl = time.time() - payload["load"]["ts"]
+                    if ttl > self.opts["request_server_ttl"]:
+                        log.warning(
+                            "Received request from %s with expired ttl: %d > %d",
+                            payload["load"]["id"],
+                            ttl,
+                            self.opts["request_server_ttl"],
+                        )
+                        raise tornado.gen.Return("bad load")
+
+                if payload["id"] != payload["load"]["id"]:
+                    log.warning(
+                        "Request id mismatch. Found '%s' but expected '%s'",
+                        payload["load"]["id"],
+                        payload["id"],
+                    )
+                    raise tornado.gen.Return("bad load")
+                if not salt.utils.verify.valid_id(self.opts, payload["load"]["id"]):
+                    log.warning(
+                        "Request contains invalid minion id '%s'", payload["load"]["id"]
+                    )
+                    raise tornado.gen.Return("bad load")
+                if not self.validate_token(payload, required=True):
+                    raise tornado.gen.Return("bad load")
+            # The token won't always be present in the payload for v2 and
+            # below, but if it is we always wanto validate it.
+            elif not self.validate_token(payload, required=False):
+                raise tornado.gen.Return("bad load")
 
         # TODO: test
         try:
@@ -176,7 +239,14 @@ class ReqServerChannel:
         if req_fun == "send_clear":
             raise tornado.gen.Return(ret)
         elif req_fun == "send":
-            raise tornado.gen.Return(self.crypticle.dumps(ret, nonce))
+            if version > 2:
+                raise tornado.gen.Return(
+                    salt.crypt.Crypticle(self.opts, self.session_key(id_)).dumps(
+                        ret, nonce
+                    )
+                )
+            else:
+                raise tornado.gen.Return(self.crypticle.dumps(ret, nonce))
         elif req_fun == "send_private":
             raise tornado.gen.Return(
                 self._encrypt_private(
@@ -216,7 +286,7 @@ class ReqServerChannel:
         try:
             pub = salt.crypt.PublicKey(pubfn)
         except (ValueError, IndexError, TypeError):
-            return self.crypticle.dumps({})
+            return self.session_crypticle.dumps({})
         except OSError:
             log.error("AES key not found")
             return {"error": "AES key not found"}
@@ -279,27 +349,55 @@ class ReqServerChannel:
             return True
         return False
 
-    def _decode_payload(self, payload):
-        # Sometimes msgpack deserialization of random bytes could be successful,
-        # so we need to ensure payload in good shape to process this function.
-        if (
-            not isinstance(payload, dict)
-            or "enc" not in payload
-            or "load" not in payload
-        ):
-            raise SaltDeserializationError("bad load received on socket!")
-
-        # we need to decrypt it
+    def _decode_payload(self, payload, version):
         if payload["enc"] == "aes":
-            try:
-                payload["load"] = self.crypticle.loads(payload["load"])
-            except salt.crypt.AuthenticationError:
-                if not self._update_aes():
-                    raise
-                payload["load"] = self.crypticle.loads(payload["load"])
+            if version > 2:
+                if salt.utils.verify.valid_id(self.opts, payload["id"]):
+                    payload["load"] = salt.crypt.Crypticle(
+                        self.opts,
+                        self.session_key(payload["id"]),
+                    ).loads(payload["load"])
+                else:
+                    raise SaltDeserializationError("Encountered invalid id")
+            else:
+                try:
+                    payload["load"] = self.crypticle.loads(payload["load"])
+                except salt.crypt.AuthenticationError:
+                    if not self._update_aes():
+                        raise
+                    payload["load"] = self.crypticle.loads(payload["load"])
         return payload
 
-    def _auth(self, load, sign_messages=False):
+    def validate_token(self, payload, required=True):
+        if "tok" in payload["load"] and "id" in payload["load"]:
+            if "cluster_id" in self.opts and self.opts["cluster_id"]:
+                pki_dir = self.opts["cluster_pki_dir"]
+            else:
+                pki_dir = self.opts.get("pki_dir", "")
+            id_ = payload["load"]["id"]
+
+            pub_path = os.path.join(pki_dir, "minions", id_)
+            try:
+                pub = salt.crypt.PublicKey(pub_path)
+            except OSError:
+                log.warning(
+                    "Salt minion claiming to be %s attempted to communicate with "
+                    "master, but key could not be read and verification was denied.",
+                    id_,
+                )
+                return False
+            try:
+                if pub.decrypt(payload["load"]["tok"]) != b"salt":
+                    log.error("Minion token did not validate: %s", payload["id"])
+                    return False
+            except ValueError as err:
+                log.error("Unable to decrypt token: %s", err)
+                return False
+        elif required:
+            return False
+        return True
+
+    def _auth(self, load, sign_messages=False, version=0):
         """
         Authenticate the client, use the sent public key to encrypt the AES key
         which was generated at start up.
@@ -711,6 +809,7 @@ class ReqServerChannel:
                 aes = self.aes_key
 
             ret["aes"] = pub.encrypt(aes, enc_algo)
+            ret["session"] = pub.encrypt(self.session_key(load["id"]), enc_algo)
         else:
             if "token" in load:
                 try:
@@ -730,6 +829,13 @@ class ReqServerChannel:
 
             aes = self.aes_key
             ret["aes"] = pub.encrypt(aes, enc_algo)
+            ret["session"] = pub.encrypt(self.session_key(load["id"]), enc_algo)
+
+        if version < 3:
+            log.warning(
+                "Minion using legacy request server protocol, please upgrade %s",
+                load["id"],
+            )
 
         # Be aggressive about the signature
         digest = salt.utils.stringutils.to_bytes(hashlib.sha256(aes).hexdigest())
@@ -746,6 +852,9 @@ class ReqServerChannel:
         self.transport.close()
         if self.event is not None:
             self.event.destroy()
+
+
+import multiprocessing
 
 
 class PubServerChannel:
@@ -779,6 +888,7 @@ class PubServerChannel:
         self.present = {}
         self.presence_events = presence_events
         self.event = salt.utils.event.get_event("master", opts=self.opts, listen=False)
+        self.started = multiprocessing.Event()
 
     @property
     def aes_key(self):
@@ -791,6 +901,7 @@ class PubServerChannel:
             "opts": self.opts,
             "transport": self.transport,
             "presence_events": self.presence_events,
+            "started": self.started,
         }
 
     def __setstate__(self, state):
@@ -801,6 +912,7 @@ class PubServerChannel:
         self.ckminions = salt.utils.minions.CkMinions(self.opts)
         self.present = {}
         self.master_key = salt.crypt.MasterKeys(self.opts)
+        self.started = state["started"]
 
     def close(self):
         self.transport.close()
@@ -834,7 +946,10 @@ class PubServerChannel:
             salt.master.SMaster.secrets = secrets
         self.master_key = salt.crypt.MasterKeys(self.opts)
         self.transport.publish_daemon(
-            self.publish_payload, self.presence_callback, self.remove_presence_callback
+            self.publish_payload,
+            self.presence_callback,
+            self.remove_presence_callback,
+            started=self.started,
         )
 
     def presence_callback(self, subscriber, msg):
@@ -975,6 +1090,7 @@ class MasterPubServerChannel:
         self.io_loop = tornado.ioloop.IOLoop.current()
         self.master_key = salt.crypt.MasterKeys(self.opts)
         self.peer_keys = {}
+        self.started = multiprocessing.Event()
 
     def send_aes_key_event(self):
         data = {"peer_id": self.opts["id"], "peers": {}}
@@ -1010,11 +1126,13 @@ class MasterPubServerChannel:
         return {
             "opts": self.opts,
             "transport": self.transport,
+            "started": self.started,
         }
 
     def __setstate__(self, state):
         self.opts = state["opts"]
         self.transport = state["transport"]
+        self.started = state["started"]
 
     def close(self):
         self.transport.close()
@@ -1068,6 +1186,7 @@ class MasterPubServerChannel:
             io_loop=self.io_loop,
         )
         # run forever
+        self.io_loop.add_callback(self.started.set)
         try:
             self.io_loop.start()
         except (KeyboardInterrupt, SystemExit):

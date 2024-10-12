@@ -1369,6 +1369,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         publish_payload,
         presence_callback=None,
         remove_presence_callback=None,
+        started=None,
     ):
         """
         Bind to the interface specified in the configuration file
@@ -1380,6 +1381,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
             presence_callback,
             remove_presence_callback,
             io_loop,
+            started,
         )
         # run forever
         try:
@@ -1395,6 +1397,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         presence_callback=None,
         remove_presence_callback=None,
         io_loop=None,
+        started=None,
     ):
         if io_loop is None:
             io_loop = tornado.ioloop.IOLoop.current()
@@ -1456,6 +1459,8 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         with salt.utils.files.set_umask(0o177):
             self.pull_sock.start()
             os.chmod(self.pull_path, self.pull_path_perms)
+        if started:
+            started.set()
 
     def pre_fork(self, process_manager):
         """

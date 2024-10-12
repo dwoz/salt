@@ -469,6 +469,7 @@ def test_presence_events_callback_passed(temp_salt_master, salt_message_client):
             channel.publish_payload,
             channel.presence_callback,
             channel.remove_presence_callback,
+            started=channel.started,
         )
 
 

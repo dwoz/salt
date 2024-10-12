@@ -723,6 +723,7 @@ class AsyncAuth:
             creds = AsyncAuth.creds_map[key]
             self._creds = creds
             self._crypticle = Crypticle(self.opts, creds["aes"])
+            self._session_crypticle = Crypticle(self.opts, creds["session"])
             self._authenticate_future = tornado.concurrent.Future()
             self._authenticate_future.set_result(True)
 
@@ -746,6 +747,10 @@ class AsyncAuth:
     @property
     def crypticle(self):
         return self._crypticle
+
+    @property
+    def session_crypticle(self):
+        return self._session_crypticle
 
     @property
     def authenticated(self):
@@ -880,11 +885,13 @@ class AsyncAuth:
                     AsyncAuth.creds_map[key] = creds
                     self._creds = creds
                     self._crypticle = Crypticle(self.opts, creds["aes"])
+                    self._session_crypticle = Crypticle(self.opts, creds["session"])
                 elif self._creds["aes"] != creds["aes"]:
                     log.debug("%s The master's aes key has changed.", self)
                     AsyncAuth.creds_map[key] = creds
                     self._creds = creds
                     self._crypticle = Crypticle(self.opts, creds["aes"])
+                    self._session_crypticle = Crypticle(self.opts, creds["session"])
 
                 self._authenticate_future.set_result(
                     True
@@ -990,6 +997,11 @@ class AsyncAuth:
                     m_pub_fn,
                 )
                 raise SaltClientError("Invalid master key")
+
+            key = self.get_keys()
+            auth["session"] = key.decrypt(
+                payload["session"], self.opts["encryption_algorithm"]
+            )
 
         master_pubkey_path = os.path.join(self.opts["pki_dir"], self.mpub)
         if os.path.exists(master_pubkey_path) and not PublicKey(
@@ -1541,10 +1553,12 @@ class SAuth(AsyncAuth):
                 log.error("%s Got new master aes key.", self)
                 self._creds = creds
                 self._crypticle = Crypticle(self.opts, creds["aes"])
+                self._session_crypticle = Crypticle(self.opts, creds["session"])
             elif self._creds["aes"] != creds["aes"]:
                 log.error("%s The master's aes key has changed.", self)
                 self._creds = creds
                 self._crypticle = Crypticle(self.opts, creds["aes"])
+                self._session_crypticle = Crypticle(self.opts, creds["session"])
 
     def sign_in(self, timeout=60, safe=True, tries=1, channel=None):
         """

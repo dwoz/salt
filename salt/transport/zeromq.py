@@ -814,7 +814,7 @@ class ZeroMQSocketMonitor:
     def monitor_callback(self, msg):
         evt = zmq.utils.monitor.parse_monitor_message(msg)
         evt["description"] = self.event_map[evt["event"]]
-        log.debug("ZeroMQ event: %s", evt)
+        log.info("ZeroMQ event: %s", evt)
         if evt["event"] == zmq.EVENT_MONITOR_STOPPED:
             self.stop()
 
@@ -887,13 +887,16 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
         publish_payload,
         presence_callback=None,
         remove_presence_callback=None,
+        started=None,
     ):
         """
         This method represents the Publish Daemon process. It is intended to be
         run in a thread or process as it creates and runs its own ioloop.
         """
         ioloop = tornado.ioloop.IOLoop()
-        ioloop.add_callback(self.publisher, publish_payload, ioloop=ioloop)
+        ioloop.add_callback(
+            self.publisher, publish_payload, ioloop=ioloop, started=started
+        )
         try:
             ioloop.start()
         finally:
@@ -945,7 +948,7 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
                 )
         return pull_sock, pub_sock, monitor
 
-    async def publisher(self, publish_payload, ioloop=None):
+    async def publisher(self, publish_payload, ioloop=None, started=None):
         if ioloop is None:
             ioloop = tornado.ioloop.IOLoop.current()
         self.daemon_context = zmq.asyncio.Context()
@@ -954,6 +957,8 @@ class PublishServer(salt.transport.base.DaemonizedPublishServer):
             self.daemon_pub_sock,
             self.daemon_monitor,
         ) = self._get_sockets(self.daemon_context, ioloop)
+        if started:
+            started.set()
         while True:
             try:
                 package = await self.daemon_pull_sock.recv()
