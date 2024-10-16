@@ -167,6 +167,7 @@ class AsyncReqChannel:
             load["nonce"] = nonce
             load["ts"] = int(time.time())
             load["tok"] = self.auth.gen_token(b"salt")
+            load["id"] = self.opts["id"]
             load = self.auth.session_crypticle.dumps(load)
 
         ret = {
@@ -227,7 +228,7 @@ class AsyncReqChannel:
             # Reauth in the case our key is deleted on the master side.
             yield self.auth.authenticate()
             ret = yield self._send_with_retry(
-                self._package_load(load),
+                self._package_load(load, nonce),
                 tries,
                 timeout,
             )
