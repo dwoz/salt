@@ -870,11 +870,11 @@ def pkg_matrix(
         for entry in _matrix:
             ctx.print(" * ", entry, soft_wrap=True)
 
-    #if (
+    # if (
     #    gh_event["repository"]["fork"] is True
     #    and "macos" in distro_slug
     #    and "arm64" in distro_slug
-    #):
+    # ):
     #    # XXX: This should work now
     #    ctx.warn("Forks don't have access to MacOS 13 Arm64. Clearning the matrix.")
     #    _matrix.clear()
@@ -1585,13 +1585,17 @@ def workflow_config(
         for kind in kinds:
             jobs.update(
                 {
-                    _.job_name: True if _.arch != "arm64" else False
+                    _.job_name: (
+                        True if _.arch != "arm64" and _.platform == "linux" else False
+                    )
                     for _ in TEST_SALT_LISTING[kind]  # type: ignore
                 }
             )
             jobs.update(
                 {
-                    _.job_name: True if _.arch != "arm64" else False
+                    _.job_name: (
+                        True if _.arch != "arm64" and _.platform == "linux" else False
+                    )
                     for _ in TEST_SALT_PKG_LISTING[kind]  # type: ignore
                 }
             )
@@ -1609,6 +1613,7 @@ def workflow_config(
             wfh.write("Selected Jobs:\n")
             for name, value in sorted(jobs.items()):
                 wfh.write(f" - `{name}`: {value}\n")
+    config["pkgs-matrix"] = [_.as_dict() for _ in TEST_SALT_PKG_LISTING["linux"]]  # type: ignore
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output is not None:
         with open(github_output, "a", encoding="utf-8") as wfh:

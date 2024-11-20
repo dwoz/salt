@@ -73,6 +73,14 @@ class Linux(OS):
     def job_name(self):
         return f"test-{ self.slug.replace('.', '') }{'-fips' if self.fips else ''}"
 
+    def as_dict(self):
+        return {
+            "platform": self.platform,
+            "fips": self.fips,
+            "container": self.container,
+            "job_name": self.job_name,
+        }
+
 
 @attr.s(frozen=True, slots=True)
 class LinuxPkg(Linux):
@@ -80,6 +88,14 @@ class LinuxPkg(Linux):
     @property
     def job_name(self):
         return f"test-pkg-{ self.slug.replace('.', '') }{ '-fips' if self.fips else ''}"
+
+    def as_dict(self):
+        return {
+            "platform": self.platform,
+            "fips": self.fips,
+            "container": self.container,
+            "job_name": self.job_name,
+        }
 
 
 @attr.s(frozen=True, slots=True)

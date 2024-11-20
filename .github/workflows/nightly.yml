@@ -655,6 +655,24 @@ jobs:
       sign-macos-packages: false
       sign-windows-packages: false
     secrets: inherit
+
+  test-pkgs:
+    name: Test Packages
+    needs:
+      - prepare-workflow
+      - build-deps-onedir-windows
+      - build-source-tarball
+      - build-pkgs-onedir-linux
+    uses: ./.github/workflows/test-packages.yml
+    with:
+      matrix: ${{ needs.prepare-workflow.outputs.config['pkg-matrix'] }}
+      nox-version: 2022.8.7
+      nox-session: ci-test-onedir
+      salt-version: "${{ needs.prepare-workflow.outputs.salt-version }}"
+      python-version: "3.10"
+      cache-prefix: ${{ needs.prepare-workflow.outputs.cache-seed }}|3.10.15
+      skip-code-coverage: true
+      testing-releases: ${{ needs.prepare-workflow.outputs.testing-releases }}
   build-ci-deps-linux:
     name: CI Deps
     if: ${{ fromJSON(needs.prepare-workflow.outputs.jobs)['build-deps-ci'] }}
