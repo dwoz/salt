@@ -1598,7 +1598,10 @@ def workflow_config(
 
     config["jobs"] = jobs
     config["build-matrix"] = {
-        platform: _build_matrix(platform) for platform in platforms
+        # platform: _build_matrix(platform) for platform in platforms
+        platform: _build_matrix(platform)
+        for platform in platforms
+        if platform == "linux"
     }
     ctx.info(f"{'==== build matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['build-matrix'])}")
