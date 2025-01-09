@@ -1609,7 +1609,10 @@ def workflow_config(
     config["artifact-matrix"] = []
     for platform in platforms:
         config["artifact-matrix"] += [
-            dict({"platform": platform}, **_) for _ in config["build-matrix"][platform]
+            # dict({"platform": platform}, **_) for _ in config["build-matrix"][platform]
+            dict({"platform": platform}, **_)
+            for _ in config["build-matrix"][platform]
+            if platform == "linux"
         ]
     ctx.info(f"{'==== artifact matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['artifact-matrix'])}")
