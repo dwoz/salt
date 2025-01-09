@@ -1589,8 +1589,8 @@ def workflow_config(
 
     platforms: list[Literal["linux", "macos", "windows"]] = [
         "linux",
-        "macos",
-        "windows",
+        #    "macos",
+        #    "windows",
     ]
 
     if skip_pkg_download_tests:
@@ -1598,10 +1598,7 @@ def workflow_config(
 
     config["jobs"] = jobs
     config["build-matrix"] = {
-        # platform: _build_matrix(platform) for platform in platforms
-        platform: _build_matrix(platform)
-        for platform in platforms
-        if platform == "linux"
+        platform: _build_matrix(platform) for platform in platforms
     }
     ctx.info(f"{'==== build matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['build-matrix'])}")
@@ -1609,10 +1606,7 @@ def workflow_config(
     config["artifact-matrix"] = []
     for platform in platforms:
         config["artifact-matrix"] += [
-            # dict({"platform": platform}, **_) for _ in config["build-matrix"][platform]
-            dict({"platform": platform}, **_)
-            for _ in config["build-matrix"][platform]
-            if platform == "linux"
+            dict({"platform": platform}, **_) for _ in config["build-matrix"][platform]
         ]
     ctx.info(f"{'==== artifact matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['artifact-matrix'])}")
