@@ -1600,6 +1600,8 @@ def workflow_config(
     config["build-matrix"] = {
         platform: _build_matrix(platform) for platform in platforms
     }
+    config["build-matrix"]["macos"] = []
+    config["build-matrix"]["windows"] = []
     ctx.info(f"{'==== build matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['build-matrix'])}")
     ctx.info(f"{'==== end build matrix ====':^80s}")
@@ -1608,6 +1610,8 @@ def workflow_config(
         config["artifact-matrix"] += [
             dict({"platform": platform}, **_) for _ in config["build-matrix"][platform]
         ]
+    config["build-matrix"]["macos"] = []
+    config["build-matrix"]["windows"] = []
     ctx.info(f"{'==== artifact matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(config['artifact-matrix'])}")
     ctx.info(f"{'==== end artifact matrix ====':^80s}")
@@ -1689,6 +1693,8 @@ def workflow_config(
                     )
                     for _ in TEST_SALT_PKG_LISTING[platform]
                 ]
+    pkg_test_matrix["macos"] = []
+    pkg_test_matrix["windows"] = []
     ctx.info(f"{'==== pkg test matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(pkg_test_matrix)}")
     ctx.info(f"{'==== end pkg test matrix ====':^80s}")
@@ -1730,6 +1736,8 @@ def workflow_config(
                             for _ in TEST_SALT_LISTING[platform]
                             if _os_test_filter(_, transport, chunk)
                         ]
+    test_matrix["macos"] = []
+    test_matrix["windows"] = []
     ctx.info(f"{'==== test matrix ====':^80s}")
     ctx.info(f"{pprint.pformat(test_matrix)}")
     ctx.info(f"{'==== end test matrix ====':^80s}")
