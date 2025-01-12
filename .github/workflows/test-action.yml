@@ -209,7 +209,7 @@ jobs:
 
       - name: Docker in Docker info
         run: |
-          docker exec docker info
+          docker exec ${{ github.run_id}}_salt-test docker info
 
       - name: Decompress .nox Directory
         run: |
