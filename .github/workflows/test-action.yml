@@ -207,10 +207,6 @@ jobs:
         env:
           PIP_INDEX_URL: https://pypi.org/simple
 
-      - name: Docker in Docker info
-        run: |
-          docker exec ${{ github.run_id}}_salt-test docker info
-
       - name: Decompress .nox Directory
         run: |
           docker exec ${{ github.run_id}}_salt-test python3 -m nox --force-color -e decompress-dependencies -- linux ${{ matrix.arch }}
