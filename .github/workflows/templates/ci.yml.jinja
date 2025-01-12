@@ -285,6 +285,7 @@
   <%- include "build-ci-deps.yml.jinja" %>
   <%- endif %>
 
+
   <%- if includes.get(pkg_tests_job_name, True) %>
   <%- include "test-salt-pkg.yml.jinja" %>
   <%- endif %>

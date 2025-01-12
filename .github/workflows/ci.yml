@@ -499,7 +499,8 @@ jobs:
       skip-code-coverage: ${{ fromJSON(needs.prepare-workflow.outputs.testrun)['skip_code_coverage'] }}
       workflow-slug: ci
       default-timeout: 180
-      matrix: ${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}
+      matrix: "${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}"
+    secrets: inherit
 
   combine-all-code-coverage:
     name: Combine Code Coverage

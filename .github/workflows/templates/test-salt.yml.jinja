@@ -20,4 +20,5 @@
       skip-code-coverage: <{ skip_test_coverage_check }>
       workflow-slug: <{ workflow_slug }>
       default-timeout: <{ timeout_value }>
-      matrix: ${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}
+      matrix: "${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}"
+    secrets: inherit

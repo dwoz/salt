@@ -538,7 +538,8 @@ jobs:
       skip-code-coverage: true
       workflow-slug: scheduled
       default-timeout: 360
-      matrix: ${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}
+      matrix: "${{ toJSON(fromJSON(needs.prepare-workflow.outputs.config)['test-matrix']) }}"
+    secrets: inherit
 
   set-pipeline-exit-status:
     # This step is just so we can make github require this step, to pass checks
