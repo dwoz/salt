@@ -296,7 +296,7 @@ jobs:
         run: |
           docker exec ${{ github.run_id}}_salt-test \
             python3 -m nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }} -- \
-            --slow-tests --core-tests --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }}
+            --slow-tests --core-tests --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }} --log-cli-level=debug
 
       - name: Stop Container
         run: |
@@ -877,7 +877,7 @@ jobs:
           SALT_TRANSPORT: ${{ matrix.transport }}
         run: >
           nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }} --
-          --slow-tests --core-tests -k "win" --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }} --log-cli-level=debug
+          --slow-tests --core-tests -k "win" --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }}
 
 
       - name: Combine Coverage Reports
