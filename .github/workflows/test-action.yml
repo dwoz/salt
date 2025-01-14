@@ -253,7 +253,7 @@ jobs:
           free -h
 
       - name: SSH
-        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '7' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' && false }}
+        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         run: |
          ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
@@ -345,7 +345,7 @@ jobs:
         run: |
           docker exec ${{ github.run_id}}_salt-test \
             python3 -m nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }} -- \
-            --slow-tests --core-tests --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }} --log-cli-level=debug
+            --slow-tests --core-tests --test-group-count=${{ matrix.test-group-count || 1 }} --test-group=${{ matrix.test-group || 1 }}
 
       - name: Stop Container
         run: |
