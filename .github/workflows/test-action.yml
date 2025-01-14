@@ -294,7 +294,7 @@ jobs:
          echo "${{ env.PRIVATE_KEY }}" > ./key
          chmod 600 ./key
          ls -lah
-         ssh -vv -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
+         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
