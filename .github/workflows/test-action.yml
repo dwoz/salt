@@ -300,6 +300,12 @@ jobs:
         run: |
           docker exec ${{ github.run_id}}_salt-test /bin/bash -c 'password=$(tr -dc A-Za-z0-9_ < /dev/urandom | head -c 16 | xargs); echo -e "$password\n$password" | passwd'
 
+      - name: Teardown apparmor
+        run: |
+          # Apparmor's unix-chkpwd profile gets in the way of tests needing to
+          # authenticate from inside a container.
+          sudo aa-teardown || exit 0
+
       - name: Run Changed Tests
         id: run-fast-changed-tests
         if: ${{ fromJSON(inputs.testrun)['type'] != 'full' }}
