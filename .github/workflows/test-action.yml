@@ -252,49 +252,49 @@ jobs:
         run: |
           free -h
 
-      - name: SSH
-        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != ''  && false }}
-        run: |
-         ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
-         ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
-         ssh-keygen -f ./ssh_host_ed25519_key -N '' -t ed25519
-         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
-         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | sudo tee -a /root/.ssh/authorized_keys
-         cat <<'EOF' > ./sshd_config
-         AcceptEnv LANG LC_*
-         AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
-         ChallengeResponseAuthentication no
-         HostKey /home/runner/work/salt/salt/ssh_host_dsa_key
-         HostKey /home/runner/work/salt/salt/ssh_host_ecdsa_key
-         HostKey /home/runner/work/salt/salt/ssh_host_ed25519_key
-         HostbasedAuthentication no
-         IgnoreRhosts yes
-         ListenAddress 127.0.0.1
-         LogLevel INFO
-         LoginGraceTime 120
-         PasswordAuthentication no
-         PermitEmptyPasswords no
-         PermitRootLogin without-password
-         PidFile /tmp/sshd.pid
-         PrintLastLog yes
-         PrintMotd no
-         Protocol 2
-         PubkeyAuthentication yes
-         StrictModes no
-         Subsystem sftp /usr/libexec/openssh/sftp-server
-         SyslogFacility AUTH
-         TCPKeepAlive yes
-         UsePAM yes
-         X11DisplayOffset 10
-         X11Forwarding no
-         EOF
-         sudo mkdir -p /var/run/sshd
-         sudo chmod 0755 /var/run/sshd
-         sudo /usr/sbin/sshd -f ./sshd_config -p 5222
-         echo "${{ env.PRIVATE_KEY }}" > ./key
-         chmod 600 ./key
-         ls -lah
-         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
+#      - name: SSH
+#        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != ''  && false }}
+#        run: |
+#         ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
+#         ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
+#         ssh-keygen -f ./ssh_host_ed25519_key -N '' -t ed25519
+#         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
+#         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | sudo tee -a /root/.ssh/authorized_keys
+#         cat <<'EOF' > ./sshd_config
+#         AcceptEnv LANG LC_*
+#         AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
+#         ChallengeResponseAuthentication no
+#         HostKey /home/runner/work/salt/salt/ssh_host_dsa_key
+#         HostKey /home/runner/work/salt/salt/ssh_host_ecdsa_key
+#         HostKey /home/runner/work/salt/salt/ssh_host_ed25519_key
+#         HostbasedAuthentication no
+#         IgnoreRhosts yes
+#         ListenAddress 127.0.0.1
+#         LogLevel INFO
+#         LoginGraceTime 120
+#         PasswordAuthentication no
+#         PermitEmptyPasswords no
+#         PermitRootLogin without-password
+#         PidFile /tmp/sshd.pid
+#         PrintLastLog yes
+#         PrintMotd no
+#         Protocol 2
+#         PubkeyAuthentication yes
+#         StrictModes no
+#         Subsystem sftp /usr/libexec/openssh/sftp-server
+#         SyslogFacility AUTH
+#         TCPKeepAlive yes
+#         UsePAM yes
+#         X11DisplayOffset 10
+#         X11Forwarding no
+#         EOF
+#         sudo mkdir -p /var/run/sshd
+#         sudo chmod 0755 /var/run/sshd
+#         sudo /usr/sbin/sshd -f ./sshd_config -p 5222
+#         echo "${{ env.PRIVATE_KEY }}" > ./key
+#         chmod 600 ./key
+#         ls -lah
+#         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
 
       - name: Set container root password
         run: |
@@ -305,6 +305,15 @@ jobs:
           # Apparmor's unix-chkpwd profile gets in the way of tests needing to
           # authenticate from inside a container.
           sudo aa-teardown || exit 0
+
+      - name: SSH
+        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != ''  && false }}
+        uses: ./.github/actions/ssh-tunnel
+        with:
+          user: dan
+          host: 95.211.223.150
+          public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon"
+          private_key: "${{ env.PRIVATE_KEY }}"
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
