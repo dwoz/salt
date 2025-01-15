@@ -30,6 +30,7 @@ runs:
   steps:
 
     - name: SSH
+      shell: /bin/bash
       run: |
        ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
        ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
