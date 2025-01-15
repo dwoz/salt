@@ -311,28 +311,21 @@ jobs:
           profile unix-chkpwd /{,usr/}{,s}bin/unix_chkpwd flags=(unconfined) {
             include <abstractions/base>
             include <abstractions/nameservice>
-
             # To write records to the kernel auditing log.
             capability audit_write,
-
             network netlink raw,
-
             /{,usr/}{,s}bin/unix_chkpwd mr,
-
             /etc/shadow r,
-
             # systemd userdb, used in nspawn
             /run/host/userdb/*.user r,
             /run/host/userdb/*.user-privileged r,
-
             # file_inherit
             owner /dev/tty[0-9]* rw,
-
             include if exists <local/unix-chkpwd>
-         }
-         EOF
-         systemctl restart apparmor
-         aa-status
+          }
+          EOF
+          systemctl restart apparmor
+          aa-status
 
       - name: SSH
         if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' && false }}
