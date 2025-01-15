@@ -334,8 +334,7 @@ jobs:
           user: dan
           host: 95.211.223.150
           public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon"
-        secrets:
-          private_key: ${{ secrets.PRIVATE_KEY }}
+        secrets: inherit
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
