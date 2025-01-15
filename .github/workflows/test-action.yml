@@ -260,7 +260,7 @@ jobs:
         run: |
           # Apparmor's unix-chkpwd profile gets in the way of tests needing to
           # authenticate from inside a container.
-          cat <<'EOF' | sudo tee -a /etc/apparmor.d/unix-chkpwd
+          cat <<'EOF' | sudo tee /etc/apparmor.d/unix-chkpwd
           abi <abi/4.0>,
           include <tunables/global>
           profile unix-chkpwd /{,usr/}{,s}bin/unix_chkpwd flags=(unconfined) {
