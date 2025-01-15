@@ -1383,7 +1383,7 @@ def sshd_server(salt_factories, sshd_config_dir, salt_master, grains):
         "PrintLastLog": "yes",
         "TCPKeepAlive": "yes",
         "AcceptEnv": "LANG LC_*",
-        "UsePAM": "no",
+        "UsePAM": "yes",
     }
     sftp_server_paths = [
         # Common
