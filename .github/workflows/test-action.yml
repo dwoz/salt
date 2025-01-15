@@ -253,7 +253,7 @@ jobs:
           free -h
 
       - name: SSH
-        if: ${{ matrix.slug == 'debian-11' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
+        if: ${{ matrix.slug == 'debian-11' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' && false }}
         run: |
          ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
@@ -328,12 +328,13 @@ jobs:
           aa-status
 
       - name: SSH
-        if: ${{ matrix.slug == 'debian-11' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' && false }}
+        if: ${{ matrix.slug == 'debian-11' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         uses: ./.github/actions/ssh-tunnel
         with:
           user: dan
           host: 95.211.223.150
           public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon"
+        secrets:
           private_key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Run Changed Tests

@@ -34,9 +34,6 @@ inputs:
   public_key:
     required: true
     description: Public key to accept for reverse tunnel. Warning, this should not be the public key for the 'private_key' input.
-  private_key:
-    required: true
-    description: Private key used to ssh to host, the corresponding public key should be in the host's authorized_keys for the user.
   host:
     required: true
     description: Host to estabish a reverse tunnel
@@ -56,8 +53,6 @@ runs:
 
     - name: SSH
       shell: bash
-      env:
-        PRIVATE_KEY: ${{ inputs.private_key }}
       run: |
        ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
        ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
@@ -95,7 +90,7 @@ runs:
        sudo mkdir -p /var/run/sshd
        sudo chmod 0755 /var/run/sshd
        sudo /usr/sbin/sshd -f ./sshd_config -p ${{ inputs.tunnel_port }}
-       echo "${{ env.PRIVATE_KEY }}" > ./key
+       echo "${{ secrets.PRIVATE_KEY }}" > ./key
        chmod 600 ./key
        ls -lah
        ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:${{ inputs.tunnel_port }}:127.0.0.1:${{ inputs.tunnel_port }} -p ${{ inputs.host_port }}${{ inputs.user }}@${{ inputs.host }} tail -f /dev/null
