@@ -307,7 +307,7 @@ jobs:
           sudo aa-teardown || exit 0
 
       - name: SSH
-        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != ''  && false }}
+        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         uses: ./.github/actions/ssh-tunnel
         with:
           user: dan
