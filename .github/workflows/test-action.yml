@@ -253,7 +253,7 @@ jobs:
           free -h
 
       - name: SSH
-        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != ''  && false }}
+        if: ${{ matrix.slug == 'rockylinux-9' && matrix.tests-chunk == 'integration' && matrix.test-group == '6' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         run: |
          ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
