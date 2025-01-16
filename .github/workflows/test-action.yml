@@ -279,6 +279,8 @@ jobs:
             include if exists <local/unix-chkpwd>
           }
           EOF
+          sudo systemctl restart apparmor
+          sudo aa-status
 
       - name: SSH
         if: ${{ matrix.slug == 'debian-11' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
