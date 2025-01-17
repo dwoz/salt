@@ -713,7 +713,7 @@ class AsyncAuth:
         return future
 
     @salt.ext.tornado.gen.coroutine
-    def _authenticate(self):
+    def x_authenticate(self):
         """
         Authenticate with the master, this method breaks the functional
         paradigm, it will update the master information from a fresh sign
