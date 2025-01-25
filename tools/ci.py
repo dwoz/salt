@@ -1472,17 +1472,17 @@ def upload_coverage(ctx: Context, reports_path: pathlib.Path, commit_sha: str = 
     ctx.exit(0)
 
 
-def _os_test_filter(osdef, transport, chunk, arm_runner):
+def _os_test_filter(osdef, transport, chunk, slugs, arm_runner):
     """
     Filter out some test runs based on os, tranport and chunk to be run.
     """
     if transport == "tcp" and chunk in ("unit", "functional"):
         return False
-    if "macos" in osdef.slug and chunk == "scenarios":
+    elif "macos" in osdef.slug and chunk == "scenarios":
         return False
-    if not arm_runner:
+    elif not arm_runner:
         return False
-    if transport == "tcp" and osdef.slug not in (
+    elif transport == "tcp" and osdef.slug not in (
         "rockylinux-9",
         "rockylinux-9-arm64",
         "photonos-5",
@@ -1490,6 +1490,8 @@ def _os_test_filter(osdef, transport, chunk, arm_runner):
         "ubuntu-22.04",
         "ubuntu-22.04-arm64",
     ):
+        return False
+    elif osdef.slug not in slugs and "all" not in slugs:
         return False
     return True
 
@@ -1571,6 +1573,8 @@ def workflow_config(
         else:
             # Public repositories can use github's arm64 runners.
             config["linux_arm_runner"] = "ubuntu-24.04-arm"
+    if os.environ.get("SLUGS", ""):
+        slugs = [_.strip() for _ in os.environ["SLUGS"].split(',')]
 
     ctx.info(f"{'==== labels ====':^80s}")
     ctx.info(f"{pprint.pformat(labels)}")
@@ -1735,7 +1739,7 @@ def workflow_config(
                                     )
                                     for _ in TEST_SALT_LISTING[platform]
                                     if _os_test_filter(
-                                        _, transport, chunk, config["linux_arm_runner"]
+                                        _, transport, chunk, slugs, config["linux_arm_runner"]
                                     )
                                 ]
                             else:
@@ -1757,6 +1761,7 @@ def workflow_config(
                                             _,
                                             transport,
                                             chunk,
+                                            slugs,
                                             config["linux_arm_runner"],
                                         )
                                         and _.arch == arch
@@ -1772,7 +1777,7 @@ def workflow_config(
                                 )
                                 for _ in TEST_SALT_LISTING[platform]
                                 if _os_test_filter(
-                                    _, transport, chunk, config["linux_arm_runner"]
+                                    _, transport, chunk, slugs, config["linux_arm_runner"]
                                 )
                             ]
                         else:
@@ -1786,7 +1791,7 @@ def workflow_config(
                                     )
                                     for _ in TEST_SALT_LISTING[platform]
                                     if _os_test_filter(
-                                        _, transport, chunk, config["linux_arm_runner"]
+                                        _, transport, chunk, slugs, config["linux_arm_runner"]
                                     )
                                     and _.arch == arch
                                 ]
