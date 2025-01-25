@@ -1574,7 +1574,7 @@ def workflow_config(
             # Public repositories can use github's arm64 runners.
             config["linux_arm_runner"] = "ubuntu-24.04-arm"
     if os.environ.get("SLUGS", ""):
-        slugs = [_.strip() for _ in os.environ["SLUGS"].split(',')]
+        slugs = [_.strip() for _ in os.environ["SLUGS"].split(",")]
     else:
         ctx.warn("No slugs defined")
         slugs = []
@@ -1742,7 +1742,11 @@ def workflow_config(
                                     )
                                     for _ in TEST_SALT_LISTING[platform]
                                     if _os_test_filter(
-                                        _, transport, chunk, slugs, config["linux_arm_runner"]
+                                        _,
+                                        transport,
+                                        chunk,
+                                        slugs,
+                                        config["linux_arm_runner"],
                                     )
                                 ]
                             else:
@@ -1780,7 +1784,11 @@ def workflow_config(
                                 )
                                 for _ in TEST_SALT_LISTING[platform]
                                 if _os_test_filter(
-                                    _, transport, chunk, slugs, config["linux_arm_runner"]
+                                    _,
+                                    transport,
+                                    chunk,
+                                    slugs,
+                                    config["linux_arm_runner"],
                                 )
                             ]
                         else:
@@ -1794,7 +1802,11 @@ def workflow_config(
                                     )
                                     for _ in TEST_SALT_LISTING[platform]
                                     if _os_test_filter(
-                                        _, transport, chunk, slugs, config["linux_arm_runner"]
+                                        _,
+                                        transport,
+                                        chunk,
+                                        slugs,
+                                        config["linux_arm_runner"],
                                     )
                                     and _.arch == arch
                                 ]
