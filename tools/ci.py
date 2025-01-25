@@ -1575,6 +1575,9 @@ def workflow_config(
             config["linux_arm_runner"] = "ubuntu-24.04-arm"
     if os.environ.get("SLUGS", ""):
         slugs = [_.strip() for _ in os.environ["SLUGS"].split(',')]
+    else:
+        ctx.warn("No slugs defined")
+        slugs = []
 
     ctx.info(f"{'==== labels ====':^80s}")
     ctx.info(f"{pprint.pformat(labels)}")
