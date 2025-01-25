@@ -595,7 +595,7 @@ jobs:
           sudo aa-status
 
       - name: SSH
-        if: ${{ matrix.slug == 'ubuntu-22.04' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
+        if: ${{ matrix.slug == 'ubuntu-22.04-arm64' && matrix.tests-chunk == 'integration' && matrix.test-group == '3' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         run: |
          ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
