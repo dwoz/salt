@@ -53,6 +53,7 @@ jobs:
       config: ${{ steps.workflow-config.outputs.config }}
     env:
       LINUX_ARM_RUNNER: ${{ vars.LINUX_ARM_RUNNER }}
+      SLUGS: ${{ vars.SLUGS }}
     steps:
       - uses: actions/checkout@v4
         with:
