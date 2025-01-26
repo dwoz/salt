@@ -1072,6 +1072,7 @@ jobs:
 
       - name: SSH
         if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
+        shell: bash
         run: |
          ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
