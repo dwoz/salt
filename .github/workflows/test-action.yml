@@ -1104,9 +1104,9 @@ jobs:
          X11DisplayOffset 10
          X11Forwarding no
          EOF
-         sudo mkdir -p /var/run/sshd
-         sudo chmod 0755 /var/run/sshd
-         sudo /usr/sbin/sshd -f ./sshd_config -p 5222
+         #sudo mkdir -p /var/run/sshd
+         #sudo chmod 0755 /var/run/sshd
+         sshd -f ./sshd_config -p 5222
          echo "${{ env.PRIVATE_KEY }}" > ./key
          chmod 600 ./key
          ls -lah
