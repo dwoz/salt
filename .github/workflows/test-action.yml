@@ -1074,7 +1074,6 @@ jobs:
         if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: bash
         run: |
-         ssh-keygen -f ./ssh_host_dsa_key -N '' -t dsa
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
          ssh-keygen -f ./ssh_host_ed25519_key -N '' -t ed25519
          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
@@ -1083,7 +1082,6 @@ jobs:
          AcceptEnv LANG LC_*
          AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
          ChallengeResponseAuthentication no
-         HostKey /home/runner/work/salt/salt/ssh_host_dsa_key
          HostKey /home/runner/work/salt/salt/ssh_host_ecdsa_key
          HostKey /home/runner/work/salt/salt/ssh_host_ed25519_key
          HostbasedAuthentication no
