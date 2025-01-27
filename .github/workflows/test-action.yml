@@ -1077,7 +1077,7 @@ jobs:
          ssh-keygen -f ./ssh_host_ecdsa_key -N '' -t ecdsa -b 521
          ssh-keygen -f ./ssh_host_ed25519_key -N '' -t ed25519
          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
-         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | sudo tee -a /root/.ssh/authorized_keys
+         echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | tee -a ~/.ssh/authorized_keys
          cat <<'EOF' > ./sshd_config
          AcceptEnv LANG LC_*
          AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
