@@ -1075,7 +1075,7 @@ jobs:
         run: |
           echo %programdata%
 
-      - name: SSH
+      - name: SSHd Config
         if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: bash
         run: |
@@ -1084,7 +1084,7 @@ jobs:
          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" > ./authorized_keys
          mkdir -p ~/.ssh/
          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAVGQIPTuC5Hgj9h5LV5tda6nZdHCsFvqFjBvSAYjfEQ dan@carbon" | tee -a ~/.ssh/authorized_keys
-         cat <<'EOF' > ./sshd_config
+         cat <<'EOF' > C:\ProgramData\ssh\sshd_config
          AcceptEnv LANG LC_*
          AuthorizedKeysFile /home/runner/work/salt/salt/authorized_keys
          ChallengeResponseAuthentication no
@@ -1110,14 +1110,23 @@ jobs:
          X11DisplayOffset 10
          X11Forwarding no
          EOF
+
+
+      - name: SSHd Config
+        shell: powershell
+        run: |
+          Start-Service sshd
+
+      - name: SSH Tunnel
+        shell: bash
+        run: |
          #sudo mkdir -p /var/run/sshd
          #sudo chmod 0755 /var/run/sshd
-         sshd -f ./sshd_config -p 5222
+         #sshd -f ./sshd_config -p 5222
          echo "${{ env.PRIVATE_KEY }}" > ./key
          chmod 600 ./key
          ls -lah
          ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
-
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
