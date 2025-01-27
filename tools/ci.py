@@ -550,10 +550,10 @@ def _build_matrix(os_kind, linux_arm_runner):
             {"arch": "amd64"},
             {"arch": "x86"},
         ]
-    elif os_kind == "macos":
-        _matrix.append({"arch": "arm64"})
-    elif os_kind == "linux" and linux_arm_runner:
-        _matrix.append({"arch": "arm64"})
+    # elif os_kind == "macos":
+    #    _matrix.append({"arch": "arm64"})
+    # elif os_kind == "linux" and linux_arm_runner:
+    #    _matrix.append({"arch": "arm64"})
     return _matrix
 
 
@@ -1573,6 +1573,13 @@ def workflow_config(
         else:
             # Public repositories can use github's arm64 runners.
             config["linux_arm_runner"] = "ubuntu-24.04-arm"
+
+    if os.environ.get("PKG_SLUGS", ""):
+        pkg_slugs = [_.strip() for _ in os.environ["PKG_SLUGS"].split(",")]
+    else:
+        ctx.warn("No slugs defined")
+        pkg_slugs = []
+
     if os.environ.get("SLUGS", ""):
         slugs = [_.strip() for _ in os.environ["SLUGS"].split(",")]
     else:

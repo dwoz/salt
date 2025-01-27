@@ -1071,6 +1071,7 @@ jobs:
           nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }}
 
       - name: Show Program Data Directory
+        shell: cmd
         run: |
           echo %programdata%
 
