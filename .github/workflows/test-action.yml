@@ -1070,6 +1070,10 @@ jobs:
         run: |
           nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }}
 
+      - name: Show Program Data Directory
+        run: |
+          echo %programdata%
+
       - name: SSH
         if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: bash
