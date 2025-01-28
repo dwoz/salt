@@ -1078,6 +1078,7 @@ jobs:
       - name: Add cap
         shell: powershell
         run: |
+          python3.exe -m pip install requests
           python3.exe tools/meh.py
 
       - name: SSHd Config
