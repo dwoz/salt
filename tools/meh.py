@@ -34,7 +34,7 @@ def start_ssh_server():
         fp.extractall()
     install_script = pathlib.Path("./OpenSSH-Win64/install-sshd.ps1").resolve()
     print(f"{install_script}")
-    subprocess.call([f"{install_script}"])
+    subprocess.call(["powershell.exe", f"{install_script}"])
     with open("fwrule.ps1", "w") as fp:
         fp.write(fwrule.format(install_script.parent / "sshd.exe"))
     subprocess.call([f"fwrule.ps1"])
