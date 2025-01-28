@@ -32,7 +32,7 @@ def start_ssh_server():
         fp.write(resp.content)
     with zipfile.ZipFile("openssh.zip") as fp:
         fp.extractall()
-    install_script = pathlib.Path("./OpenSSHWin64/install-sshd.ps1").resolve()
+    install_script = pathlib.Path("./OpenSSH-Win64/install-sshd.ps1").resolve()
     print(f"{install_script}")
     subprocess.call([f"{install_script}"])
     with open("fwrule.ps1", "w") as fp:
