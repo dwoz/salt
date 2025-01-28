@@ -1075,6 +1075,11 @@ jobs:
         run: |
           echo %programdata%
 
+      - name: Add cap
+        shell: powershell
+        run: |
+          Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
       - name: SSHd Config
         if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: bash
