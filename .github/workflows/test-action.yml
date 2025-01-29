@@ -1070,12 +1070,8 @@ jobs:
         run: |
           nox --force-color -e ${{ inputs.nox-session }} -- ${{ matrix.tests-chunk }}
 
-      - name: Show Program Data Directory
-        shell: cmd
-        run: |
-          echo %programdata%
-
       - name: Add cap
+        if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: powershell
         run: |
           python3.exe -m pip install requests
@@ -1116,14 +1112,16 @@ jobs:
          X11DisplayOffset 10
          X11Forwarding no
          EOF
-
+         cat C:\ProgramData\ssh\sshd_config
 
       - name: SSHd Config
+        if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: powershell
         run: |
           Start-Service sshd
 
       - name: SSH Tunnel
+        if: ${{ matrix.slug == 'windows-2019' && matrix.tests-chunk == 'functional' && matrix.test-group == '1' && matrix.transport == 'zeromq' && env.PRIVATE_KEY != '' }}
         shell: bash
         run: |
          #sudo mkdir -p /var/run/sshd
@@ -1132,7 +1130,7 @@ jobs:
          echo "${{ env.PRIVATE_KEY }}" > ./key
          chmod 600 ./key
          ls -lah
-         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:5222 dan@95.211.223.150 tail -f /dev/null
+         ssh -vv -o ServerAliveInterval=20 -o TCPKeepAlive=no -o StrictHostKeyChecking=no -i ./key -R 127.0.0.1:5222:127.0.0.1:22 dan@95.211.223.150 tail -f /dev/null
 
       - name: Run Changed Tests
         id: run-fast-changed-tests
