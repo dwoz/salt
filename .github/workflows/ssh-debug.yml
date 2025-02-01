@@ -17,7 +17,7 @@ on:
         description: Your public key for ssh access.
       debug:
         required: false
-        type: bool
+        type: boolean
         default: true
         description: Run sshd with debug enabled.
 
