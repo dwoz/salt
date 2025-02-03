@@ -2,6 +2,7 @@ name: Retry workflow
 run-name: Retry workflows
 
 on:
+  workflow_dispatch: {}
   schedule:
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onschedule
     - cron: '*/10 * * * *'
@@ -31,6 +32,6 @@ jobs:
           gh run ls -w ci.yml --status failure --status startup_failure \
           --limit=100  --json databaseId,updatedAt,attempt > json
           for i in $(cat json| jq --arg d $((`date -u +%s` - 2 * 24 * 60 * 60)) "$JQ"); do
-            gh run watch ${{ $i }} > /dev/null 2>&1
-            gh run rerun ${{ $i }} --failed
+            gh run watch $i > /dev/null 2>&1
+            gh run rerun $i --failed
           done
