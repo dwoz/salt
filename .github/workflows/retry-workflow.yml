@@ -21,7 +21,7 @@ jobs:
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+        shell: sh
         run: |
           IFS='' read -r -d '' JQ <<"EOF"
           .[]
