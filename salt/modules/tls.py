@@ -284,6 +284,10 @@ def _get_basic_info(ca_name, cert, ca_dir=None):
 
     cert = _read_cert(cert)
     expire_date = _four_digit_year_to_two_digit(_get_expiration_date(cert))
+    print("*" * 80)
+    print(cert.to_cryptography().serial_number)
+    print(cert.get_serial_number())
+    print("*" * 80)
     serial_number = format(cert.get_serial_number(), "X")
 
     # gotta prepend a /
@@ -1892,11 +1896,12 @@ def revoke_cert(
                 OpenSSL.crypto.FILETYPE_PEM, fp_.read()
             )
         with salt.utils.files.fopen(
-            f"{cert_base_path()}/{ca_name}/{ca_filename}.key"
+            f"{cert_base_path()}/{ca_name}/{ca_filename}.key", "rb"
         ) as fp_:
-            ca_key = OpenSSL.crypto.load_privatekey(
-                OpenSSL.crypto.FILETYPE_PEM, fp_.read()
-            )
+            #ca_key = OpenSSL.crypto.load_privatekey(
+            #    OpenSSL.crypto.FILETYPE_PEM, fp_.read()
+            #)
+            ca_key = load_pem_private_key(fp_.read(), None)
     except OSError:
         return f'There is no CA named "{ca_name}"'
 
@@ -1922,6 +1927,7 @@ def revoke_cert(
     ret = {}
     with salt.utils.files.fopen(index_file) as fp_:
         for line in fp_:
+            print(line)
             line = salt.utils.stringutils.to_unicode(line)
             if index_r_data_pattern.match(line):
                 revoke_date = line.split("\t")[2]
@@ -1945,25 +1951,37 @@ def revoke_cert(
                 break
 
     crl = OpenSSL.crypto.CRL()
+    builder = x509.CertificateRevocationListBuilder()
+    #builder.issuer_name(x509.Name([
+    #    x509.NameAttribute(NameOID.COMMON_NAME, ca_name),
+    #]))
+    builder = builder.last_update(datetime.today())
 
     with salt.utils.files.fopen(index_file) as fp_:
         for line in fp_:
             line = salt.utils.stringutils.to_unicode(line)
             if line.startswith("R"):
                 fields = line.split("\t")
-                revoked = OpenSSL.crypto.Revoked()
-                revoked.set_serial(salt.utils.stringutils.to_bytes(fields[3]))
-                revoke_date_2_digit = datetime.strptime(fields[2], two_digit_year_fmt)
-                revoked.set_rev_date(
-                    salt.utils.stringutils.to_bytes(
-                        revoke_date_2_digit.strftime(four_digit_year_fmt)
-                    )
-                )
-                crl.add_revoked(revoked)
+                revoked_cert = x509.RevokedCertificateBuilder().serial_number(int(fields[3], 16)).revocation_date(
+                    datetime.strptime(fields[2], two_digit_year_fmt)
+                ).build()
+                builder.add_revoked_certificate(revoked_cert)
 
-    crl_text = crl.export(
-        ca_cert, ca_key, digest=salt.utils.stringutils.to_bytes(digest)
-    )
+    if digest == "md5":
+        crl = builder.sign(
+            private_key=ca_key, algorithm=hashes.MD5(),
+        )
+    elif digest == "sha1":
+        crl = builder.sign(
+            private_key=ca_key, algorithm=hashes.SHA1(),
+        )
+    elif digest == "sha256":
+        crl = builder.sign(
+            private_key=ca_key, algorithm=hashes.SHA256(),
+        )
+    else:
+        raise ValueError(f"Invalid digest {digest}")
+
 
     if crl_file is None:
         crl_file = f"{_cert_base_path()}/{ca_name}/crl.pem"
@@ -1974,7 +1992,7 @@ def revoke_cert(
         return ret
 
     with salt.utils.files.fopen(crl_file, "w") as fp_:
-        fp_.write(salt.utils.stringutils.to_str(crl_text))
+        fp_.write(salt.utils.stringutils.to_str(crl))
 
     return 'Revoked Certificate: "{}/{}.crt", serial number: {}'.format(
         cert_path, cert_filename, serial_number
