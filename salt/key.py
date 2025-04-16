@@ -315,6 +315,8 @@ class Key:
     The object that encapsulates saltkey actions
     """
 
+    KIND = "minion"
+
     ACC = "minions"
     PEND = "minions_pre"
     REJ = "minions_rejected"
@@ -976,3 +978,12 @@ class Key:
 
     def __exit__(self, *args):
         self.event.destroy()
+
+class ClientKey(Key):
+
+    KIND = "client"
+
+    ACC = "clients"
+    PEND = "client_pre"
+    REJ = "client_rejected"
+    DEN = "client_denied"

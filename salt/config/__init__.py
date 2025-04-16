@@ -1759,6 +1759,9 @@ DEFAULT_MASTER_OPTS = immutabletypes.freeze(
         "pillar.cache_driver": None,
         "eauth_tokens.cache_driver": None,
         "eauth_tokens.cluster_id": None,
+        # XXX Create separate cli config file
+        "encryption_algorithm": "OAEP-SHA1",
+        "signing_algorithm": "PKCS1v15-SHA1",
     }
 )
 
