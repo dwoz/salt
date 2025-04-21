@@ -136,8 +136,7 @@ def get_remote_client(
     auto_reconnect=False,
     listen=False,
 ):
-    """
-    """
+    """ """
     if mopts:
         opts = mopts
     else:
@@ -154,6 +153,7 @@ def get_remote_client(
         auto_reconnect=auto_reconnect,
         listen=listen,
     )
+
 
 class LocalClient:
     """
@@ -429,7 +429,7 @@ class LocalClient:
             raise
         except AuthorizationError as err:
             raise
-        #except Exception as general_exception:  # pylint: disable=broad-except
+        # except Exception as general_exception:  # pylint: disable=broad-except
         #    # Convert to generic client error and pass along message
         #    raise SaltClientError(general_exception)
 
@@ -2117,8 +2117,8 @@ class RemoteClient(LocalClient):
             always_verify_signature=False,
         )
         super().__init__(
-            c_path, mopts, skip_perm_errors, io_loop, keep_loop,
-            auto_reconnect, listen)
+            c_path, mopts, skip_perm_errors, io_loop, keep_loop, auto_reconnect, listen
+        )
 
     def pub(
         self,
@@ -2226,6 +2226,7 @@ class RemoteClient(LocalClient):
         """
         Read in the rotating master authentication key
         """
+        raise RuntimeError("Un-expected method call")
         key_user = self.salt_user
         if key_user == "root":
             if self.opts.get("user", "root") != "root":
