@@ -283,6 +283,7 @@ class PrivateKey(BaseKey):
 
 
 class PublicKey(BaseKey):
+
     def __init__(self, path):
         with salt.utils.files.fopen(path, "rb") as fp:
             try:
@@ -327,6 +328,13 @@ class PublicKey(BaseKey):
         )
         verifier = salt.utils.rsax931.RSAX931Verifier(pem)
         return verifier.verify(data)
+
+class PublicKeyString(PublicKey):
+    def __init__(self, data):
+        try:
+            self.key = serialization.load_pem_public_key(data.encode())
+        except ValueError as exc:
+            raise InvalidKeyError("Invalid key")
 
 
 @salt.utils.decorators.memoize

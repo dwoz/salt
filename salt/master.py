@@ -948,6 +948,7 @@ class Master(SMaster):
             signal.signal(signal.SIGTERM, self._handle_signals)
 
         if self.opts.get("cluster_id", None):
+            ipc_publisher.discover_peers()
             # Notify the rest of the cluster we're starting.
             ipc_publisher.send_aes_key_event()
         self.process_manager.run()
