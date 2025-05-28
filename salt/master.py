@@ -814,6 +814,25 @@ class Master(SMaster):
             log.info("Creating master process manager")
             # Since there are children having their own ProcessManager we should wait for kill more time.
             self.process_manager = salt.utils.process.ProcessManager(wait_for_kill=5)
+
+            log.info("Creating master event publisher process")
+            ipc_publisher = salt.channel.server.MasterPubServerChannel.factory(
+                self.opts
+            )
+            ipc_publisher.pre_fork(self.process_manager)
+            if not ipc_publisher.transport.started.wait(30):
+                raise salt.exceptions.SaltMasterError(
+                    "IPC publish server did not start within 30 seconds. Something went wrong."
+                )
+
+            log.error("Check proc")
+            time.sleep(10)
+            if self.opts.get("cluster_id", None):
+                ipc_publisher.discover_peers()
+                # Notify the rest of the cluster we're starting.
+                ipc_publisher.send_aes_key_event()
+
+
             pub_channels = []
             log.info("Creating master publisher process")
             for _, opts in iter_transport_opts(self.opts):
@@ -825,15 +844,6 @@ class Master(SMaster):
                     )
                 pub_channels.append(chan)
 
-            log.info("Creating master event publisher process")
-            ipc_publisher = salt.channel.server.MasterPubServerChannel.factory(
-                self.opts
-            )
-            ipc_publisher.pre_fork(self.process_manager)
-            if not ipc_publisher.transport.started.wait(30):
-                raise salt.exceptions.SaltMasterError(
-                    "IPC publish server did not start within 30 seconds. Something went wrong."
-                )
             self.process_manager.add_process(
                 EventMonitor,
                 args=[self.opts, ipc_publisher],
@@ -947,10 +957,6 @@ class Master(SMaster):
             # No custom signal handling was added, install our own
             signal.signal(signal.SIGTERM, self._handle_signals)
 
-        if self.opts.get("cluster_id", None):
-            ipc_publisher.discover_peers()
-            # Notify the rest of the cluster we're starting.
-            ipc_publisher.send_aes_key_event()
         self.process_manager.run()
 
     def _handle_signals(self, signum, sigframe):
