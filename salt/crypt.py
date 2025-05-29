@@ -141,6 +141,57 @@ def dropfile(cachedir, user=None, master_id=""):
         os.rename(dfn_next, dfn)
 
 
+def _write_private(keydir, keyname, key, passphrase=None):
+    base = os.path.join(keydir, keyname)
+    priv = f"{base}.pem"
+    # Do not try writing anything, if directory has no permissions.
+    if not os.access(keydir, os.W_OK):
+        raise OSError(
+            'Write access denied to "{}" for user "{}".'.format(
+                os.path.abspath(keydir), getpass.getuser()
+            )
+        )
+    if pathlib.Path(priv).exists():
+        # XXX
+        # raise RuntimeError()
+        log.error("Key should not exist")
+    with salt.utils.files.set_umask(0o277):
+        with salt.utils.files.fopen(priv, "wb+") as f:
+            if passphrase:
+                enc = serialization.BestAvailableEncryption(passphrase.encode())
+                _format = serialization.PrivateFormat.TraditionalOpenSSL
+                if fips_enabled():
+                    _format = serialization.PrivateFormat.PKCS8
+            else:
+                enc = serialization.NoEncryption()
+                _format = serialization.PrivateFormat.TraditionalOpenSSL
+            pem = key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=_format,
+                encryption_algorithm=enc,
+            )
+            f.write(pem)
+
+
+def _write_public(keydir, keyname, key):
+    base = os.path.join(keydir, keyname)
+    pub = f"{base}.pub"
+    # Do not try writing anything, if directory has no permissions.
+    if not os.access(keydir, os.W_OK):
+        raise OSError(
+            'Write access denied to "{}" for user "{}".'.format(
+                os.path.abspath(keydir), getpass.getuser()
+            )
+        )
+    pubkey = key.public_key()
+    with salt.utils.files.fopen(pub, "wb+") as f:
+        pem = pubkey.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        f.write(pem)
+
+
 def gen_keys(keydir, keyname, keysize, user=None, passphrase=None, e=65537):
     """
     Generate a RSA public keypair for use with salt
@@ -165,39 +216,8 @@ def gen_keys(keydir, keyname, keysize, user=None, passphrase=None, e=65537):
         # a key! Use the winner's key
         return priv
 
-    # Do not try writing anything, if directory has no permissions.
-    if not os.access(keydir, os.W_OK):
-        raise OSError(
-            'Write access denied to "{}" for user "{}".'.format(
-                os.path.abspath(keydir), getpass.getuser()
-            )
-        )
-
-    with salt.utils.files.set_umask(0o277):
-        with salt.utils.files.fopen(priv, "wb+") as f:
-            if passphrase:
-                enc = serialization.BestAvailableEncryption(passphrase.encode())
-                _format = serialization.PrivateFormat.TraditionalOpenSSL
-                if fips_enabled():
-                    _format = serialization.PrivateFormat.PKCS8
-            else:
-                enc = serialization.NoEncryption()
-                _format = serialization.PrivateFormat.TraditionalOpenSSL
-            pem = gen.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=_format,
-                encryption_algorithm=enc,
-            )
-            f.write(pem)
-
-    pubkey = gen.public_key()
-    with salt.utils.files.fopen(pub, "wb+") as f:
-        pem = pubkey.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        f.write(pem)
-
+    _write_private(keydir, keyname, gen, passphrase)
+    _write_public(keydir, keyname, gen)
     os.chmod(priv, 0o400)
     if user:
         try:
@@ -281,6 +301,21 @@ class PrivateKey(BaseKey):
         except cryptography.exceptions.UnsupportedAlgorithm:
             raise UnsupportedAlgorithm(f"Unsupported algorithm: {algorithm}")
 
+    def write_private(self, keydir, name, passphrase=None):
+        _write_private(keydir, name, self.key, passphrase)
+
+    def write_public(self, keydir, name):
+        _write_public(keydir, name, self.key)
+
+
+class PrivateKeyString(PrivateKey):
+
+    def __init__(self, data, password=None):
+        self.key = serialization.load_pem_private_key(
+            data.encode(),
+            password=password,
+        )
+
 
 class PublicKey(BaseKey):
 
@@ -328,6 +363,7 @@ class PublicKey(BaseKey):
         )
         verifier = salt.utils.rsax931.RSAX931Verifier(pem)
         return verifier.verify(data)
+
 
 class PublicKeyString(PublicKey):
     def __init__(self, data):
@@ -462,7 +498,8 @@ class MasterKeys(dict):
         self.cluster_pub_path = None
         self.cluster_rsa_path = None
         self.cluster_key = None
-        if self.opts["cluster_id"]:
+        # XXX
+        if self.opts["cluster_id"] and not self.opts["cluster_peers"]:
             self.cluster_pub_path = os.path.join(
                 self.opts["cluster_pki_dir"], "cluster.pub"
             )

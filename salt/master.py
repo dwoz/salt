@@ -815,9 +815,12 @@ class Master(SMaster):
             # Since there are children having their own ProcessManager we should wait for kill more time.
             self.process_manager = salt.utils.process.ProcessManager(wait_for_kill=5)
 
+            event = multiprocessing.Event()
+
             log.info("Creating master event publisher process")
             ipc_publisher = salt.channel.server.MasterPubServerChannel.factory(
-                self.opts
+                self.opts,
+                _discover_event=event,
             )
             ipc_publisher.pre_fork(self.process_manager)
             if not ipc_publisher.transport.started.wait(30):
@@ -825,13 +828,12 @@ class Master(SMaster):
                     "IPC publish server did not start within 30 seconds. Something went wrong."
                 )
 
-            log.error("Check proc")
-            time.sleep(10)
             if self.opts.get("cluster_id", None):
-                ipc_publisher.discover_peers()
-                # Notify the rest of the cluster we're starting.
-                ipc_publisher.send_aes_key_event()
+                if self.opts.get("cluster_peers", []):
+                    ipc_publisher.discover_peers()
+                    event.wait(timeout=30)
 
+            ipc_publisher.send_aes_key_event()
 
             pub_channels = []
             log.info("Creating master publisher process")
