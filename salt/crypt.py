@@ -513,7 +513,8 @@ class MasterKeys(dict):
                     f"{self.opts['id']}.pub",
                 )
             if not self.opts["cluster_peers"]:
-                self.check_master_shared_pub()
+                if self.opts["cluster_pki_dir"] != self.opts["pki_dir"]:
+                    self.check_master_shared_pub()
                 key_pass = salt.utils.sdb.sdb_get(
                     self.opts["cluster_key_pass"], self.opts
                 )
