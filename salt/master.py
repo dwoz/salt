@@ -829,7 +829,10 @@ class Master(SMaster):
                 )
 
             if self.opts.get("cluster_id", None):
-                if self.opts.get("cluster_peers", []):
+                if (
+                    self.opts.get("cluster_peers", [])
+                    and not ipc_publisher.cluster_key()
+                ):
                     ipc_publisher.discover_peers()
                     event.wait(timeout=30)
 

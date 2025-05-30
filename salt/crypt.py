@@ -499,25 +499,29 @@ class MasterKeys(dict):
         self.cluster_rsa_path = None
         self.cluster_key = None
         # XXX
-        if self.opts["cluster_id"] and not self.opts["cluster_peers"]:
+        if self.opts["cluster_id"]:
             self.cluster_pub_path = os.path.join(
                 self.opts["cluster_pki_dir"], "cluster.pub"
             )
             self.cluster_rsa_path = os.path.join(
                 self.opts["cluster_pki_dir"], "cluster.pem"
             )
-            self.cluster_shared_path = os.path.join(
-                self.opts["cluster_pki_dir"],
-                "peers",
-                f"{self.opts['id']}.pub",
-            )
-            self.check_master_shared_pub()
-            key_pass = salt.utils.sdb.sdb_get(self.opts["cluster_key_pass"], self.opts)
-            self.cluster_key = self.__get_keys(
-                name="cluster",
-                passphrase=key_pass,
-                pki_dir=self.opts["cluster_pki_dir"],
-            )
+            if self.opts["cluster_pki_dir"] != self.opts["pki_dir"]:
+                self.cluster_shared_path = os.path.join(
+                    self.opts["cluster_pki_dir"],
+                    "peers",
+                    f"{self.opts['id']}.pub",
+                )
+            if not self.opts["cluster_peers"]:
+                self.check_master_shared_pub()
+                key_pass = salt.utils.sdb.sdb_get(
+                    self.opts["cluster_key_pass"], self.opts
+                )
+                self.cluster_key = self.__get_keys(
+                    name="cluster",
+                    passphrase=key_pass,
+                    pki_dir=self.opts["cluster_pki_dir"],
+                )
         self.pub_signature = None
 
         # set names for the signing key-pairs

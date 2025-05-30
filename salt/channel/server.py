@@ -1079,6 +1079,18 @@ class MasterPubServerChannel:
             )
             self.auth_errors[peer] = collections.deque()
             self.pushers.append(pusher)
+
+        for peerkey in pathlib.Path(self.opts["cluster_pki_dir"], "peers").glob("*"):
+            peer = peerkey.name[:-4]
+            self.cluster_peers.append(peer)
+            pusher = salt.transport.tcp.PublishServer(
+                self.opts,
+                pull_host=peer,
+                pull_port=self.tcp_master_pool_port,
+            )
+            self.auth_errors[peer] = collections.deque()
+            self.pushers.append(pusher)
+
         if self.opts.get("cluster_id", None):
             self.pool_puller = salt.transport.tcp.TCPPuller(
                 host=self.opts["interface"],
@@ -1114,9 +1126,9 @@ class MasterPubServerChannel:
         The private key associated with this cluster.
         """
         # XXX Do not read every time
-        path = self.master_key.cluster_rsa_path
-        with salt.utils.files.fopen(path, "r") as fp:
-            return fp.read()
+        path = pathlib.Path(self.master_key.cluster_rsa_path)
+        if path.exists():
+            return path.read_text()
 
     def pusher(self, peer, port=None):
         if port is None:
@@ -1224,6 +1236,9 @@ class MasterPubServerChannel:
                 await self.pusher(data["peer_id"]).publish(event_data)
             elif tag.startswith("cluster/peer"):
                 peer = data["peer_id"]
+                if peer == self.opts["id"]:
+                    log.debug("Skip our own cluster peer event %s", tag)
+                    return
                 aes = data["peers"][self.opts["id"]]["aes"]
                 sig = data["peers"][self.opts["id"]]["sig"]
                 key_str = self.master_key.master_key.decrypt(

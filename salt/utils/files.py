@@ -345,6 +345,13 @@ def fopen(*args, **kwargs):
             raise TypeError(f"{args[0]} is not a permitted file descriptor")
     except IndexError:
         pass
+    try:
+        if "127.0.0.1" in str(args[0]):
+            import traceback
+
+            log.error("WTF %s", "".join(traceback.format_stack()))
+    except:
+        pass
     binary = None
     if kwargs.pop("binary", None):
         if len(args) > 1:
