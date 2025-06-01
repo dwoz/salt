@@ -999,6 +999,9 @@ class MasterPubServerChannel:
                     log.error("Unable to send aes key event")
 
     def send_aes_key_event(self):
+        import traceback
+
+        log.warning("SEND AES KEY EVENT %s", "".join(traceback.format_stack()[-4:-1]))
         data = {"peer_id": self.opts["id"], "peers": {}}
         for peer in self.cluster_peers:
             peer_pub = (
@@ -1082,14 +1085,15 @@ class MasterPubServerChannel:
 
         for peerkey in pathlib.Path(self.opts["cluster_pki_dir"], "peers").glob("*"):
             peer = peerkey.name[:-4]
-            self.cluster_peers.append(peer)
-            pusher = salt.transport.tcp.PublishServer(
-                self.opts,
-                pull_host=peer,
-                pull_port=self.tcp_master_pool_port,
-            )
-            self.auth_errors[peer] = collections.deque()
-            self.pushers.append(pusher)
+            if peer not in self.cluster_peers:
+                self.cluster_peers.append(peer)
+                pusher = salt.transport.tcp.PublishServer(
+                    self.opts,
+                    pull_host=peer,
+                    pull_port=self.tcp_master_pool_port,
+                )
+                self.auth_errors[peer] = collections.deque()
+                self.pushers.append(pusher)
 
         if self.opts.get("cluster_id", None):
             self.pool_puller = salt.transport.tcp.TCPPuller(
@@ -1128,7 +1132,7 @@ class MasterPubServerChannel:
         # XXX Do not read every time
         path = pathlib.Path(self.master_key.cluster_rsa_path)
         if path.exists():
-            return path.read_text()
+            return path.read_text(encoding="utf-8")
 
     def pusher(self, peer, port=None):
         if port is None:
@@ -1145,12 +1149,50 @@ class MasterPubServerChannel:
         """
         try:
             tag, data = salt.utils.event.SaltEvent.unpack(payload)
-            log.error("Incomming from peer %s %r", tag, data)
-            if tag.startswith("cluster/peer/join-reply"):
+            log.debug("Incomming from peer %s %r", tag, data)
+            if tag.startswith("cluster/peer/join-notify"):
+                log.info(
+                    "Cluster join notify from %s for %s",
+                    data["peer_id"],
+                    data["join_peer_id"],
+                )
+                peer_pub = (
+                    pathlib.Path(self.opts["cluster_pki_dir"])
+                    / "peers"
+                    / f"{data['join_peer_id']}.pub"
+                )
+                with salt.utils.files.fopen(peer_pub, "w") as fp:
+                    fp.write(data["pub"])
+            elif tag.startswith("cluster/peer/join-reply"):
                 log.info("Cluster join reply from %s", data["peer_id"])
                 key = salt.crypt.PrivateKeyString(data["cluster_key"])
-                key.write_private(self.opts["pki_dir"], "cluster")
-                key.write_public(self.opts["pki_dir"], "cluster")
+                key.write_private(self.opts["cluster_pki_dir"], "cluster")
+                key.write_public(self.opts["cluster_pki_dir"], "cluster")
+                for peer in data["peers"]:
+                    log.error("Populate peer key %s", peer)
+                    pub = (
+                        pathlib.Path(self.opts["cluster_pki_dir"])
+                        / "peers"
+                        / f"{peer}.pub"
+                    )
+                    pub.write_text(data["peers"][peer])
+                # XXX Initial pass just to get things working. This should be
+                # able to be paged. We should also have the joining minion
+                # request the keys it needs based on hashed values.
+                for kind in data["minions"]:
+                    for minion in (
+                        pathlib.Path(self.opts["cluster_pki_dir"]) / kind
+                    ).glob("*"):
+                        if minion.name[:-4] not in data["minions"][kind]:
+                            minion.unlink()
+                    for minion in data["minions"][kind]:
+                        log.error("Populate minion key %s", minion)
+                        pub = (
+                            pathlib.Path(self.opts["cluster_pki_dir"])
+                            / kind
+                            / f"{minion}"
+                        )
+                        pub.write_text(data["minions"][kind][minion])
                 event = self._discover_event
                 self._discover_event = None
                 # Signal the main master process to start the rest of the
@@ -1158,7 +1200,6 @@ class MasterPubServerChannel:
                 event.set()
             elif tag.startswith("cluster/peer/join"):
                 log.info("Cluster join from %s", data["peer_id"])
-
                 secret = (
                     salt.crypt.PrivateKey(self.master_key.master_rsa_path)
                     .decrypt(data["secret"])
@@ -1179,18 +1220,59 @@ class MasterPubServerChannel:
                     )
                     with salt.utils.files.fopen(peer_pub, "w") as fp:
                         fp.write(data["pub"])
+
+                    for pusher in self.pushers:
+                        # XXX Send new peer id and public key to other nodes
+                        # XXX This needs to be able to be validated by receiveing peers
+                        event_data = salt.utils.event.SaltEvent.pack(
+                            salt.utils.event.tagify("join-notify", "peer", "cluster"),
+                            {
+                                "peer_id": self.opts["id"],
+                                "join_peer_id": data["peer_id"],
+                                "pub": data["pub"],
+                            },
+                        )
+                        # XXX gather tasks instead of looping
+                        await pusher.publish(event_data)
+
                     self.cluster_peers.append(data["peer_id"])
                     self.pushers.append(self.pusher(data["peer_id"]))
                     self.auth_errors[data["peer_id"]] = collections.deque()
+
+                    # XXX Send other nodes pub (and aes?) keys to new node
+
+                    # XXX Kick off minoins key repair
+
                     self.send_aes_key_event()
 
                     reply = {
                         "peer_id": self.opts["id"],
-                        "cluster_key": self.cluster_key(),
-                        "minions": [],
+                        "cluster_key": self.cluster_key(),  # XXX encrypt, duh
+                        "peers": {},
+                        "minions": {},
                     }
-
-                    # for key in pathlib.Path(salt.opts["pki_dir"]):
+                    for key in (
+                        pathlib.Path(self.opts["cluster_pki_dir"]) / "peers"
+                    ).glob("*"):
+                        peer = key.name[:-4]
+                        if peer == data["peer_id"]:
+                            continue
+                        log.error("Populate peer key %s", peer)
+                        reply["peers"][peer] = key.read_text()
+                    kinds = [
+                        "minions",
+                        "minions_autosign",
+                        "minions_denied",
+                        "minions_pre",
+                        "minions_rejected",
+                    ]
+                    for kind in kinds:
+                        reply["minions"][kind] = {}
+                        for key in (
+                            pathlib.Path(self.opts["cluster_pki_dir"]) / kind
+                        ).glob("*"):
+                            minion = key.name
+                            reply["minions"][kind][minion] = key.read_text()
                     event_data = salt.utils.event.SaltEvent.pack(
                         salt.utils.event.tagify("join-reply", "peer", "cluster"),
                         reply,
@@ -1226,7 +1308,6 @@ class MasterPubServerChannel:
                 log.info("Cluster discovery from %s", data["peer_id"])
                 reply = {
                     "peer_id": self.opts["id"],
-                    "peers": [],  # XXX list of peers
                     "pub": self.public_key(),
                 }
                 event_data = salt.utils.event.SaltEvent.pack(
@@ -1255,7 +1336,7 @@ class MasterPubServerChannel:
                 if m_digest != digest:
                     log.error("Invalid aes signature from peer: %s", peer)
                     return
-                log.info("Received new key from peer %s", peer)
+                log.info("Received new AES key from peer %s", peer)
                 if peer in self.peer_keys:
                     if self.peer_keys[peer] != key_str:
                         self.peer_keys[peer] = key_str
