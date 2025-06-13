@@ -9,7 +9,6 @@ import os
 import salt.cache
 import salt.config
 import salt.fileserver.gitfs
-import salt.payload
 import salt.pillar.git_pillar
 import salt.runners.winrepo
 import salt.syspaths
@@ -597,3 +596,63 @@ def migrate(
         lines.append("  (dry-run — no data written)")
 
     return "\n".join(lines)
+
+
+def migrate_to_driver(target=None, bank=None):
+    """
+    Migrate cache contents from the current configured cache backends to a target driver.
+
+    Unlike ``cache.migrate``, this function is aware of per-bank driver configuration
+    (keys.cache_driver, eauth_tokens.cache_driver, pillar.cache_driver) and migrates
+    each bank from its currently configured driver to the specified target driver.
+
+    .. note:: This will NOT migrate ttl values, if set in the source cache.
+
+    target
+      The target cache backend driver name (e.g. ``sqlalchemy``, ``redis``).
+
+    bank
+      If you only want to migrate specific banks (instead of all), the name of
+      the bank(s), csv delimited.
+
+    CLI Examples:
+
+    .. code-block:: bash
+
+        salt-run cache.migrate_to_driver target=sqlalchemy
+        salt-run cache.migrate_to_driver target=redis bank=keys,denied_keys,master_keys
+    """
+    # if specific drivers are not set for these, Cache will just fall back to base cache
+    key_cache = salt.cache.Cache(__opts__, driver=__opts__["keys.cache_driver"])
+    token_cache = salt.cache.Cache(
+        __opts__, driver=__opts__["eauth_tokens.cache_driver"]
+    )
+    mdc_cache = salt.cache.Cache(__opts__, driver=__opts__["pillar.cache_driver"])
+    base_cache = salt.cache.Cache(__opts__)
+    dst_cache = salt.cache.Cache(__opts__, driver=target)
+
+    # unfortunately there is no 'list all cache banks' in the cache api
+    banks = {
+        "keys": key_cache,
+        "master_keys": key_cache,
+        "denied_keys": key_cache,
+        "tokens": token_cache,
+        "pillar": mdc_cache,
+        "grains": base_cache,
+        "mine": base_cache,
+    }
+
+    if bank:
+        bank = bank.split(",")
+    else:
+        bank = banks.keys()
+
+    for _bank in bank:
+        cache = banks[_bank]
+        keys = cache.list(_bank)
+        log.info("bank %s: migrating %s keys", _bank, len(keys))
+        for key in keys:
+            value = cache.fetch(_bank, key)
+            dst_cache.store(_bank, key, value)
+
+    return True
