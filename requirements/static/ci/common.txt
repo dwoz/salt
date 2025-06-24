@@ -58,6 +58,7 @@ python-etcd>=0.4.5
 pyvmomi
 rfc3339-validator>=0.1.4
 rfc3987
+sqlalchemy
 sqlparse>=0.5.5
 strict_rfc3339>=0.7
 textfsm
