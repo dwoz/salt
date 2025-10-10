@@ -50,9 +50,15 @@ def remote_grail_scene33(
 def gpghome(tmp_path):
     root = tmp_path / "gpghome"
     root.mkdir(mode=0o0700)
+    oldhome = os.environ.get("GNUPGHOME", None)
+    os.environ["GNUPGHOME"] = str(root)
     try:
         yield root
     finally:
+        if oldhome is None:
+            os.environ.pop("GNUPGHOME")
+        else:
+            os.environ["GNUPGHOME"] = oldhome
         # Make sure we don't leave any gpg-agents running behind
         gpg_connect_agent = shutil.which("gpg-connect-agent")
         if gpg_connect_agent:
