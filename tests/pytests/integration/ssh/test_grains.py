@@ -13,7 +13,7 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def grains_filter_by_lookup(salt_ssh_cli_parameterized):
     ret = salt_ssh_cli_parameterized.run("grains.get", "os")
     assert ret.returncode == 0
@@ -36,7 +36,7 @@ def grains_filter_by_lookup(salt_ssh_cli_parameterized):
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def grains_filter_by_default():
     return {
         "common": {
@@ -51,7 +51,7 @@ def grains_filter_by_default():
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def grains_filter_by_states(
     salt_master, grains_filter_by_lookup, grains_filter_by_default
 ):

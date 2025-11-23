@@ -39,10 +39,13 @@ def _pillar_tree(salt_master):
         yield
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def cachedir(salt_ssh_cli_parameterized):
     """
     The current minion cache dir
+
+    Note: This uses function scope (not module scope) to match salt_ssh_cli_parameterized.
+    Module-scoped fixtures cannot depend on function-scoped fixtures in pytest.
     """
     # The salt-ssh cache dir in the minion context is different than
     # the one available in the salt_ssh_cli_parameterized opts. Any other way to get this? TODO

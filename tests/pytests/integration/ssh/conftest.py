@@ -76,12 +76,17 @@ def ssh_deployment_type(request):
     return request.param
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def salt_ssh_cli_parameterized(
     ssh_deployment_type, salt_master, salt_ssh_roster_file, sshd_config_dir, known_hosts_file
 ):
     """
     Parameterized salt-ssh CLI fixture that tests with both thin and relenv deployments.
+
+    Note: This uses function scope (not module scope) to ensure each test gets a fresh
+    SSH instance. This is necessary because the SSH class conditionally initializes
+    self.thin based on opts['relenv'], and with parametrized tests, we need a new
+    instance for each deployment type to avoid shared state issues.
     """
     assert salt_master.is_running()
     cli = salt_master.salt_ssh_cli(
