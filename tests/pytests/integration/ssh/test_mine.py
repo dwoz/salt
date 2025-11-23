@@ -40,21 +40,21 @@ def pillar_tree(base_env_pillar_tree_root_dir):
 
 
 @pytest.fixture(autouse=True)
-def thin_dir(salt_ssh_cli):
+def thin_dir(salt_ssh_cli_parameterized):
     try:
         yield
     finally:
-        ret = salt_ssh_cli.run("config.get", "thin_dir")
+        ret = salt_ssh_cli_parameterized.run("config.get", "thin_dir")
         assert ret.returncode == 0
         thin_dir_path = ret.data
         shutil.rmtree(thin_dir_path, ignore_errors=True)
 
 
-def test_ssh_mine_get(salt_ssh_cli):
+def test_ssh_mine_get(salt_ssh_cli_parameterized):
     """
-    test salt-ssh with mine
+    test salt-ssh with mine (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("mine.get", "localhost", "test.arg")
+    ret = salt_ssh_cli_parameterized.run("mine.get", "localhost", "test.arg")
     assert ret.returncode == 0
     assert ret.data
     assert "localhost" in ret.data
@@ -63,9 +63,9 @@ def test_ssh_mine_get(salt_ssh_cli):
 
 
 @pytest.mark.parametrize("tgts", (("ssh",), ("regular",), ("ssh", "regular")))
-def test_mine_get(salt_ssh_cli, salt_minion, tgts):
+def test_mine_get(salt_ssh_cli_parameterized, salt_minion, tgts):
     """
-    Test mine returns with both regular and SSH minions
+    Test mine returns with both regular and SSH minions (parameterized for both thin and relenv)
     """
     if len(tgts) > 1:
         tgt = "*"
@@ -73,7 +73,7 @@ def test_mine_get(salt_ssh_cli, salt_minion, tgts):
     else:
         tgt = "localhost" if "ssh" in tgts else salt_minion.id
         exp = {tgt}
-    ret = salt_ssh_cli.run(
+    ret = salt_ssh_cli_parameterized.run(
         "mine.get",
         "*",
         "test.ping",
@@ -87,12 +87,12 @@ def test_mine_get(salt_ssh_cli, salt_minion, tgts):
         assert ret.data[id_] is True
 
 
-def test_ssh_mine_get_error(salt_ssh_cli, caplog):
+def test_ssh_mine_get_error(salt_ssh_cli_parameterized, caplog):
     """
     Test that a mine function returning an error is not
-    included in the output.
+    included in the output (parameterized for both thin and relenv).
     """
-    ret = salt_ssh_cli.run("mine.get", "localhost", "disk.usage")
+    ret = salt_ssh_cli_parameterized.run("mine.get", "localhost", "disk.usage")
     assert ret.returncode == 0
     assert not ret.data
     assert "Error executing mine func disk.usage" in caplog.text

@@ -14,8 +14,8 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def grains_filter_by_lookup(salt_ssh_cli):
-    ret = salt_ssh_cli.run("grains.get", "os")
+def grains_filter_by_lookup(salt_ssh_cli_parameterized):
+    ret = salt_ssh_cli_parameterized.run("grains.get", "os")
     assert ret.returncode == 0
     assert ret.data
     os = ret.data
@@ -53,7 +53,7 @@ def grains_filter_by_default():
 
 @pytest.fixture(scope="module")
 def grains_filter_by_states(
-    salt_master, salt_ssh_cli, grains_filter_by_lookup, grains_filter_by_default
+    salt_master, grains_filter_by_lookup, grains_filter_by_default
 ):
     filter_content = f"{{%- set lookup = {grains_filter_by_lookup} %}}"
     default_content = f"{{%- set lookup = {grains_filter_by_default} %}}"
@@ -64,34 +64,29 @@ grains-filter-by:
     - name: {{ salt["temp.file"]() }}
     - context: {{ res | json }}
     """
-    try:
+    with salt_master.state_tree.base.temp_file(
+        "grains_filter_by.sls", filter_content + content
+    ):
         with salt_master.state_tree.base.temp_file(
-            "grains_filter_by.sls", filter_content + content
+            "grains_filter_by_default.sls", default_content + content
         ):
-            with salt_master.state_tree.base.temp_file(
-                "grains_filter_by_default.sls", default_content + content
-            ):
-                ret = salt_ssh_cli.run("--regen-thin", "test.true")
-                assert ret.returncode == 0
-                yield
-    finally:
-        salt_ssh_cli.run("--regen-thin", "test.true")
+            yield
 
 
-def test_grains_id(salt_ssh_cli):
+def test_grains_id(salt_ssh_cli_parameterized):
     """
-    Test salt-ssh grains id work for localhost.
+    Test salt-ssh grains id work for localhost (parameterized for both thin and relenv).
     """
-    ret = salt_ssh_cli.run("grains.get", "id")
+    ret = salt_ssh_cli_parameterized.run("grains.get", "id")
     assert ret.returncode == 0
     assert ret.data == "localhost"
 
 
-def test_grains_items(salt_ssh_cli):
+def test_grains_items(salt_ssh_cli_parameterized):
     """
-    test grains.items with salt-ssh
+    test grains.items with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("grains.items")
+    ret = salt_ssh_cli_parameterized.run("grains.items")
     assert ret.returncode == 0
     assert ret.data
     assert isinstance(ret.data, dict)
@@ -106,11 +101,11 @@ def test_grains_items(salt_ssh_cli):
     assert ret.data["kernel"] == grain
 
 
-def test_grains_filter_by(salt_ssh_cli, grains_filter_by_lookup):
+def test_grains_filter_by(salt_ssh_cli_parameterized, grains_filter_by_lookup):
     """
-    test grains.filter_by with salt-ssh
+    test grains.filter_by with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run(
+    ret = salt_ssh_cli_parameterized.run(
         "grains.filter_by",
         grains_filter_by_lookup,
         grain="os",
@@ -127,11 +122,11 @@ def test_grains_filter_by(salt_ssh_cli, grains_filter_by_lookup):
 
 
 @pytest.mark.usefixtures("grains_filter_by_states")
-def test_grains_filter_by_jinja(salt_ssh_cli):
+def test_grains_filter_by_jinja(salt_ssh_cli_parameterized):
     """
-    test grains.filter_by during template rendering with salt-ssh
+    test grains.filter_by during template rendering with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("state.show_sls", "grains_filter_by")
+    ret = salt_ssh_cli_parameterized.run("state.show_sls", "grains_filter_by")
     assert ret.returncode == 0
     assert ret.data
     rendered = ret.data["grains-filter-by"]["file"][1]["context"]
@@ -142,11 +137,11 @@ def test_grains_filter_by_jinja(salt_ssh_cli):
     assert "defaulted" not in rendered
 
 
-def test_grains_filter_by_default(salt_ssh_cli, grains_filter_by_default):
+def test_grains_filter_by_default(salt_ssh_cli_parameterized, grains_filter_by_default):
     """
-    test grains.filter_by with salt-ssh and default parameter
+    test grains.filter_by with salt-ssh and default parameter (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run(
+    ret = salt_ssh_cli_parameterized.run(
         "grains.filter_by",
         grains_filter_by_default,
         grain="os",
@@ -162,11 +157,11 @@ def test_grains_filter_by_default(salt_ssh_cli, grains_filter_by_default):
 
 
 @pytest.mark.usefixtures("grains_filter_by_states")
-def test_grains_filter_by_default_jinja(salt_ssh_cli, grains_filter_by_default):
+def test_grains_filter_by_default_jinja(salt_ssh_cli_parameterized, grains_filter_by_default):
     """
-    test grains.filter_by during template rendering with salt-ssh and default parameter
+    test grains.filter_by during template rendering with salt-ssh and default parameter (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("state.show_sls", "grains_filter_by_default")
+    ret = salt_ssh_cli_parameterized.run("state.show_sls", "grains_filter_by_default")
     assert ret.returncode == 0
     assert ret.data
     rendered = ret.data["grains-filter-by"]["file"][1]["context"]

@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 
 # One to one mappings
 JSONEncoder = json.JSONEncoder
+JSONDecodeError = json.JSONDecodeError
 
 
 def __split(raw):

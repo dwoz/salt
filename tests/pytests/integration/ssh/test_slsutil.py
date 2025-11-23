@@ -14,35 +14,35 @@ pytestmark = [
 
 
 @pytest.mark.usefixtures("state_tree")
-def test_renderer_file(salt_ssh_cli):
-    ret = salt_ssh_cli.run("slsutil.renderer", "salt://test.sls")
+def test_renderer_file(salt_ssh_cli_parameterized):
+    ret = salt_ssh_cli_parameterized.run("slsutil.renderer", "salt://test.sls")
     assert ret.returncode == 0
     assert isinstance(ret.data, dict)
     assert "Ok with def" in ret.data
 
 
-def test_renderer_string(salt_ssh_cli):
+def test_renderer_string(salt_ssh_cli_parameterized):
     rend = "{{ salt['test.echo']('foo') }}: {{ pillar['ext_spam'] }}"
-    ret = salt_ssh_cli.run("slsutil.renderer", string=rend)
+    ret = salt_ssh_cli_parameterized.run("slsutil.renderer", string=rend)
     assert ret.returncode == 0
     assert isinstance(ret.data, dict)
     assert ret.data == {"foo": "eggs"}
 
 
-def test_serialize(salt_ssh_cli):
+def test_serialize(salt_ssh_cli_parameterized):
     obj = {"foo": "bar"}
-    ret = salt_ssh_cli.run("slsutil.serialize", "json", obj)
+    ret = salt_ssh_cli_parameterized.run("slsutil.serialize", "json", obj)
     assert ret.returncode == 0
     assert isinstance(ret.data, str)
     assert ret.data == json.dumps(obj)
 
 
-def test_deserialize(salt_ssh_cli):
+def test_deserialize(salt_ssh_cli_parameterized):
     obj = {"foo": "bar"}
     data = json.dumps(obj)
     # Need to quote it, otherwise it's deserialized by the
     # test wrapper
-    ret = salt_ssh_cli.run("slsutil.deserialize", "json", f"'{data}'")
+    ret = salt_ssh_cli_parameterized.run("slsutil.deserialize", "json", f"'{data}'")
     assert ret.returncode == 0
     assert isinstance(ret.data, type(obj))
     assert ret.data == obj
@@ -57,8 +57,8 @@ def test_deserialize(salt_ssh_cli):
         ("does_not/ex/ist", False),
     ],
 )
-def test_dir_exists(salt_ssh_cli, path, expected):
-    ret = salt_ssh_cli.run("slsutil.dir_exists", path)
+def test_dir_exists(salt_ssh_cli_parameterized, path, expected):
+    ret = salt_ssh_cli_parameterized.run("slsutil.dir_exists", path)
     assert ret.returncode == 0
     assert isinstance(ret.data, bool)
     assert ret.data is expected
@@ -67,8 +67,8 @@ def test_dir_exists(salt_ssh_cli, path, expected):
 @pytest.mark.parametrize(
     "path,expected", [("test_deep", False), ("test_deep/test.sls", True)]
 )
-def test_file_exists(salt_ssh_cli, path, expected):
-    ret = salt_ssh_cli.run("slsutil.file_exists", path)
+def test_file_exists(salt_ssh_cli_parameterized, path, expected):
+    ret = salt_ssh_cli_parameterized.run("slsutil.file_exists", path)
     assert ret.returncode == 0
     assert isinstance(ret.data, bool)
     assert ret.data is expected
@@ -81,8 +81,8 @@ def test_file_exists(salt_ssh_cli, path, expected):
         ("test_deep/b/2", "cheese", "cheese"),
     ],
 )
-def test_findup(salt_ssh_cli, start, name, expected):
-    ret = salt_ssh_cli.run("slsutil.findup", start, name)
+def test_findup(salt_ssh_cli_parameterized, start, name, expected):
+    ret = salt_ssh_cli_parameterized.run("slsutil.findup", start, name)
     assert ret.returncode == 0
     assert isinstance(ret.data, str)
     assert ret.data == expected
@@ -97,8 +97,8 @@ def test_findup(salt_ssh_cli, start, name, expected):
         ("does_not/ex/ist", False),
     ],
 )
-def test_path_exists(salt_ssh_cli, path, expected):
-    ret = salt_ssh_cli.run("slsutil.path_exists", path)
+def test_path_exists(salt_ssh_cli_parameterized, path, expected):
+    ret = salt_ssh_cli_parameterized.run("slsutil.path_exists", path)
     assert ret.returncode == 0
     assert isinstance(ret.data, bool)
     assert ret.data is expected

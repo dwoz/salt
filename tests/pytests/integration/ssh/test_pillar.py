@@ -55,11 +55,11 @@ def pillar_filter_by_lookup():
     }
 
 
-def test_pillar_items(salt_ssh_cli):
+def test_pillar_items(salt_ssh_cli_parameterized):
     """
-    test pillar.items with salt-ssh
+    test pillar.items with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("pillar.items")
+    ret = salt_ssh_cli_parameterized.run("pillar.items")
     assert ret.returncode == 0
     assert ret.data
     pillar_items = ret.data
@@ -69,31 +69,31 @@ def test_pillar_items(salt_ssh_cli):
     assert pillar_items["knights"] == ["Lancelot", "Galahad", "Bedevere", "Robin"]
 
 
-def test_pillar_get(salt_ssh_cli):
+def test_pillar_get(salt_ssh_cli_parameterized):
     """
-    test pillar.get with salt-ssh
+    test pillar.get with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("pillar.get", "monty")
+    ret = salt_ssh_cli_parameterized.run("pillar.get", "monty")
     assert ret.returncode == 0
     assert ret.data
     assert ret.data == "python"
 
 
-def test_pillar_get_doesnotexist(salt_ssh_cli):
+def test_pillar_get_doesnotexist(salt_ssh_cli_parameterized):
     """
-    test pillar.get when pillar does not exist with salt-ssh
+    test pillar.get when pillar does not exist with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run("pillar.get", "doesnotexist")
+    ret = salt_ssh_cli_parameterized.run("pillar.get", "doesnotexist")
     assert ret.returncode == 0
     assert ret.data == ""
 
 
-def test_pillar_filter_by(salt_ssh_cli, pillar_filter_by_lookup):
+def test_pillar_filter_by(salt_ssh_cli_parameterized, pillar_filter_by_lookup):
     """
-    test pillar.filter_by with salt-ssh
+    test pillar.filter_by with salt-ssh (parameterized for both thin and relenv)
     """
     pillar_filter_by_lookup["python"] = {"filtered": True}
-    ret = salt_ssh_cli.run(
+    ret = salt_ssh_cli_parameterized.run(
         "pillar.filter_by",
         pillar_filter_by_lookup,
         pillar="monty",
@@ -109,11 +109,11 @@ def test_pillar_filter_by(salt_ssh_cli, pillar_filter_by_lookup):
     assert "defaulted" not in ret.data
 
 
-def test_pillar_filter_by_default(salt_ssh_cli, pillar_filter_by_lookup):
+def test_pillar_filter_by_default(salt_ssh_cli_parameterized, pillar_filter_by_lookup):
     """
-    test pillar.filter_by default param with salt-ssh
+    test pillar.filter_by default param with salt-ssh (parameterized for both thin and relenv)
     """
-    ret = salt_ssh_cli.run(
+    ret = salt_ssh_cli_parameterized.run(
         "pillar.filter_by",
         pillar_filter_by_lookup,
         pillar="monty",

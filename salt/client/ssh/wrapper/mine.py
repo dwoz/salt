@@ -91,6 +91,13 @@ def get(
         opts["tgt"] = tgt
         opts["arg"] = []
 
+        # Preserve relenv OS/arch cache to avoid redundant detection
+        # The cache is stored in master_opts by the first Single instance
+        if "relenv_kernel" in __context__["master_opts"]:
+            opts["relenv_kernel"] = __context__["master_opts"]["relenv_kernel"]
+        if "relenv_os_arch" in __context__["master_opts"]:
+            opts["relenv_os_arch"] = __context__["master_opts"]["relenv_os_arch"]
+
         # Create the SSH object to handle the actual call
         ssh = salt.client.ssh.SSH(opts)
 

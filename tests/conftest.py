@@ -1121,6 +1121,7 @@ def salt_master_factory(
         "publish_signing_algorithm": (
             "PKCS1v15-SHA224" if FIPS_TESTRUN else "PKCS1v15-SHA1"
         ),
+        "ignore_host_keys": True,
     }
     ext_pillar = []
     if salt.utils.platform.is_windows():

@@ -13,9 +13,9 @@ pytestmark = [
 
 
 @pytest.mark.slow_test
-def test_echo(salt_ssh_cli, base_env_state_tree_root_dir):
+def test_echo(salt_ssh_cli_parameterized, base_env_state_tree_root_dir):
     """
-    verify salt-ssh can use imported map files in states
+    verify salt-ssh can use imported map files in states (parameterized for both thin and relenv)
     """
     name = "echo"
     echo = "hello"
@@ -31,7 +31,7 @@ def test_echo(salt_ssh_cli, base_env_state_tree_root_dir):
     )
 
     with state_tempfile:
-        ret = salt_ssh_cli.run("state.apply", name)
+        ret = salt_ssh_cli_parameterized.run("state.apply", name)
         result = StateResult(ret.data)
         assert result.comment == echo
 
@@ -79,14 +79,14 @@ foo:
         yield name
 
 
-def test_wrapper_attribute_access(_jinja_loader_attr_template, salt_ssh_cli):
+def test_wrapper_attribute_access(_jinja_loader_attr_template, salt_ssh_cli_parameterized):
     """
     Ensure wrappers can be accessed via the attribute syntax.
     It's not recommended to use this syntax, but the regular loader supports it
     as well, so we should have feature parity.
     Issue #66600.
     """
-    res = salt_ssh_cli.run("state.apply", _jinja_loader_attr_template)
+    res = salt_ssh_cli_parameterized.run("state.apply", _jinja_loader_attr_template)
     assert res.returncode == 0
     ret = StateResult(res.data)
     assert ret.result is True
@@ -107,14 +107,14 @@ foo:
         yield name
 
 
-def test_wrapper_attribute_access_get(_jinja_loader_get_template, salt_ssh_cli):
+def test_wrapper_attribute_access_get(_jinja_loader_get_template, salt_ssh_cli_parameterized):
     """
     Ensure a function named `.get` is not shadowed when accessed via attribute syntax.
     It's not recommended to use it, but the regular loader supports it
     as well, so we should have feature parity.
     Issue #41794.
     """
-    res = salt_ssh_cli.run("state.apply", _jinja_loader_get_template)
+    res = salt_ssh_cli_parameterized.run("state.apply", _jinja_loader_get_template)
     assert res.returncode == 0
     ret = StateResult(res.data)
     assert ret.result is True
@@ -142,7 +142,7 @@ def run():
 
 
 def test_wrapper_attribute_access_non_jinja(
-    _python_loader_attribute_access_template, salt_ssh_cli
+    _python_loader_attribute_access_template, salt_ssh_cli_parameterized
 ):
     """
     Ensure attribute access works with non-Jinja renderers.
@@ -150,7 +150,7 @@ def test_wrapper_attribute_access_non_jinja(
     as well, so we should have feature parity.
     Issue #66376.
     """
-    res = salt_ssh_cli.run("state.apply", _python_loader_attribute_access_template)
+    res = salt_ssh_cli_parameterized.run("state.apply", _python_loader_attribute_access_template)
     assert res.returncode == 0
     ret = StateResult(res.data)
     assert ret.result is True

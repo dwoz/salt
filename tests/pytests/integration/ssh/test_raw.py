@@ -6,12 +6,12 @@ pytestmark = [
 ]
 
 
-def test_ssh_raw(salt_ssh_cli):
+def test_ssh_raw(salt_ssh_cli_parameterized):
     """
-    test salt-ssh with -r argument
+    test salt-ssh with -r argument (parameterized for both thin and relenv)
     """
     msg = "password: foo"
-    ret = salt_ssh_cli.run("--raw", "echo", msg, _timeout=60)
+    ret = salt_ssh_cli_parameterized.run("--raw", "echo", msg, _timeout=60)
     assert ret.returncode == 0
     assert ret.data
     assert "retcode" in ret.data

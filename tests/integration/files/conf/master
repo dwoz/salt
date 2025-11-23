@@ -97,7 +97,7 @@ discovery: false
 
 # enable using ssh minions and regular minions
 #enable_ssh_minions: True
-#ignore_host_keys: True
+ignore_host_keys: True
 
 # Ensure pytest-salt-factories is not included
 # in the thin tar during integration tests
