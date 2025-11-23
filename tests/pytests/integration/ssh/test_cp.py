@@ -747,15 +747,20 @@ def test_list_master_symlinks(salt_ssh_cli_parameterized, salt_master):
     if salt_ssh_cli_parameterized.config.get("fileserver_ignoresymlinks", False):
         pytest.skip("Fileserver is configured to ignore symlinks")
     with salt_master.state_tree.base.temp_file(random_string("foo-"), "") as tgt:
-        sym = tgt.parent / "test_list_master_symlinks"
-        sym.symlink_to(tgt)
-        res = salt_ssh_cli_parameterized.run("cp.list_master_symlinks")
-        assert res.returncode == 0
-        assert res.data
-        assert isinstance(res.data, dict)
-        assert res.data
-        assert sym.name in res.data
-        assert res.data[sym.name] == str(tgt)
+        sym = tgt.parent / random_string("test_list_master_symlinks-")
+        try:
+            sym.symlink_to(tgt)
+            res = salt_ssh_cli_parameterized.run("cp.list_master_symlinks")
+            assert res.returncode == 0
+            assert res.data
+            assert isinstance(res.data, dict)
+            assert res.data
+            assert sym.name in res.data
+            assert res.data[sym.name] == str(tgt)
+        finally:
+            # Clean up the symlink to avoid conflicts with parametrized tests
+            if sym.exists() or sym.is_symlink():
+                sym.unlink()
 
 
 @pytest.fixture(params=(False, "cached", "render_cached"))
