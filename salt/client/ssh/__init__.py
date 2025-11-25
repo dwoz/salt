@@ -212,6 +212,8 @@ SUDO_USER="{SUDO_USER}"
 if [ "$SUDO" ] && [ "$SUDO_USER" ]; then SUDO="$SUDO -u $SUDO_USER"; fi
 
 RELENV_TAR="{THIN_DIR}/salt-relenv.tar.xz"
+EXT_MODS_TAR="{THIN_DIR}/salt-ext_mods.tgz"
+EXT_MODS_VERSION="{EXT_MODS_VERSION}"
 mkdir -p "{THIN_DIR}"
 SALT_CALL_BIN="{THIN_DIR}/salt-call"
 
@@ -231,6 +233,33 @@ fi
 if [ ! -x "$SALT_CALL_BIN" ]; then
     echo "ERROR: salt-call binary not found or not executable at $SALT_CALL_BIN" >&2
     exit 1
+fi
+
+# Handle extension modules with version checking (similar to thin)
+if [ -n "$EXT_MODS_VERSION" ]; then
+    # Check if we already have the correct version
+    EXT_VERSION_FILE="{THIN_DIR}/ext_version"
+    CURRENT_VERSION=$(cat "$EXT_VERSION_FILE" 2>/dev/null || echo "")
+
+    if [ "$CURRENT_VERSION" != "$EXT_MODS_VERSION" ]; then
+        # Version mismatch or no version file - need fresh ext_mods
+        if [ -f "$EXT_MODS_TAR" ]; then
+            # Extract the tarball
+            EXTMODS_DIR="{THIN_DIR}/running_data/var/cache/salt/minion/extmods"
+            mkdir -p "$EXTMODS_DIR"
+            tar -xzf "$EXT_MODS_TAR" -C "$EXTMODS_DIR"
+            rm -f "$EXT_MODS_TAR"
+            # Version file should be in the tarball, move it to thin_dir
+            if [ -f "$EXTMODS_DIR/ext_version" ]; then
+                mv "$EXTMODS_DIR/ext_version" "{THIN_DIR}/ext_version"
+            fi
+        else
+            # No tarball present - request from master
+            echo "{RSTR}"
+            echo ext_mods
+            exit 13
+        fi
+    fi
 fi
 
 echo "{RSTR}"
@@ -379,6 +408,7 @@ class SSH(MultiprocessingStateMixin):
                 saltext_allowlist=self.opts.get("thin_saltext_allowlist"),
                 saltext_blocklist=self.opts.get("thin_saltext_blocklist"),
             )
+
         self.mods = mod_data(self.fsclient)
 
     # __setstate__ and __getstate__ are only used on spawning platforms.
@@ -1163,15 +1193,23 @@ class Single:
             self.minion_opts["file_roots"] = self.opts["file_roots"]
             self.minion_opts["pillar_roots"] = self.opts["pillar_roots"]
             self.minion_opts["ext_pillar"] = self.opts["ext_pillar"]
-            self.minion_opts["extension_modules"] = self.opts["extension_modules"]
+            # For relenv, we need to override extension_modules to point to where the shim
+            # extracts the tarball on the remote system. The wrapper system will copy this
+            # to opts_pkg["extension_modules"] which is used by salt-call.
+            self.minion_opts["extension_modules"] = f"{self.thin_dir}/running_data/var/cache/salt/minion/extmods"
             self.minion_opts["module_dirs"] = self.opts["module_dirs"]
             self.minion_opts["__master_opts__"] = self.context["master_opts"]
 
-            # Compile pillar for relenv since we bypass the wrapper system
-            # Thin compiles pillar in _run_wfunc_thin(), but relenv needs it earlier
-            # since the minion config is written once by the shim
-            log.info("RELENV: Compiling pillar data for minion config")
-            self._compile_pillar_for_relenv()
+            # Re-serialize the minion config after updating relenv-specific paths
+            # This ensures the config file sent to the remote system has the correct extension_modules path
+            self.minion_config = salt.serializers.yaml.serialize(self.minion_opts)
+            log.debug("RELENV: Re-serialized minion config with extension_modules=%s", self.minion_opts["extension_modules"])
+
+            # NOTE: We no longer pre-compile pillar for relenv here.
+            # Both thin and relenv now use the wrapper system (_run_wfunc_thin())
+            # which compiles pillar dynamically, ensuring correct behavior with pillar overrides:
+            # - 1x compilation without pillar overrides
+            # - 2x compilation with pillar overrides (re-compiled in wrapper modules)
         else:
             self.thin = thin if thin else salt.utils.thin.thin_path(opts["cachedir"])
 
@@ -1426,13 +1464,12 @@ class Single:
         Execute a wrapper function
 
         Both thin and relenv use the wrapper system (FunctionWrapper).
-        Wrappers contain SSH-specific logic (e.g., mine.get runs functions in real-time
-        since SSH minions can't update the mine cache).
+        The wrapper system handles pillar compilation correctly:
+        - 1x compilation without pillar overrides
+        - 2x compilation with pillar overrides (re-compiled in wrapper modules)
 
         Returns tuple of (json_data, '')
         """
-        # Both thin and relenv use wrapper-based execution
-        # Wrappers will call execution modules from the deployed Salt installation
         return self._run_wfunc_thin()
 
     def _run_wfunc_thin(self):
@@ -1482,7 +1519,14 @@ class Single:
             opts_pkg["file_roots"] = self.opts["file_roots"]
             opts_pkg["pillar_roots"] = self.opts["pillar_roots"]
             opts_pkg["ext_pillar"] = self.opts["ext_pillar"]
-            opts_pkg["extension_modules"] = self.opts["extension_modules"]
+            # For SSH, don't override extension_modules if it's already set correctly in minion_opts
+            # (pointing to the remote system's cache, not the master's cache)
+            if "extension_modules" not in opts_pkg or opts_pkg["extension_modules"] == self.opts["extension_modules"]:
+                # Only override if it's still using the master's path or not set
+                if "extension_modules" in self.minion_opts:
+                    opts_pkg["extension_modules"] = self.minion_opts["extension_modules"]
+                else:
+                    opts_pkg["extension_modules"] = self.opts["extension_modules"]
             opts_pkg["module_dirs"] = self.opts["module_dirs"]
             opts_pkg["_ssh_version"] = self.opts["_ssh_version"]
             opts_pkg["thin_dir"] = self.opts["thin_dir"]
@@ -1670,8 +1714,11 @@ class Single:
         # Determine output level
         log_level = self.opts.get("log_level", "error")
 
-        # Build full command
-        cmd = f"{salt_call} --local {self.fun} {args_str} --out=json --log-level={log_level}"
+        # Config directory for relenv (where minion config with file_roots/pillar is located)
+        config_dir = f"{self.thin_dir}/conf"
+
+        # Build full command with config-dir so salt-call can find the minion config
+        cmd = f"{salt_call} --local --config-dir={config_dir} {self.fun} {args_str} --out=json --log-level={log_level}"
 
         log.info("RELENV WFUNC: About to execute command: %s", cmd)
 
@@ -1820,6 +1867,7 @@ class Single:
                 SET_PATH=self.set_path,
                 RSTR=RSTR,
                 ARGS=quoted_args,
+                EXT_MODS_VERSION=self.mods.get("version", ""),
             )
 
         thin_code_digest, thin_sum = salt.utils.thin.thin_sum(cachedir, "sha1")
@@ -2004,6 +2052,16 @@ ARGS = {arguments}\n'''.format(
                     except OSError as e:
                         log.warning("RELENV: Failed to delete temporary config file %s: %s", local_config_path, e)
 
+        # Regenerate extension modules tarball with fresh fileserver scan
+        # This ensures that any dynamically-added modules (like test fixtures)
+        # are included and the version hash is up-to-date
+        log.debug("Regenerating extension modules tarball before command execution")
+        self.mods = mod_data(self.fsclient)
+
+        # Deploy the fresh tarball to the remote system
+        log.debug("Deploying extension modules tarball to remote system")
+        self.deploy_ext()
+
         cmd_str = self._cmd_str()
         stdout, stderr, retcode = self.shim_cmd(cmd_str)
 
@@ -2092,6 +2150,10 @@ ARGS = {arguments}\n'''.format(
                     while re.search(RSTR_RE, stderr):
                         stderr = re.split(RSTR_RE, stderr, 1)[1].strip()
             elif "ext_mods" == shim_command:
+                # Regenerate extension modules tarball with fresh fileserver scan
+                # This ensures dynamically-added modules are included
+                log.info("ext_mods requested - regenerating extension modules tarball")
+                self.mods = mod_data(self.fsclient)
                 self.deploy_ext()
                 stdout, stderr, retcode = self.shim_cmd(cmd_str)
                 if not re.search(RSTR_RE, stdout) or not re.search(RSTR_RE, stderr):
@@ -2330,8 +2392,18 @@ def mod_data(fsclient):
         ver = hashlib.sha1(ver_base).hexdigest()
         ext_tar_path = os.path.join(fsclient.opts["cachedir"], f"ext_mods.{ver}.tgz")
         mods = {"version": ver, "file": ext_tar_path}
+
+        # Debug logging to track extension modules
+        states_found = ret.get("states", {})
+        log.debug("EXTMODS DEBUG: Found %d state modules: %s", len(states_found), list(states_found.keys()))
+        log.debug("EXTMODS DEBUG: Version hash: %s", ver)
+        log.debug("EXTMODS DEBUG: Tarball path: %s", ext_tar_path)
+        log.debug("EXTMODS DEBUG: Tarball exists: %s", os.path.isfile(ext_tar_path))
+
         if os.path.isfile(ext_tar_path):
+            log.debug("EXTMODS DEBUG: Using cached tarball")
             return mods
+        log.debug("EXTMODS DEBUG: Creating new tarball")
         tfp = tarfile.open(ext_tar_path, "w:gz")
         verfile = os.path.join(fsclient.opts["cachedir"], "ext_mods.ver")
         with salt.utils.files.fopen(verfile, "w+") as fp_:
