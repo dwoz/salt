@@ -111,11 +111,14 @@ SALT_VERSION_HARDCODED = os.path.join(
 SALT_SYSPATHS_HARDCODED = os.path.join(
     os.path.abspath(SETUP_DIRNAME), "salt", "_syspaths.py"
 )
+SALT_CRYPTO_REQS = os.path.join(
+    os.path.abspath(SETUP_DIRNAME), "requirements", "crypto.txt"
+)
 SALT_BASE_REQUIREMENTS = [
     os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "base.txt"),
     # pyzmq needs to be installed regardless of the salt transport
     os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "zeromq.txt"),
-    os.path.join(os.path.abspath(SETUP_DIRNAME), "requirements", "crypto.txt"),
+    SALT_CRYPTO_REQS,
 ]
 SALT_LINUX_LOCKED_REQS = [
     # Linux packages defined locked requirements
@@ -927,6 +930,29 @@ class SaltDistribution(distutils.dist.Distribution):
                     setattr(self.metadata, attrname, attrvalue)
                 except AttributeError:
                     pass
+
+        # Set dynamic properties
+        self.install_requires = self._property_install_requires
+        self.extras_require = self._property_extras_require
+        self.package_data = self._property_package_data
+        self.data_files = self._property_data_files
+        self.metadata.name = self.name
+        self.metadata.version = self.salt_version
+        self.metadata.description = self.description
+        self.metadata.long_description = self.long_description
+        self.metadata.long_description_content_type = self.long_description_content_type
+        self.metadata.classifiers = self.classifiers
+        self.metadata.author = self.author
+        self.metadata.author_email = self.author_email
+        self.metadata.url = self.url
+        self.metadata.license = self.license
+
+    @property
+    def _property_extras_require(self):
+        extras_require = {}
+        if os.path.exists(SALT_CRYPTO_REQS):
+            extras_require["crypto"] = _parse_requirements_file(SALT_CRYPTO_REQS)
+        return extras_require
 
     def discover_packages(self):
         modules = []

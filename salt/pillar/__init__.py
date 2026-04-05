@@ -1246,27 +1246,30 @@ class Pillar:
         """
         Render the pillar data and return
         """
-        top, top_errors = self.get_top()
-        if ext:
-            if self.opts.get("ext_pillar_first", False):
-                self.opts["pillar"], errors = self.ext_pillar(self.pillar_override)
-                self.rend = salt.loader.render(self.opts, self.functions)
-                matches = self.top_matches(top, reload=True)
-                pillar, errors = self.render_pillar(matches, errors=errors)
-                pillar = merge(
-                    self.opts["pillar"],
-                    pillar,
-                    self.merge_strategy,
-                    self.opts.get("renderer", "yaml"),
-                    self.opts.get("pillar_merge_lists", False),
-                )
-            else:
+        if ext and self.opts.get("ext_pillar_first", False):
+            ext_pillar_data, errors = self.ext_pillar(self.pillar_override)
+            if hasattr(self.functions, "pack"):
+                self.functions.pack["__pillar__"] = ext_pillar_data
+            self.rend = salt.loader.render(self.opts, self.functions)
+            top, top_errors = self.get_top()
+            matches = self.top_matches(top, reload=True)
+            pillar, errors = self.render_pillar(matches, errors=errors)
+            pillar = merge(
+                ext_pillar_data,
+                pillar,
+                self.merge_strategy,
+                self.opts.get("renderer", "yaml"),
+                self.opts.get("pillar_merge_lists", False),
+            )
+        else:
+            top, top_errors = self.get_top()
+            if ext:
                 matches = self.top_matches(top)
                 pillar, errors = self.render_pillar(matches)
                 pillar, errors = self.ext_pillar(pillar, errors=errors)
-        else:
-            matches = self.top_matches(top)
-            pillar, errors = self.render_pillar(matches)
+            else:
+                matches = self.top_matches(top)
+                pillar, errors = self.render_pillar(matches)
         errors.extend(top_errors)
         if self.opts.get("pillar_opts", False):
             mopts = dict(self.opts)

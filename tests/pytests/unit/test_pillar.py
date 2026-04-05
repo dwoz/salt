@@ -257,13 +257,15 @@ sub_with_slashes:
 
 def test_ext_pillar_no_extra_minion_data_val_dict():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -298,13 +300,15 @@ def test_ext_pillar_no_extra_minion_data_val_dict():
 
 def test_ext_pillar_no_extra_minion_data_val_list():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -335,13 +339,15 @@ def test_ext_pillar_no_extra_minion_data_val_list():
 
 def test_ext_pillar_no_extra_minion_data_val_elem():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -376,13 +382,15 @@ def test_ext_pillar_no_extra_minion_data_val_elem():
 
 def test_ext_pillar_with_extra_minion_data_val_dict():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -422,13 +430,15 @@ def test_ext_pillar_with_extra_minion_data_val_dict():
 
 def test_ext_pillar_with_extra_minion_data_val_list():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -463,13 +473,15 @@ def test_ext_pillar_with_extra_minion_data_val_list():
 
 def test_ext_pillar_with_extra_minion_data_val_elem():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": {"dev": [], "base": []},
-        "file_roots": {"dev": [], "base": []},
+        "pillar_roots": {},
+        "file_roots": {},
         "extension_modules": "",
         "pillarenv_from_saltenv": True,
         "fileserver_backend": "",
@@ -507,15 +519,15 @@ def test_ext_pillar_first(tmp_path):
     test when using ext_pillar and ext_pillar_first
     """
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "yaml",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": [],
-        "extension_modules": "",
-        "saltenv": "base",
-        "file_roots": [],
+        "pillar_roots": {},
+        "file_roots": {},
         "ext_pillar_first": True,
         "fileserver_backend": "",
         "cachedir": "",
@@ -561,8 +573,8 @@ def test_malformed_pillar_sls(mock_list_states):
             "renderer_blacklist": [],
             "renderer_whitelist": [],
             "state_top": "",
-            "pillar_roots": [],
-            "file_roots": [],
+            "pillar_roots": {},
+            "file_roots": {},
             "extension_modules": "",
             "fileserver_backend": "",
             "cachedir": "",
@@ -661,6 +673,8 @@ def test_malformed_pillar_sls(mock_list_states):
 
 def test_includes_override_sls():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "json",
         "renderer_blacklist": [],
@@ -723,15 +737,15 @@ def test_includes_override_sls():
 
 def test_topfile_order():
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "yaml",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": [],
-        "extension_modules": "",
-        "saltenv": "base",
-        "file_roots": [],
+        "pillar_roots": {},
+        "file_roots": {},
         "fileserver_backend": "roots",
         "cachedir": "",
     }
@@ -897,6 +911,8 @@ def test_relative_include(tmp_path):
             file=f,
         )
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "yaml",
         "renderer_blacklist": [],
@@ -905,7 +921,7 @@ def test_relative_include(tmp_path):
         "pillar_roots": {"base": [str(tmp_path)]},
         "extension_modules": "",
         "saltenv": "base",
-        "file_roots": [],
+        "file_roots": {"base": [str(tmp_path)]},
         "file_ignore_regex": None,
         "file_ignore_glob": None,
         "fileserver_backend": "roots",
@@ -928,6 +944,7 @@ def test_relative_include(tmp_path):
 
     # Assert
     assert compiled_pillar["this"] == "is all good"
+
     assert compiled_pillar["that"] == "is also all good"
     assert compiled_pillar["simple"] == "simon"
     assert compiled_pillar["super simple"] == "a caveman"
@@ -938,6 +955,8 @@ def test_relative_include(tmp_path):
 
 def test_missing_include(tmp_path):
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "yaml",
         "renderer_blacklist": [],
@@ -946,7 +965,7 @@ def test_missing_include(tmp_path):
         "pillar_roots": {"base": [str(tmp_path)]},
         "extension_modules": "",
         "saltenv": "base",
-        "file_roots": [],
+        "file_roots": {"base": [str(tmp_path)]},
         "file_ignore_regex": None,
         "file_ignore_glob": None,
         "fileserver_backend": "roots",
@@ -1126,15 +1145,15 @@ def test_pillar_send_extra_minion_data_from_config(tmp_pki, grains):
 
 def test_include(tmp_path):
     opts = {
+        "file_client": "local",
+        "pillar": {},
         "optimization_order": [0, 1, 2],
         "renderer": "yaml",
         "renderer_blacklist": [],
         "renderer_whitelist": [],
         "state_top": "",
-        "pillar_roots": [],
-        "extension_modules": "",
-        "saltenv": "base",
-        "file_roots": [],
+        "pillar_roots": {},
+        "file_roots": {},
         "fileserver_backend": "roots",
         "cachedir": "",
     }

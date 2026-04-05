@@ -28,6 +28,11 @@ def test_venv(tmp_path_factory):
     venv_dir = tmp_path_factory.mktemp("venv")
     virtualenv.cli_run([str(venv_dir)])
     python_bin = venv_dir / "bin" / "python"
+    # Upgrade pip, setuptools and wheel
+    subprocess.run(
+        [str(python_bin), "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
+        check=True,
+    )
     # Install the current salt package
     # We use the root of the repo which is 3 levels up from this file's directory
     repo_root = Path(__file__).resolve().parents[3]
@@ -97,8 +102,17 @@ def test_master_minion_start(test_venv, salt_master, salt_minion, tmp_path):
     time.sleep(10)
 
     # Check if they are still running
-    assert salt_master.poll() is None, f"Master exited with {salt_master.returncode}"
-    assert salt_minion.poll() is None, f"Minion exited with {salt_minion.returncode}"
+    if salt_master.poll() is not None:
+        stdout, stderr = salt_master.communicate()
+        print(f"DEBUG: Master stdout: {stdout}")
+        print(f"DEBUG: Master stderr: {stderr}")
+        pytest.fail(f"Master exited with {salt_master.returncode}")
+
+    if salt_minion.poll() is not None:
+        stdout, stderr = salt_minion.communicate()
+        print(f"DEBUG: Minion stdout: {stdout}")
+        print(f"DEBUG: Minion stderr: {stderr}")
+        pytest.fail(f"Minion exited with {salt_minion.returncode}")
 
     # Simple check for salt-call
     call_bin = test_venv / "bin" / "salt-call"
