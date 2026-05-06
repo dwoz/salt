@@ -67,14 +67,49 @@ def list_indexes():
     }
 
 
-def _compact_pki(opts, dry_run):
-    from salt.cache import localfs_key  # pylint: disable=import-outside-toplevel
+def _pki_index_stats(opts):
+    """
+    Return ``MmapCache.get_stats()`` for the PKI ``keys`` bank, or ``None``
+    if the index file does not exist yet (no ``rebuild`` has run).
+    """
+    import os  # pylint: disable=import-outside-toplevel
 
-    stats_before = localfs_key.get_index_stats(opts)
+    import salt.utils.mmap_cache  # pylint: disable=import-outside-toplevel
+    from salt.cache import mmap_key  # pylint: disable=import-outside-toplevel
+
+    if opts.get("cluster_id"):
+        cachedir = opts.get("cluster_pki_dir", "")
+    else:
+        cachedir = opts.get("pki_dir", "")
+    if not cachedir:
+        return None
+    index_path = os.path.join(cachedir, mmap_key._BANK_INDEX_NAME["keys"])
+    if not os.path.exists(index_path):
+        return None
+    cache = salt.utils.mmap_cache.MmapCache(
+        path=index_path,
+        size=opts.get("mmap_key_size", mmap_key._DEFAULT_SIZE),
+        slot_size=opts.get("mmap_key_slot_size", mmap_key._DEFAULT_SLOT_SIZE),
+        key_size=opts.get("mmap_key_id_size", mmap_key._DEFAULT_ID_SIZE),
+    )
+    try:
+        return cache.get_stats()
+    finally:
+        cache.close()
+
+
+def _compact_pki(opts, dry_run):
+    from salt.cache import mmap_key  # pylint: disable=import-outside-toplevel
+
+    stats_before = _pki_index_stats(opts)
 
     if dry_run:
         if not stats_before:
-            return "PKI index does not exist or is not accessible."
+            return (
+                "PKI Index Status:\n"
+                "  Index file not present (no migration has run yet).\n"
+                "  Occupied: 0\n"
+            )
 
         occ = stats_before["occupied"]
         deleted = stats_before["deleted"]
@@ -94,22 +129,25 @@ def _compact_pki(opts, dry_run):
         )
 
     log.info("Starting PKI mmap index rebuild")
-    result = localfs_key.rebuild_index(opts)
-
-    if not result:
+    # ``mmap_key`` reads its module-level ``__opts__`` to size the MmapCache
+    # under ``store()``; since we're calling it from a runner (no loader
+    # injection on this import), point it at our opts before invoking.
+    mmap_key.__opts__ = opts
+    counts = mmap_key.rebuild_from_localfs(opts)
+    if counts is None:
         return "PKI index rebuild failed. Check logs for details."
 
-    stats_after = localfs_key.get_index_stats(opts)
-
-    if stats_before and stats_after:
-        tombstones_removed = stats_before["deleted"]
-        return (
-            f"PKI index rebuilt successfully.\n"
-            f"  Keys: {stats_after['occupied']:,}\n"
-            f"  Tombstones removed: {tombstones_removed:,}\n"
-            f"  Load factor: {stats_after['load_factor']:.1%}"
-        )
-    return "PKI index rebuilt successfully."
+    total = sum(counts.values())
+    deleted_before = stats_before["deleted"] if stats_before else 0
+    return (
+        f"PKI index rebuilt successfully.\n"
+        f"  Keys: {total:,}\n"
+        f"    accepted: {counts['accepted']:,}\n"
+        f"    pending:  {counts['pending']:,}\n"
+        f"    rejected: {counts['rejected']:,}\n"
+        f"    denied:   {counts['denied']:,}\n"
+        f"  Tombstones removed: {deleted_before:,}\n"
+    )
 
 
 def _compact_resources(opts, dry_run):
