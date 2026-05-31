@@ -765,7 +765,7 @@ Changelog for v2019.2.0..v2019.2.1
 
   * 86e64ae Remove unused import, remove Windows reference
 
-  * b934d53 Remove watchdog from windows.in
+  * b934d53 Remove watchdog from windows.txt
 
   * cfaee96 Fix and unify watchdog beacon tests for all OS's
 
@@ -795,7 +795,7 @@ Changelog for v2019.2.0..v2019.2.1
 
   * 121595a Remove unused import, remove Windows reference
 
-  * c410a4b Remove watchdog from windows.in
+  * c410a4b Remove watchdog from windows.txt
 
   * 05a0845 Fix and unify watchdog beacon tests for all OS's
 

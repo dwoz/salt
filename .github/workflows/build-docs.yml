@@ -73,7 +73,7 @@ jobs:
         id: docs-requirements-hash
         shell: bash
         run: |
-          HASH=$(python3 .github/scripts/hash-files.py 'requirements/**/docs.lock')
+          HASH=$(python3 .github/scripts/hash-files.py 'requirements/**/docs.txt')
           echo "hash=${HASH}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Cache Python Tools Docs Virtualenv
