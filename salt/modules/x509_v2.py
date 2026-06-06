@@ -559,7 +559,13 @@ def create_certificate(
         )
     if encoding == "der" and append_certs:
         raise SaltInvocationError("Cannot encode a certificate chain in DER")
-    if encoding == "pkcs12" and "private_key" not in kwargs:
+    if (
+        encoding == "pkcs12"
+        and "private_key" not in kwargs
+        # For self-signed certificates (no signing_cert), the signing_private_key
+        # is also the certificate's private key, so it can be embedded.
+        and (kwargs.get("signing_cert") or ca_server)
+    ):
         # The creation will work, but it will be listed in additional certs, not
         # as the main certificate. This might confuse other parts of the code.
         raise SaltInvocationError(

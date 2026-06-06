@@ -1196,6 +1196,34 @@ def test_create_certificate_as_encrypted_pkcs12(x509, ca_cert, ca_key, rsa_privk
     assert cert.cert.friendly_name == b"foo"
 
 
+@pytest.mark.skipif(
+    CRYPTOGRAPHY_VERSION[0] < 36,
+    reason="Complete PKCS12 deserialization requires cryptography v36+",
+)
+def test_create_certificate_self_signed_as_pkcs12(x509, rsa_privkey):
+    """
+    Regression test for #69319: creating a self-signed certificate with
+    encoding=pkcs12 should embed the signing private key in the container
+    instead of rejecting the call.
+    """
+    res = x509.create_certificate(
+        encoding="pkcs12",
+        pkcs12_friendlyname="foo",
+        CN="success",
+        signing_private_key=rsa_privkey,
+    )
+    cert = _get_cert(res, "pkcs12")
+    assert cert.cert.certificate.subject.rfc4514_string() == "CN=success"
+    assert cert.cert.certificate.issuer.rfc4514_string() == "CN=success"
+    assert cert.cert.friendly_name == b"foo"
+    # The embedded private key must match the certificate's public key.
+    assert cert.key is not None
+    expected_pub = load_pem_private_key(
+        rsa_privkey.encode(), password=None
+    ).public_key()
+    assert cert.key.public_key().public_numbers() == expected_pub.public_numbers()
+
+
 def test_create_certificate_append_certs_pem(x509, ca_cert, ca_key, rsa_privkey):
     res = x509.create_certificate(
         append_certs=[ca_cert],

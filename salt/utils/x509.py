@@ -278,7 +278,12 @@ def build_crt(
         ca_pub = public_key
 
     if self_signed:
-        pass
+        # For self-signed certificates, the signing private key is also the
+        # certificate's own private key. Surface it for callers that need it
+        # (e.g. PKCS#12 encoding embeds it in the container). See #69319.
+        # When skip_load_signing_private_key is set (remote CA path),
+        # signing_private_key is None and self_signed cannot be reached here.
+        private_key_loaded = signing_private_key
     elif private_key:
         private_key_loaded = load_privkey(
             private_key, passphrase=private_key_passphrase
