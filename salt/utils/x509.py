@@ -1004,7 +1004,12 @@ def load_privkey(pk, passphrase=None, get_encoding=False):
         return pk
     except ValueError as err:
         err_str = str(err)
-        if "Bad decrypt" in err_str or "Could not deserialize key data" in err_str:
+        # "Bad decrypt" (legacy/OpenSSL backend) and "Incorrect password"
+        # (cryptography 46+) both indicate an encrypted key with a wrong
+        # passphrase, which is a hard error. "Could not deserialize key data"
+        # (cryptography 46+) means the input is not DER at all, so we must
+        # fall through to the PKCS#12 loader below.
+        if "Bad decrypt" in err_str or "Incorrect password" in err_str:
             raise SaltInvocationError("Bad decrypt - is the password correct?") from err
     except TypeError as err:
         if "private key is encrypted" in str(err):
@@ -1024,7 +1029,7 @@ def load_privkey(pk, passphrase=None, get_encoding=False):
         return loaded.key
     except ValueError as err:
         err_str = str(err)
-        if "Bad decrypt" in err_str or "Could not deserialize key data" in err_str:
+        if "Bad decrypt" in err_str or "Incorrect password" in err_str:
             raise SaltInvocationError("Bad decrypt - is the password correct?") from err
     except TypeError as err:
         if "private key is encrypted" in str(err):

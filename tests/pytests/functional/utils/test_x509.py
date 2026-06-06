@@ -5,6 +5,9 @@ import pytest
 import salt.utils.x509 as x509
 
 cx509 = pytest.importorskip("cryptography.x509")
+rsa = pytest.importorskip("cryptography.hazmat.primitives.asymmetric.rsa")
+pkcs12 = pytest.importorskip("cryptography.hazmat.primitives.serialization.pkcs12")
+serialization = pytest.importorskip("cryptography.hazmat.primitives.serialization")
 
 
 @pytest.fixture
@@ -103,3 +106,63 @@ def test_load_file_or_bytes_pem(pemcert):
     assert (
         cert.subject.rfc4514_string() == "CN=nifi.cdx.eitr.dev,L=Sykesville,ST=MD,C=US"
     )
+
+
+@pytest.fixture(scope="module")
+def rsa_key():
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+@pytest.fixture
+def pkcs12_unencrypted(rsa_key):
+    return pkcs12.serialize_key_and_certificates(
+        name=b"test",
+        key=rsa_key,
+        cert=None,
+        cas=None,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+
+@pytest.fixture
+def pkcs12_encrypted(rsa_key):
+    return pkcs12.serialize_key_and_certificates(
+        name=b"test",
+        key=rsa_key,
+        cert=None,
+        cas=None,
+        encryption_algorithm=serialization.BestAvailableEncryption(b"hunter2"),
+    )
+
+
+def test_load_privkey_from_pkcs12_unencrypted(pkcs12_unencrypted, rsa_key):
+    """
+    Regression test for #69312: load_privkey must accept PKCS#12 input.
+
+    Before the fix, the DER branch would raise SaltInvocationError with
+    "Bad decrypt - is the password correct?" because cryptography 46+ uses
+    the message "Could not deserialize key data" when handed non-DER bytes,
+    which prevented fallthrough to the PKCS#12 loader.
+    """
+    loaded = x509.load_privkey(pkcs12_unencrypted)
+    assert loaded.private_numbers() == rsa_key.private_numbers()
+
+
+def test_load_privkey_from_pkcs12_encrypted(pkcs12_encrypted, rsa_key):
+    """
+    Regression test for #69312: load_privkey must accept encrypted PKCS#12
+    input with a passphrase.
+    """
+    loaded = x509.load_privkey(pkcs12_encrypted, passphrase="hunter2")
+    assert loaded.private_numbers() == rsa_key.private_numbers()
+
+
+def test_load_privkey_from_pkcs12_get_encoding(pkcs12_unencrypted, rsa_key):
+    """
+    Regression test for #69312: load_privkey with get_encoding=True must
+    return the encoding identifier "pkcs12" for PKCS#12 input.
+    """
+    loaded, encoding, extras = x509.load_privkey(pkcs12_unencrypted, get_encoding=True)
+    assert encoding == "pkcs12"
+    assert loaded.private_numbers() == rsa_key.private_numbers()
+    assert extras is not None
