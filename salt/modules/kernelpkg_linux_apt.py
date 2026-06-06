@@ -254,9 +254,20 @@ def _package_prefix():
 
 def _kernel_type():
     """
-    Parse the kernel name and return its type
+    Parse the kernel name and return its type.
+
+    The version prefix is digits, dots, and hyphens (e.g. Ubuntu's
+    ``4.4.0-70``) optionally followed by a Debian-style ABI tag such as
+    ``+deb13`` (introduced for Debian trixie). The flavor suffix --
+    ``generic``, ``amd64``, ``cloud-amd64``, etc. -- is everything after
+    the final hyphen of the version prefix.
     """
-    return re.match(r"^[\d.-]+-(.+)$", active()).group(1)
+    match = re.match(r"^[\d.-]+(?:\+\w+)?-(.+)$", active())
+    if match is None:
+        raise CommandExecutionError(
+            f"Could not parse kernel type from release {active()!r}"
+        )
+    return match.group(1)
 
 
 def _cmp_version(item1, item2):
