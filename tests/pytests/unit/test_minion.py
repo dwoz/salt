@@ -1676,10 +1676,10 @@ def _run_eval_master(opts):
     (where the random_master warning lives) without touching the network:
     DNS resolution is stubbed and the pub channel connects immediately.
     """
-    io_loop = salt.ext.tornado.ioloop.IOLoop()
+    io_loop = tornado.ioloop.IOLoop()
     minion = salt.minion.MinionBase(opts)
     mock_channel = MagicMock()
-    mock_channel.connect.return_value = salt.ext.tornado.gen.maybe_future(None)
+    mock_channel.connect.return_value = tornado.gen.maybe_future(None)
     mock_channel.auth.gen_token.return_value = b"token"
     try:
         with patch(
