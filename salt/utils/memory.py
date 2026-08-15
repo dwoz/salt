@@ -200,7 +200,7 @@ def parse_headroom(value, reference):
     return bytes_
 
 
-def resolve_memory_reference(max_opt):
+def resolve_memory_reference(max_opt, per_process=False):
     """
     Resolve the reference "total memory available" and the current used
     bytes.
@@ -211,6 +211,12 @@ def resolve_memory_reference(max_opt):
         3. cgroup v1 ``memory.limit_in_bytes`` (with ``memory.usage_in_bytes``).
         4. ``psutil.virtual_memory().total`` (with ``.used``).
 
+    When ``per_process`` is True and ``max_opt`` is set, ``used`` is taken
+    from ``psutil.Process().memory_info().rss`` (this process's own RSS)
+    so the operator's ``max`` is interpreted as a per-subprocess cap.
+    Master EventPublisher / MWorkerQueue callers use this mode; the
+    minion-side cgroup-pressure check leaves it at the default False.
+
     Returns ``(reference_bytes, used_bytes, source)`` where ``source`` is
     one of ``"config"``, ``"cgroup-v2"``, ``"cgroup-v1"``, ``"system"``.
     """
@@ -219,11 +225,16 @@ def resolve_memory_reference(max_opt):
     if max_opt is not None:
         configured = parse_size(max_opt)
         if configured is not None:
+            if per_process:
+                # Per-process cap semantic: compare this process's own
+                # RSS against ``max_opt``. Cheapest useful measure that
+                # matches operator intuition when they name a subprocess
+                # cap ("event_publisher_memory_max: 150M" = EP <= 150 MB).
+                used = psutil.Process().memory_info().rss
+                return configured, used, "config"
             vm = psutil.virtual_memory()
-            # If the operator's cap is <= system total we assume they're
-            # describing a per-process cap and use it as the reference; we
-            # still need a "used" number so we consult cgroup usage first
-            # (accurate for the process) then fall back to system used.
+            # Cgroup-pressure semantic (minion-side): "used" is cgroup-wide
+            # (all processes in this container) or system-wide if no cgroup.
             cg_limit, cg_used, cg_source = _detect_cgroup_memory()
             if cg_source is not None:
                 used = cg_used
@@ -240,7 +251,9 @@ def resolve_memory_reference(max_opt):
     return vm.total, vm.used, "system"
 
 
-def has_memory_headroom(opts, headroom_opt_key, max_opt_key, subject=None):
+def has_memory_headroom(
+    opts, headroom_opt_key, max_opt_key, subject=None, per_process=False
+):
     """
     Return True if the process has enough free memory to accept more work.
 
@@ -253,6 +266,7 @@ def has_memory_headroom(opts, headroom_opt_key, max_opt_key, subject=None):
             "event_publisher_memory_headroom",
             "event_publisher_memory_max",
             subject="EventPublisher",
+            per_process=True,
         )
 
     Semantics match the minion-side check added in #69884 / #70038:
@@ -262,6 +276,12 @@ def has_memory_headroom(opts, headroom_opt_key, max_opt_key, subject=None):
       :func:`resolve_memory_reference` (opt > cgroup v2 > cgroup v1 >
       psutil) and returns True iff
       ``used + headroom_bytes <= reference``.
+
+    ``per_process=True`` interprets ``max_opt_key`` as a per-subprocess
+    cap and compares ``psutil.Process().memory_info().rss`` (this
+    process's own RSS) against it, rather than cgroup-wide / system-wide
+    usage.  Master EventPublisher / MWorkerQueue use per_process=True;
+    the minion-side cgroup-pressure check leaves it at False.
 
     ``subject`` is a short label included in the WARNING message when
     headroom is exhausted (e.g. ``"EventPublisher"``); it defaults to
@@ -281,7 +301,9 @@ def has_memory_headroom(opts, headroom_opt_key, max_opt_key, subject=None):
         return True
 
     try:
-        reference, used, source = resolve_memory_reference(max_opt)
+        reference, used, source = resolve_memory_reference(
+            max_opt, per_process=per_process
+        )
         headroom_bytes = parse_headroom(headroom_opt, reference)
         if headroom_bytes is None:
             # Parse failure already logged at DEBUG; fall back to a 5%

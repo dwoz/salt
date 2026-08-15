@@ -2861,6 +2861,7 @@ class MasterPubServerChannel:
     def _publish_daemon(self, **kwargs):
         """Clean implementation: separate local IPC from cluster peer communication."""
         import salt.master  # pylint: disable=import-outside-toplevel
+        import salt.utils.malloc  # pylint: disable=import-outside-toplevel
         import salt.utils.memory  # pylint: disable=import-outside-toplevel
 
         if (
@@ -2875,50 +2876,26 @@ class MasterPubServerChannel:
 
         self.io_loop = tornado.ioloop.IOLoop.current()
 
-        # Opt-in memory-headroom backpressure gate. When
-        # ``event_publisher_memory_headroom`` is set, publish_payload
-        # awaits this Event before doing fan-out work.  A PeriodicCallback
-        # samples the cgroup / system memory every
-        # ``event_publisher_memory_check_interval`` seconds and toggles
-        # the gate.  When the opt is unset the gate stays permanently
-        # ``set`` (permit) and the ``await`` is a no-op.
-        self._ep_memory_gate = asyncio.Event()
-        self._ep_memory_gate.set()
-        self._ep_memory_periodic = None
-        if self.opts.get("event_publisher_memory_headroom") is not None or (
-            self.opts.get("event_publisher_memory_max") is not None
-        ):
-            interval_s = float(
-                self.opts.get("event_publisher_memory_check_interval", 0.5)
-            )
-
-            def _check_ep_memory():
-                if salt.utils.memory.has_memory_headroom(
-                    self.opts,
-                    "event_publisher_memory_headroom",
-                    "event_publisher_memory_max",
-                    subject="EventPublisher",
-                ):
-                    if not self._ep_memory_gate.is_set():
-                        log.info("EventPublisher memory headroom restored; resuming.")
-                    self._ep_memory_gate.set()
-                else:
-                    if self._ep_memory_gate.is_set():
-                        log.warning(
-                            "EventPublisher memory headroom exhausted; "
-                            "pausing fan-out."
-                        )
-                    self._ep_memory_gate.clear()
-
-            self._ep_memory_periodic = tornado.ioloop.PeriodicCallback(
-                _check_ep_memory,
-                max(int(interval_s * 1000), 100),
-            )
-            self._ep_memory_periodic.start()
-            log.info(
-                "EventPublisher memory-headroom gate active (check every %.2fs)",
-                interval_s,
-            )
+        # Opt-in in-flight-bytes backpressure gate.  When
+        # ``event_publisher_memory_max`` is set, publish_payload tracks
+        # the sum of ``len(raw_payload)`` currently being processed and
+        # blocks new events on an ``asyncio.Condition`` when the sum +
+        # next payload would exceed the cap.  Bounded by construction:
+        # each publish_payload increments on entry and decrements on
+        # exit, so the counter tracks actual live event bytes rather
+        # than process RSS (which glibc arena bloat holds indefinitely
+        # after a burst, wedging the RSS-based check).
+        self._ep_max_inflight_bytes = None
+        self._ep_inflight_bytes = 0
+        self._ep_inflight_cond = asyncio.Condition()
+        _ep_max_opt = self.opts.get("event_publisher_memory_max")
+        if _ep_max_opt is not None:
+            self._ep_max_inflight_bytes = salt.utils.memory.parse_size(_ep_max_opt)
+            if self._ep_max_inflight_bytes:
+                log.info(
+                    "EventPublisher in-flight-bytes gate active (max %d bytes)",
+                    self._ep_max_inflight_bytes,
+                )
 
         # Always set up the local IPC-based event publisher first
         # This ensures internal processes (like pytest_engine) can communicate reliably
@@ -3870,133 +3847,154 @@ class MasterPubServerChannel:
         raise salt.exceptions.AuthenticationError("Peer aes key not available")
 
     async def publish_payload(self, load, *args, raw_payload=None):
-        # Memory-headroom backpressure: block new fan-out work when the
-        # PeriodicCallback in ``_publish_daemon`` has cleared the gate
-        # (cgroup / system memory usage over the configured cap).  The
-        # gate is permanently set (permit) when the feature is not
-        # configured, so this ``await`` is a no-op on the default path.
-        gate = getattr(self, "_ep_memory_gate", None)
-        if gate is not None and not gate.is_set():
-            await gate.wait()
+        # In-flight-bytes backpressure gate.  When
+        # ``event_publisher_memory_max`` is set, block new fan-out while
+        # ``_ep_inflight_bytes + this_payload > max``.  Bounded by
+        # construction: increment on entry, decrement on exit.  Doesn't
+        # depend on process RSS, so glibc arena bloat can't wedge it.
+        _payload_size = len(raw_payload if raw_payload is not None else load)
+        _reserved = False
+        _max_inflight = getattr(self, "_ep_max_inflight_bytes", None)
+        if _max_inflight is not None:
+            async with self._ep_inflight_cond:
+                while self._ep_inflight_bytes + _payload_size > _max_inflight:
+                    await self._ep_inflight_cond.wait()
+                self._ep_inflight_bytes += _payload_size
+                _reserved = True
+        try:
+            _tagend = salt.utils.stringutils.to_bytes(salt.utils.event.TAGEND)
+            mtag_bytes, _, mdata = load.partition(_tagend)
+            tag = salt.utils.stringutils.to_str(mtag_bytes)
 
-        _tagend = salt.utils.stringutils.to_bytes(salt.utils.event.TAGEND)
-        mtag_bytes, _, mdata = load.partition(_tagend)
-        tag = salt.utils.stringutils.to_str(mtag_bytes)
+            def _decode_data():
+                return salt.payload.loads(mdata, encoding="utf-8")
 
-        def _decode_data():
-            return salt.payload.loads(mdata, encoding="utf-8")
-
-        # Operator-triggered cluster operations originate as ``cluster/runner/*``
-        # events fired by the runner subprocess.  Intercept them here so the
-        # event is consumed locally rather than broadcast as a regular
-        # cluster event.
-        if tag == "cluster/runner/sync_roots":
-            channels = _decode_data().get("channels") or ["file_roots", "pillar_roots"]
-            asyncio.create_task(self._run_root_sync_to_peers(channels))
-            return
-        if tag == "cluster/runner/collect_from_peers":
-            # Operator-driven pull of cache contents from peers.  The
-            # runner subprocess on this master fired the event; we
-            # broadcast a collect-request to every peer so each one
-            # initiates an outbound state-sync send to us.  Receiver
-            # side reuses the existing state-sync chunk handler at
-            # ``cluster/peer/state-sync-chunk``.
-            channels = _decode_data().get("channels") or ["keys", "denied_keys"]
-            asyncio.create_task(self._run_collect_from_peers(channels))
-            return
-        if tag == "cluster/runner/shed_unowned_all":
-            # Operator-driven fan-out of cluster.shed_unowned.  We
-            # broadcast a cluster_aes-encrypted shed-request to every
-            # peer; each peer's daemon runs the same shed logic and
-            # writes a per-master sentinel.  The originator runner
-            # subprocess (which fired this event) also ran its own
-            # local shed inline — no need to repeat that here.
-            asyncio.create_task(self._run_shed_unowned_all(_decode_data()))
-            return
-        if tag == "cluster/runner/delegate_write":
-            # Delegate-on-miss: the EventMonitor on this master saw
-            # a routed write it didn't own and looked up the ring's
-            # owner.  Forward the write to that owner via a
-            # cluster_aes-encrypted ``cluster/peer/delegate-write``
-            # event.  In the standard cluster topology bus
-            # replication already delivered the original event to
-            # the owner — this delegate is a safety net for
-            # asymmetric topologies (or a guard against bus drops).
-            asyncio.create_task(self._run_delegate_write(_decode_data()))
-            return
-        if tag in (
-            "cluster/runner/ring_create",
-            "cluster/runner/ring_destroy",
-            "cluster/runner/route_set",
-            "cluster/runner/route_clear",
-            "cluster/runner/ring_set",
-        ):
-            # Multi-ring operator runners.  ``propose_*`` only works
-            # on the Raft leader, and the operator may have invoked
-            # the runner on any master.  Try locally first (no-op
-            # warning if we're not the leader) and *also* fan out a
-            # cluster_aes-encrypted peer event so whichever master is
-            # currently the leader picks it up.  Followers that
-            # receive the fan-out log "not leader" and skip — no
-            # double-commit because the leader is unique.
-            data = _decode_data()
-            self._handle_multi_ring_runner_event(tag, data)
-            asyncio.create_task(self._fanout_multi_ring_request(tag, data))
-            return
-        tasks = []
-        if not tag.startswith("cluster/peer"):
-            tasks = [
-                asyncio.create_task(
-                    self.transport.publish_payload(load, raw_payload=raw_payload),
-                    name=self.opts["id"],
-                )
-            ]
-        for pusher in self.pushers:
-            log.info("Publish event to peer %s:%s", pusher.pull_host, pusher.pull_port)
-            if tag.startswith("cluster/peer"):
-                # log.info("Send %s %r", tag, load)
-                tasks.append(
-                    asyncio.create_task(pusher.publish(load), name=pusher.pull_host)
-                )
-                continue
-            crypticle = _get_crypticle(
-                self.opts, salt.master.SMaster.secrets["aes"]["secret"].value
-            )
-            load = {"event_payload": _decode_data()}
-            event_data = salt.utils.event.SaltEvent.pack(
-                salt.utils.event.tagify(tag, self.opts["id"], "cluster/event"),
-                crypticle.dumps(load),
-            )
-            tasks.append(asyncio.create_task(pusher.publish(event_data)))
-        await asyncio.gather(*tasks, return_exceptions=True)
-        for task in tasks:
-            try:
-                task.result()
-            # XXX This error is transport specific and should be something else
-            except tornado.iostream.StreamClosedError:
-                if task.get_name() == self.opts["id"]:
-                    log.error("Unable to forward event to local ipc bus")
-                else:
-                    peer = task.get_name()
-                    log.warning(
-                        "Unable to forward event to cluster peer %s; "
-                        "resetting pusher for reconnect",
-                        peer,
+            # Operator-triggered cluster operations originate as ``cluster/runner/*``
+            # events fired by the runner subprocess.  Intercept them here so the
+            # event is consumed locally rather than broadcast as a regular
+            # cluster event.
+            if tag == "cluster/runner/sync_roots":
+                channels = _decode_data().get("channels") or ["file_roots", "pillar_roots"]
+                asyncio.create_task(self._run_root_sync_to_peers(channels))
+                return
+            if tag == "cluster/runner/collect_from_peers":
+                # Operator-driven pull of cache contents from peers.  The
+                # runner subprocess on this master fired the event; we
+                # broadcast a collect-request to every peer so each one
+                # initiates an outbound state-sync send to us.  Receiver
+                # side reuses the existing state-sync chunk handler at
+                # ``cluster/peer/state-sync-chunk``.
+                channels = _decode_data().get("channels") or ["keys", "denied_keys"]
+                asyncio.create_task(self._run_collect_from_peers(channels))
+                return
+            if tag == "cluster/runner/shed_unowned_all":
+                # Operator-driven fan-out of cluster.shed_unowned.  We
+                # broadcast a cluster_aes-encrypted shed-request to every
+                # peer; each peer's daemon runs the same shed logic and
+                # writes a per-master sentinel.  The originator runner
+                # subprocess (which fired this event) also ran its own
+                # local shed inline — no need to repeat that here.
+                asyncio.create_task(self._run_shed_unowned_all(_decode_data()))
+                return
+            if tag == "cluster/runner/delegate_write":
+                # Delegate-on-miss: the EventMonitor on this master saw
+                # a routed write it didn't own and looked up the ring's
+                # owner.  Forward the write to that owner via a
+                # cluster_aes-encrypted ``cluster/peer/delegate-write``
+                # event.  In the standard cluster topology bus
+                # replication already delivered the original event to
+                # the owner — this delegate is a safety net for
+                # asymmetric topologies (or a guard against bus drops).
+                asyncio.create_task(self._run_delegate_write(_decode_data()))
+                return
+            if tag in (
+                "cluster/runner/ring_create",
+                "cluster/runner/ring_destroy",
+                "cluster/runner/route_set",
+                "cluster/runner/route_clear",
+                "cluster/runner/ring_set",
+            ):
+                # Multi-ring operator runners.  ``propose_*`` only works
+                # on the Raft leader, and the operator may have invoked
+                # the runner on any master.  Try locally first (no-op
+                # warning if we're not the leader) and *also* fan out a
+                # cluster_aes-encrypted peer event so whichever master is
+                # currently the leader picks it up.  Followers that
+                # receive the fan-out log "not leader" and skip — no
+                # double-commit because the leader is unique.
+                data = _decode_data()
+                self._handle_multi_ring_runner_event(tag, data)
+                asyncio.create_task(self._fanout_multi_ring_request(tag, data))
+                return
+            tasks = []
+            if not tag.startswith("cluster/peer"):
+                tasks = [
+                    asyncio.create_task(
+                        self.transport.publish_payload(load, raw_payload=raw_payload),
+                        name=self.opts["id"],
                     )
-                    # Reset the broken pub_sock so the next publish attempt
-                    # triggers a fresh TCP connection rather than reusing a
-                    # dead stream.
-                    for pusher in self.pushers:
-                        if pusher.pull_host == peer and pusher.pub_sock is not None:
-                            try:
-                                pusher.pub_sock.close()
-                            except Exception:  # pylint: disable=broad-except
-                                pass
-                            pusher.pub_sock = None
-                    # Schedule an AES-key re-announcement so the peer
-                    # learns our key after it reconnects.
-                    self.io_loop.call_later(2.0, self.send_aes_key_event)
-            except Exception as exc:  # pylint: disable=broad-except
-                log.error(
-                    "Unhandled error sending task %s", task.get_name(), exc_info=True
+                ]
+            for pusher in self.pushers:
+                log.info("Publish event to peer %s:%s", pusher.pull_host, pusher.pull_port)
+                if tag.startswith("cluster/peer"):
+                    # log.info("Send %s %r", tag, load)
+                    tasks.append(
+                        asyncio.create_task(pusher.publish(load), name=pusher.pull_host)
+                    )
+                    continue
+                crypticle = _get_crypticle(
+                    self.opts, salt.master.SMaster.secrets["aes"]["secret"].value
                 )
+                load = {"event_payload": _decode_data()}
+                event_data = salt.utils.event.SaltEvent.pack(
+                    salt.utils.event.tagify(tag, self.opts["id"], "cluster/event"),
+                    crypticle.dumps(load),
+                )
+                tasks.append(asyncio.create_task(pusher.publish(event_data)))
+            await asyncio.gather(*tasks, return_exceptions=True)
+            for task in tasks:
+                try:
+                    task.result()
+                # XXX This error is transport specific and should be something else
+                except tornado.iostream.StreamClosedError:
+                    if task.get_name() == self.opts["id"]:
+                        log.error("Unable to forward event to local ipc bus")
+                    else:
+                        peer = task.get_name()
+                        log.warning(
+                            "Unable to forward event to cluster peer %s; "
+                            "resetting pusher for reconnect",
+                            peer,
+                        )
+                        # Reset the broken pub_sock so the next publish attempt
+                        # triggers a fresh TCP connection rather than reusing a
+                        # dead stream.
+                        for pusher in self.pushers:
+                            if pusher.pull_host == peer and pusher.pub_sock is not None:
+                                try:
+                                    pusher.pub_sock.close()
+                                except Exception:  # pylint: disable=broad-except
+                                    pass
+                                pusher.pub_sock = None
+                        # Schedule an AES-key re-announcement so the peer
+                        # learns our key after it reconnects.
+                        self.io_loop.call_later(2.0, self.send_aes_key_event)
+                except Exception as exc:  # pylint: disable=broad-except
+                    log.error(
+                        "Unhandled error sending task %s", task.get_name(), exc_info=True
+                    )
+        finally:
+            if _reserved:
+                async with self._ep_inflight_cond:
+                    self._ep_inflight_bytes -= _payload_size
+                    self._ep_inflight_cond.notify_all()
+                    # When the fan-out gate fully drains, ask glibc to
+                    # return arena top-of-heap free space to the kernel.
+                    # Python has released the transient objects for this
+                    # burst; without this call, glibc holds that space
+                    # against future demand and RSS ratchets upward.
+                    # Only fires at burst-end (not per-event) so the
+                    # scan cost is amortized across all events in the
+                    # burst.  No-op on non-glibc platforms.
+                    if self._ep_inflight_bytes == 0:
+                        salt.utils.malloc.malloc_trim()

@@ -735,28 +735,24 @@ class RequestServer(salt.transport.base.DaemonizedRequestServer):
         for pool_dealer in self.pool_workers.values():
             poller.register(pool_dealer, zmq.POLLIN)
 
-        # Opt-in memory-headroom backpressure for the pooled dispatch loop.
-        # When ``mworker_queue_memory_headroom`` is set, skip ``recv_multipart``
-        # on the ROUTER side while free memory is below the threshold; ZMQ's
-        # ROUTER RCVHWM then propagates backpressure to peers whose ``send()``
-        # blocks per zmq semantics.  Worker responses (DEALER -> ROUTER) are
-        # never gated -- we always drain them so in-flight work can complete.
-        # Cache the check to avoid /proc/self/status syscalls on every poll.
+        # Opt-in in-flight-bytes backpressure for the pooled dispatch loop.
+        # When ``mworker_queue_memory_max`` is set, tally the byte size of
+        # every request forwarded to the pool DEALERs and subtract on
+        # response.  If ``_mwq_inflight + next_payload > _mwq_max`` we skip
+        # ``recv_multipart`` on the ROUTER side -- the message stays in
+        # ZMQ's ROUTER queue, RCVHWM propagates backpressure to peers.
+        # Bounded by construction so glibc arena bloat can't wedge the
+        # gate the way an RSS-based check does.
         import salt.utils.memory  # pylint: disable=import-outside-toplevel
 
-        _mwq_headroom_enabled = (
-            self.opts.get("mworker_queue_memory_headroom") is not None
-            or self.opts.get("mworker_queue_memory_max") is not None
+        _mwq_max_inflight = salt.utils.memory.parse_size(
+            self.opts.get("mworker_queue_memory_max")
         )
-        _mwq_check_interval = float(
-            self.opts.get("event_publisher_memory_check_interval", 0.5)
-        )
-        _mwq_last_check = 0.0
-        _mwq_has_headroom = True
-        if _mwq_headroom_enabled:
+        _mwq_inflight = 0
+        if _mwq_max_inflight:
             log.info(
-                "MWorkerQueue memory-headroom gate active (check every %.2fs)",
-                _mwq_check_interval,
+                "MWorkerQueue in-flight-bytes gate active (max %d bytes)",
+                _mwq_max_inflight,
             )
 
         while True:
@@ -773,25 +769,20 @@ class RequestServer(salt.transport.base.DaemonizedRequestServer):
                         # Receive message from DEALER (envelope is preserved)
                         msg = pool_dealer.recv_multipart()
                         if len(msg) >= 3:
+                            # Response completed -- decrement the in-flight
+                            # counter by the response payload size so the
+                            # ROUTER-side gate reopens for new requests.
+                            if _mwq_max_inflight:
+                                _mwq_inflight = max(0, _mwq_inflight - len(msg[-1]))
                             # Forward entire envelope back to ROUTER -> client
                             self.clients.send_multipart(msg)
 
                 # Handle incoming request from client (minion)
                 if self.clients in socks:
-                    if _mwq_headroom_enabled:
-                        _now = time.time()
-                        if _now - _mwq_last_check >= _mwq_check_interval:
-                            _mwq_has_headroom = salt.utils.memory.has_memory_headroom(
-                                self.opts,
-                                "mworker_queue_memory_headroom",
-                                "mworker_queue_memory_max",
-                                subject="MWorkerQueue",
-                            )
-                            _mwq_last_check = _now
-                        if not _mwq_has_headroom:
-                            # Leave the message in ZMQ's ROUTER queue so
-                            # RCVHWM propagates backpressure to peers.
-                            continue
+                    if _mwq_max_inflight and _mwq_inflight >= _mwq_max_inflight:
+                        # Leave the message in ZMQ's ROUTER queue so
+                        # RCVHWM propagates backpressure to peers.
+                        continue
 
                     # Receive multipart message: [client_id, b"", payload]
                     msg = self.clients.recv_multipart()
@@ -799,6 +790,8 @@ class RequestServer(salt.transport.base.DaemonizedRequestServer):
                         continue
 
                     payload_raw = msg[2]
+                    if _mwq_max_inflight:
+                        _mwq_inflight += len(payload_raw)
 
                     # Decode payload to determine which pool should handle this
                     try:
