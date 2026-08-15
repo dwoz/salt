@@ -3869,7 +3869,7 @@ class MasterPubServerChannel:
             return event_data
         raise salt.exceptions.AuthenticationError("Peer aes key not available")
 
-    async def publish_payload(self, load, *args):
+    async def publish_payload(self, load, *args, raw_payload=None):
         # Memory-headroom backpressure: block new fan-out work when the
         # PeriodicCallback in ``_publish_daemon`` has cleared the gate
         # (cgroup / system memory usage over the configured cap).  The
@@ -3879,13 +3879,19 @@ class MasterPubServerChannel:
         if gate is not None and not gate.is_set():
             await gate.wait()
 
-        tag, data = salt.utils.event.SaltEvent.unpack(load)
+        _tagend = salt.utils.stringutils.to_bytes(salt.utils.event.TAGEND)
+        mtag_bytes, _, mdata = load.partition(_tagend)
+        tag = salt.utils.stringutils.to_str(mtag_bytes)
+
+        def _decode_data():
+            return salt.payload.loads(mdata, encoding="utf-8")
+
         # Operator-triggered cluster operations originate as ``cluster/runner/*``
         # events fired by the runner subprocess.  Intercept them here so the
         # event is consumed locally rather than broadcast as a regular
         # cluster event.
         if tag == "cluster/runner/sync_roots":
-            channels = data.get("channels") or ["file_roots", "pillar_roots"]
+            channels = _decode_data().get("channels") or ["file_roots", "pillar_roots"]
             asyncio.create_task(self._run_root_sync_to_peers(channels))
             return
         if tag == "cluster/runner/collect_from_peers":
@@ -3895,7 +3901,7 @@ class MasterPubServerChannel:
             # initiates an outbound state-sync send to us.  Receiver
             # side reuses the existing state-sync chunk handler at
             # ``cluster/peer/state-sync-chunk``.
-            channels = data.get("channels") or ["keys", "denied_keys"]
+            channels = _decode_data().get("channels") or ["keys", "denied_keys"]
             asyncio.create_task(self._run_collect_from_peers(channels))
             return
         if tag == "cluster/runner/shed_unowned_all":
@@ -3905,7 +3911,7 @@ class MasterPubServerChannel:
             # writes a per-master sentinel.  The originator runner
             # subprocess (which fired this event) also ran its own
             # local shed inline — no need to repeat that here.
-            asyncio.create_task(self._run_shed_unowned_all(data))
+            asyncio.create_task(self._run_shed_unowned_all(_decode_data()))
             return
         if tag == "cluster/runner/delegate_write":
             # Delegate-on-miss: the EventMonitor on this master saw
@@ -3916,7 +3922,7 @@ class MasterPubServerChannel:
             # replication already delivered the original event to
             # the owner — this delegate is a safety net for
             # asymmetric topologies (or a guard against bus drops).
-            asyncio.create_task(self._run_delegate_write(data))
+            asyncio.create_task(self._run_delegate_write(_decode_data()))
             return
         if tag in (
             "cluster/runner/ring_create",
@@ -3933,6 +3939,7 @@ class MasterPubServerChannel:
             # currently the leader picks it up.  Followers that
             # receive the fan-out log "not leader" and skip — no
             # double-commit because the leader is unique.
+            data = _decode_data()
             self._handle_multi_ring_runner_event(tag, data)
             asyncio.create_task(self._fanout_multi_ring_request(tag, data))
             return
@@ -3940,7 +3947,8 @@ class MasterPubServerChannel:
         if not tag.startswith("cluster/peer"):
             tasks = [
                 asyncio.create_task(
-                    self.transport.publish_payload(load), name=self.opts["id"]
+                    self.transport.publish_payload(load, raw_payload=raw_payload),
+                    name=self.opts["id"],
                 )
             ]
         for pusher in self.pushers:
@@ -3954,7 +3962,7 @@ class MasterPubServerChannel:
             crypticle = _get_crypticle(
                 self.opts, salt.master.SMaster.secrets["aes"]["secret"].value
             )
-            load = {"event_payload": data}
+            load = {"event_payload": _decode_data()}
             event_data = salt.utils.event.SaltEvent.pack(
                 salt.utils.event.tagify(tag, self.opts["id"], "cluster/event"),
                 crypticle.dumps(load),
