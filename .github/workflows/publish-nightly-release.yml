@@ -143,39 +143,55 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           merge-multiple: false
 
-      - name: extract salt version from a built package name
+      - name: extract salt version
 
         id: salt-version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
           REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
-          # Derive the salt version (e.g. 3008.2+205.g46fc3b1fb4) from a built
-          # artifact filename. Prefer the source tarball / onedir tarball because
-          # those carry the bare upstream version; the rpm/deb regex used to trip
-          # over the trailing `-0` packager release. Best-effort — dashboard
-          # tolerates "unknown".
+          # PRIMARY source: nightly.yml has a "Prepare Release: <VER>" job whose
+          # name literally contains the resolved salt version -- salt's own CI
+          # computes it via `tools setup-salt-version` before the packages are
+          # ever built. Query the triggering run's jobs API to read that.
+          # No dependency on artifact downloads (which have been observed to
+          # silently drop 10-15% past a per-run threshold, leaving the local
+          # file probes and even the release asset list empty).
+          version=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+                    --paginate \
+                    --jq '.jobs[] | select(.name | test("^Prepare Release: ")) | .name' \
+                    2>/dev/null | head -1 | sed 's|^Prepare Release: ||')
+          if [ -n "${version:-}" ]; then
+            echo "version=${version} (from nightly.yml Prepare Release job)"
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Prepare Release job not found on run ${RUN_ID}; falling back to filename probe"
+
+          # FALLBACK 1: local file probe over what actions/download-artifact
+          # actually brought in. Best-effort -- rpm/deb regex needs to strip
+          # the packager release suffix; onedir/tarball carry the bare version.
+          # Order tried: sdist -> onedir -> rpm -> deb.
           #
-          # File-name shapes we search, in order:
+          # File-name shapes we search:
           #   salt-<VER>.tar.gz                       (source sdist)
           #   salt-<VER>-onedir-*.tar.xz              (onedir bundle)
           #   salt-<VER>-<REL>.<arch>.rpm             (rpm — strip -<REL>.arch)
           #   salt_<VER>-<REL>_<arch>.deb             (deb — strip -<REL>_arch)
           #
-          # actions/download-artifact@v4 silently drops artifacts past some
-          # per-run limit on the larger branches (observed: 3006.x nightly with
-          # 700 artifacts on the run, only 305 materialised under
-          # nightly-artifacts/, and every `salt-*` package artifact was among
-          # the dropped ones). If none of the local file probes find a version,
-          # fall back to reading the just-created GitHub Release's asset list —
-          # gh release view returns the authoritative filenames.
+          # FALLBACK 2: if the local probe finds nothing (download-artifact
+          # dropped every package artifact), read the release's asset list.
           probe_from_file() {
+            # A valid salt version always starts with a digit (e.g. 3008.2+206.gbc6d557fcb).
+            # Reject any captured group that doesn't, so subpackage names like
+            # `salt-debuginfo-...`, `salt-common-...`, `salt-dbg_...` -- which slip
+            # past the `-name` filter -- don't get returned as "version=debuginfo-...".
             local f="$1"
             local n
             n=$(basename "$f")
-            # Try each shape in order.
             for pat in \
               's|^salt-\(.*\)-onedir-.*|\1|p' \
               's|^salt-\(.*\)\.tar\.gz$|\1|p' \
@@ -183,10 +199,9 @@ jobs:
               's|^salt_\(.*\)-[0-9]*_[^_]*\.deb$|\1|p'; do
               local v
               v=$(echo "$n" | sed -n "$pat")
-              if [ -n "$v" ]; then
-                echo "$v"
-                return
-              fi
+              case "$v" in
+                [0-9]*) echo "$v"; return ;;
+              esac
             done
           }
 
