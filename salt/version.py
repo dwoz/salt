@@ -614,6 +614,32 @@ def __discover_version(saltstack_version):
             # Let's not import `salt.utils` for the above check
             kwargs["close_fds"] = True
 
+        # Determine an optional branch-major constraint. Maintenance branches
+        # such as ``3007.x`` should never derive a version from tags belonging
+        # to a newer major series that may be reachable through the branch's
+        # merge history (a reverted mis-merge cannot remove tag ancestry).
+        # If we can identify that we are on a ``<major>.x`` maintenance
+        # branch, constrain ``git describe`` to that major series.
+        match_pattern = "v[0-9]*"
+        branch_name = os.environ.get("GITHUB_REF_NAME") or os.environ.get(
+            "SALT_BRANCH_NAME"
+        )
+        if not branch_name:
+            try:
+                branch_proc = subprocess.Popen(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=cwd,
+                )
+                branch_out, _ = branch_proc.communicate()
+                branch_name = branch_out.decode().strip()
+            except OSError:
+                branch_name = ""
+        branch_match = re.match(r"^(\d+)\.x$", branch_name or "")
+        if branch_match:
+            match_pattern = f"v{branch_match.group(1)}.*"
+
         process = subprocess.Popen(
             [
                 "git",
@@ -621,7 +647,7 @@ def __discover_version(saltstack_version):
                 "--tags",
                 "--long",
                 "--match",
-                "v[0-9]*",
+                match_pattern,
                 "--always",
                 "--candidates=150",
             ],
