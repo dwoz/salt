@@ -1,4 +1,7 @@
+import os
 import pathlib
+import sys
+import types
 
 import pytest
 
@@ -232,7 +235,12 @@ class _FakeClient:
         ({}, 0, "root", None),
     ),
 )
-def test_master_user_runas(opts, euid, current_user, expected):
+def test_master_user_runas(opts, euid, current_user, expected, monkeypatch):
+    # The candidate user is validated against the passwd database; stub it
+    # so the configured ``salt`` user appears to exist on the test host.
+    monkeypatch.setattr(
+        saltutil, "pwd", types.SimpleNamespace(getpwnam=lambda user: None)
+    )
     with patch("os.geteuid", return_value=euid), patch(
         "salt.utils.user.get_user", return_value=current_user
     ):
@@ -338,3 +346,115 @@ def test_client_cmd_as_drops_privileges_for_real():
             return os.geteuid()
 
     assert saltutil._client_cmd_as("nobody", _UidClient(), "x", {}) == target.pw_uid
+
+
+@pytest.fixture
+def _fake_pwd(monkeypatch):
+    """Patch saltutil.pwd so the runas user resolves to a known home."""
+    pwuser = types.SimpleNamespace(pw_dir="/home/salt", pw_name="salt")
+    monkeypatch.setattr(
+        saltutil, "pwd", types.SimpleNamespace(getpwnam=lambda user: pwuser)
+    )
+    for var in ("HOME", "USER", "LOGNAME"):
+        monkeypatch.setenv(var, "root")
+    return pwuser
+
+
+def test_align_runas_environment_sets_home_user_logname(_fake_pwd, monkeypatch):
+    """chugid leaves HOME/USER/LOGNAME at the invoking user; the helper must
+    repoint them at the runas user so git/pygit2 read the right config (#67716)."""
+    saltutil._align_runas_environment("salt")
+    assert os.environ["HOME"] == "/home/salt"
+    assert os.environ["USER"] == "salt"
+    assert os.environ["LOGNAME"] == "salt"
+
+
+def test_align_runas_environment_refreshes_pygit2_constant(_fake_pwd, monkeypatch):
+    """A pre-imported pygit2 has its cached global-config search path refreshed
+    to the runas user's home via the older constant API."""
+    search_path = {}
+    fake_pygit2 = types.SimpleNamespace(
+        settings=types.SimpleNamespace(search_path=search_path),
+        GIT_CONFIG_LEVEL_GLOBAL=4,
+    )
+    monkeypatch.setitem(sys.modules, "pygit2", fake_pygit2)
+    saltutil._align_runas_environment("salt")
+    assert search_path[4] == "/home/salt"
+
+
+def test_align_runas_environment_refreshes_pygit2_enums(_fake_pwd, monkeypatch):
+    """The pygit2 enums API (ConfigLevel.GLOBAL) is used when present."""
+    search_path = {}
+    fake_pygit2 = types.SimpleNamespace(
+        settings=types.SimpleNamespace(search_path=search_path),
+        enums=types.SimpleNamespace(ConfigLevel=types.SimpleNamespace(GLOBAL=4)),
+    )
+    monkeypatch.setitem(sys.modules, "pygit2", fake_pygit2)
+    saltutil._align_runas_environment("salt")
+    assert search_path[4] == "/home/salt"
+
+
+def test_align_runas_environment_unknown_user_is_noop(monkeypatch):
+    """An unknown runas user leaves the environment untouched."""
+
+    def _raise(user):
+        raise KeyError(user)
+
+    monkeypatch.setattr(saltutil, "pwd", types.SimpleNamespace(getpwnam=_raise))
+    monkeypatch.setenv("HOME", "/root")
+    saltutil._align_runas_environment("nosuchuser")
+    assert os.environ["HOME"] == "/root"
+
+
+def test_master_user_runas_unknown_user_returns_none(monkeypatch):
+    """
+    When ``opts['user']`` is not a real account on the system,
+    ``_master_user_runas`` must return ``None`` instead of returning a
+    name that would later blow up in ``pwd.getpwnam`` inside
+    ``_client_cmd_as`` / ``chugid`` (#69600).
+
+    Regression: ``state.orchestrate`` overwrites ``__opts__['user']``
+    with ``__user__`` (the value of ``salt.utils.user.get_specific_user()``),
+    which is ``"sudo_<login>"`` whenever ``salt-run`` was launched under
+    ``sudo``. That name has no passwd entry, so attempting to drop to it
+    raised ``KeyError: "getpwnam(): name not found: 'sudo_<login>'"``
+    wrapped in ``CommandExecutionError``.
+    """
+
+    def _raise(user):
+        raise KeyError(user)
+
+    monkeypatch.setattr(saltutil, "pwd", types.SimpleNamespace(getpwnam=_raise))
+    with patch("os.geteuid", return_value=0), patch(
+        "salt.utils.user.get_user", return_value="root"
+    ):
+        assert saltutil._master_user_runas({"user": "sudo_alice"}) is None
+
+
+def test_align_runas_environment_without_pwd_is_noop(monkeypatch):
+    """On platforms without the pwd module (Windows) the helper is a no-op."""
+    monkeypatch.setattr(saltutil, "pwd", None)
+    monkeypatch.setenv("HOME", "/root")
+    saltutil._align_runas_environment("salt")
+    assert os.environ["HOME"] == "/root"
+
+
+def test_client_cmd_as_aligns_environment(monkeypatch):
+    """_client_cmd_as must align $HOME with the runas user inside the dropped
+    child, so master-side git operations read the right config (#67716). The
+    fake client reports the HOME it sees; without the alignment it would be the
+    invoking user's home."""
+    pwuser = types.SimpleNamespace(pw_dir="/home/salt", pw_name="salt")
+    monkeypatch.setattr(
+        saltutil, "pwd", types.SimpleNamespace(getpwnam=lambda user: pwuser)
+    )
+
+    class _EnvClient:
+        functions = {}
+
+        def cmd(self, name, **kwargs):
+            return os.environ.get("HOME")
+
+    with patch("salt.utils.user.chugid"):
+        result = saltutil._client_cmd_as("salt", _EnvClient(), "test.ping", {})
+    assert result == "/home/salt"
