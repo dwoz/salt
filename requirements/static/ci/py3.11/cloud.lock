@@ -612,13 +612,8 @@ pyyaml==6.0.3
     #   kubernetes
     #   pytest-salt-factories
     #   responses
-<<<<<<< HEAD
     #   yamlloader
 pyzmq==25.1.2
-=======
-    #   yamlordereddictloader
-pyzmq==27.1.0
->>>>>>> 7ec32d645e5
     # via
     #   -c requirements/static/ci/py3.11/linux.lock
     #   -c requirements/static/pkg/py3.11/linux.lock

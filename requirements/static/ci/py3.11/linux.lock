@@ -485,13 +485,8 @@ pyyaml==6.0.3
     #   pytest-salt-factories
     #   responses
     #   yamllint
-<<<<<<< HEAD
     #   yamlloader
 pyzmq==25.1.2
-=======
-    #   yamlordereddictloader
-pyzmq==27.1.0
->>>>>>> 7ec32d645e5
     # via
     #   -c requirements/static/pkg/py3.11/linux.lock
     #   -r requirements/zeromq.txt

@@ -11,7 +11,7 @@ future-based sockets, which back every master-initiated job) raised
 
 import asyncio
 
-import salt.ext.tornado.gen
+import tornado.gen
 import salt.utils.asynchronous as asynchronous
 
 
@@ -27,13 +27,13 @@ class _LoopProbe:
     def __init__(self, io_loop=None):
         pass
 
-    @salt.ext.tornado.gen.coroutine
+    @tornado.gen.coroutine
     def check_loop(self):
         # On Python 3.12+ this raises RuntimeError unless an asyncio loop
         # has been installed on the current thread.  Pre-3.12 it returns
         # (and may auto-create) the loop.
         loop = asyncio.get_event_loop()
-        raise salt.ext.tornado.gen.Return(loop is not None)
+        raise tornado.gen.Return(loop is not None)
 
 
 def test_sync_wrapper_thread_has_asyncio_loop_65702():

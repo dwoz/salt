@@ -516,17 +516,12 @@ pyyaml==6.0.3
     #   responses
     #   yamllint
     #   yamlloader
-<<<<<<< HEAD
 pyzmq==25.1.2 ; python_full_version < '3.13'
     # via
     #   -c requirements/static/pkg/py3.11/freebsd.lock
     #   -r requirements/zeromq.txt
     #   pytest-salt-factories
 pyzmq==27.1.0 ; python_full_version >= '3.13'
-=======
-    #   yamlordereddictloader
-pyzmq==27.1.0
->>>>>>> 7ec32d645e5
     # via
     #   -c requirements/static/pkg/py3.11/freebsd.lock
     #   -r requirements/zeromq.txt
