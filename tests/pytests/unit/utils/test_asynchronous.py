@@ -12,6 +12,7 @@ future-based sockets, which back every master-initiated job) raised
 import asyncio
 
 import tornado.gen
+
 import salt.utils.asynchronous as asynchronous
 
 

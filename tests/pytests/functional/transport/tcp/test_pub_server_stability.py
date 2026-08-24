@@ -13,9 +13,9 @@ import logging
 import time
 
 import pytest
-
 import tornado.gen
 import tornado.ioloop
+
 import salt.transport.tcp
 
 log = logging.getLogger(__name__)
@@ -86,9 +86,7 @@ async def test_slow_subscriber_does_not_block_fast_subscriber(master_opts):
         # tornado-coroutine that returns a ``tornado.concurrent.Future``;
         # ``convert_yielded`` makes it awaitable from an ``async def`` driven
         # by the IOLoop running this test.
-        broadcast = tornado.gen.convert_yielded(
-            server.publish_payload({"jid": "abc"})
-        )
+        broadcast = tornado.gen.convert_yielded(server.publish_payload({"jid": "abc"}))
         # Poll up to 1 s for the fast client to have received the payload.
         deadline = start + 1.0
         while time.monotonic() < deadline and fast_stream.received_at is None:

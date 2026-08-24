@@ -485,7 +485,7 @@ pyyaml==6.0.3
     #   pytest-salt-factories
     #   responses
     #   yamllint
-    #   yamlloader
+    #   yamlordereddictloader
 pyzmq==25.1.2
     # via
     #   -c requirements/static/pkg/py3.11/linux.lock

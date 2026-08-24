@@ -665,6 +665,7 @@ pyyaml==6.0.3
     #   responses
     #   yamllint
     #   yamlloader
+    #   yamlordereddictloader
 pyzmq==25.1.2 ; python_full_version < '3.13'
     # via
     #   -c requirements/static/pkg/py3.9/freebsd.lock

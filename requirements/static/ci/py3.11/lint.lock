@@ -595,7 +595,7 @@ pyyaml==6.0.3
     #   kubernetes
     #   responses
     #   yamllint
-    #   yamlloader
+    #   yamlordereddictloader
 pyzmq==25.1.2
     # via
     #   -c requirements/static/ci/py3.11/linux.lock

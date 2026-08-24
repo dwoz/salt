@@ -2,10 +2,10 @@ import logging
 import os
 
 import pytest
+import tornado.gen
 
 import salt.crypt as crypt
 import salt.exceptions
-import tornado.gen
 from tests.support.mock import mock_open, patch
 
 
