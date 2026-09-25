@@ -636,6 +636,52 @@ def service_name():
     return "salt_minion" if "bsd" in sys.platform else "salt-minion"
 
 
+def _close_io_loop_with_drain(io_loop):
+    """
+    Cancel and drain any Tasks still pending on ``io_loop`` before closing it.
+
+    ``asyncio.AbstractEventLoop.close()`` destroys pending Tasks unwaited,
+    producing ``Task was destroyed but it is pending!`` warnings and, for any
+    Task whose coroutine has not yet been driven to its first ``await``,
+    ``coroutine '...' was never awaited`` RuntimeWarnings.  The
+    ``run_forever()``-to-``close()`` transition in ``tune_in`` is racy with
+    the sub-second periodic callbacks (``process_state_queue`` @ 0.3s,
+    ``process_process_queue`` @ 0.2s) whose ``create_task(...)`` calls land
+    on the loop between the two calls.
+
+    This mirrors the drain-before-close pattern already used in
+    ``salt.utils.asynchronous.SyncWrapper.close``.
+    """
+    if io_loop is None:
+        return
+    try:
+        if not io_loop.is_closed() and not io_loop.is_running():
+            pending = [t for t in asyncio.all_tasks(io_loop) if not t.done()]
+            if pending:
+                for t in pending:
+                    t.cancel()
+
+                # Build the gather *inside* the loop so ``asyncio.gather``
+                # sees the correct running loop on Python 3.14.
+                async def _drain(tasks):
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+                drain = _drain(pending)
+                try:
+                    io_loop.run_until_complete(drain)
+                except Exception:  # pylint: disable=broad-except
+                    # Close the coroutine we just built so it is not
+                    # garbage-collected unawaited (which would emit a
+                    # RuntimeWarning on stderr).  Tasks already cancelled.
+                    drain.close()
+    except Exception:  # pylint: disable=broad-except
+        log.exception("Error draining pending tasks before io_loop.close()")
+    try:
+        io_loop.close()
+    except Exception:  # pylint: disable=broad-except
+        log.exception("Error closing io_loop")
+
+
 class MinionBase:
     def __init__(self, opts):
         # Ensure opts is OptsDict for mutate_key() and other OptsDict methods
@@ -1722,7 +1768,7 @@ class MinionManager(MinionBase):
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
-            self.io_loop.close()
+            _close_io_loop_with_drain(self.io_loop)
 
     @property
     def restart(self):
@@ -2803,8 +2849,19 @@ class Minion(MinionBase):
     async def _process_process_queue_async(self):
         """
         Async body of process_process_queue.
+
+        Wraps the implementation in ``try/finally`` so the
+        ``_process_queue_processing_active`` guard flag is always reset even
+        if ``_process_process_queue_async_impl`` raises before reaching its
+        own ``finally`` (or is cancelled during shutdown).  Without this,
+        one unhandled exception would wedge the periodic callback for the
+        remainder of the minion's lifetime, silently disabling the
+        process-queue drain.
         """
-        await self._process_process_queue_async_impl()
+        try:
+            await self._process_process_queue_async_impl()
+        finally:
+            self._process_queue_processing_active = False
 
     async def _process_process_queue_async_impl(self):
         """
@@ -4966,8 +5023,19 @@ class Minion(MinionBase):
     async def _process_state_queue_async(self):
         """
         Async body of process_state_queue.
+
+        Wraps the implementation in ``try/finally`` so the
+        ``_state_queue_processing_active`` guard flag is always reset even
+        if ``_process_state_queue_async_impl`` raises before reaching its
+        own ``finally`` (or is cancelled during shutdown).  Without this,
+        one unhandled exception would wedge the periodic callback for the
+        remainder of the minion's lifetime, silently disabling the
+        state-queue drain.
         """
-        await self._process_state_queue_async_impl()
+        try:
+            await self._process_state_queue_async_impl()
+        finally:
+            self._state_queue_processing_active = False
 
     async def _process_state_queue_async_impl(self):
         log.trace("State queue processing firing")
@@ -5273,7 +5341,7 @@ class Minion(MinionBase):
                 self.destroy()
             finally:
                 if not self.io_loop.is_closed():
-                    self.io_loop.close()
+                    _close_io_loop_with_drain(self.io_loop)
 
     async def _handle_payload(self, payload):
         if payload is not None and payload["enc"] == "aes":
@@ -6186,7 +6254,7 @@ class SyndicManager(MinionBase):
             pass
         finally:
             if not self.io_loop.is_closed():
-                self.io_loop.close()
+                _close_io_loop_with_drain(self.io_loop)
 
     async def _process_event(self, raw):
         # TODO: cleanup: Move down into event class

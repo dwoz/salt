@@ -2491,3 +2491,349 @@ async def test_stop_async_calls_notify_stopping_and_terminates_subprocess_list(
         # code path; the .destroy() call would try to tear down channels
         # we never created. A best-effort close is enough.
         pass
+
+
+# --------------------------------------------------------------------------- #
+# Bug A: _close_io_loop_with_drain — cancel + gather pending tasks before
+# io_loop.close(), replacing the bare close() at three sites in salt/minion.py
+# (MinionManager.tune_in, Minion.tune_in, SyndicManager._process_event start).
+# --------------------------------------------------------------------------- #
+
+
+# A uniquely-named marker coroutine.  When it is destroyed unawaited,
+# CPython emits ``RuntimeWarning: coroutine '_bug_a_marker_coro' was
+# never awaited`` — a string that CANNOT overlap with leaked coroutines
+# from unrelated tests in the same session, which is what makes the
+# Bug A capture robust under ``pytest`` full-file runs (other tests leak
+# ``ProcessManager.run`` etc. that were GC'd during our ``gc.collect()``).
+async def _bug_a_marker_coro():
+    await asyncio.sleep(3600)
+
+
+def _make_loop_with_marker_task():
+    """
+    Build a fresh asyncio loop with one long-sleeping marker Task
+    registered on it, without actually running the loop.
+    Returns ``(loop, task, marker_name)``.
+    """
+    loop = asyncio.new_event_loop()
+    task = loop.create_task(_bug_a_marker_coro())
+    return loop, task, "_bug_a_marker_coro"
+
+
+@contextlib.contextmanager
+def _capture_marker_warnings(marker_name):
+    """
+    Yield ``(warnings_list, asyncio_log_stream)`` capturing:
+
+    * ``RuntimeWarning: coroutine '<marker>' was never awaited`` — the
+      "coroutine was never awaited" symptom from the wild-caught minion
+      report, surfaced by forcing ``gc.collect()`` inside the context.
+    * ``Task was destroyed but it is pending!`` for our specific Task —
+      the "Task was destroyed" symptom, surfaced via the ``asyncio``
+      logger's ``call_exception_handler`` path (NOT the ``warnings``
+      module).
+
+    Only messages that mention ``marker_name`` count as offenders, so
+    leaked ``ProcessManager.run`` / other-test coroutines being GC'd
+    during our forced ``gc.collect()`` cannot pollute the assertion.
+    """
+    import gc as _gc
+    import io as _io
+    import warnings as _warnings
+
+    asyncio_logger = logging.getLogger("asyncio")
+    stream = _io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(logging.ERROR)
+    asyncio_logger.addHandler(handler)
+    try:
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            yield caught, stream
+            # Force GC so any Task/coroutine still referenced only by
+            # the closed loop's internal state gets collected inside
+            # the capture window.
+            _gc.collect()
+            _gc.collect()
+    finally:
+        asyncio_logger.removeHandler(handler)
+
+
+def _marker_offenders(caught, stream, marker_name):
+    """
+    Return offender messages that specifically mention ``marker_name``,
+    ignoring unrelated leaks from other tests in the same session.
+    """
+    offenders = []
+    for w in caught:
+        msg = str(w.message)
+        if marker_name not in msg:
+            continue
+        if "was never awaited" in msg or "was destroyed but it is pending" in msg:
+            offenders.append(f"[warning] {msg}")
+    log_text = stream.getvalue()
+    for line in log_text.splitlines():
+        if marker_name in line and "was destroyed but it is pending" in line:
+            offenders.append(f"[asyncio-log] {line}")
+    return offenders
+
+
+def test_close_io_loop_with_drain_no_pending_tasks_warning():
+    """
+    Bug A: closing an io_loop that still has a pending Task must not emit
+    ``Task was destroyed but it is pending!`` or ``coroutine '...' was
+    never awaited`` warnings.  Both messages are the exact log lines
+    seen in the wild-caught minion report that motivated this fix.
+    """
+    loop, task, marker = _make_loop_with_marker_task()
+
+    with _capture_marker_warnings(marker) as (caught, stream):
+        salt.minion._close_io_loop_with_drain(loop)
+        # Drop our own strong ref so any leaked state can be GC'd
+        # inside the capture window.
+        del task
+
+    assert loop.is_closed(), "loop must be closed after drain helper"
+
+    offenders = _marker_offenders(caught, stream, marker)
+    assert not offenders, f"unexpected warnings/log lines: {offenders}"
+
+
+def test_bare_close_reproduces_bug_a_symptoms():
+    """
+    Bug A repro (regression guard): the *un-fixed* ``loop.close()`` path
+    DOES emit the offender messages.  This locks in that our capture
+    machinery is actually sensitive to the bug we're fixing, so a future
+    refactor that neuters the capture doesn't silently turn
+    ``test_close_io_loop_with_drain_no_pending_tasks_warning`` into a
+    tautology.
+    """
+    loop = asyncio.new_event_loop()
+    task = loop.create_task(_bug_a_marker_coro())
+    marker = "_bug_a_marker_coro"
+
+    with _capture_marker_warnings(marker) as (caught, stream):
+        # This is what the *old* code did: bare close, no drain.
+        loop.close()
+        del task
+
+    offenders = _marker_offenders(caught, stream, marker)
+    assert offenders, (
+        "bare loop.close() with a pending task should surface at least one "
+        "of the two offender messages; capture machinery may be broken"
+    )
+
+
+def test_close_io_loop_with_drain_survives_task_that_raises_on_cancel():
+    """
+    Bug A: a pending Task whose coroutine raises during cancellation must
+    not prevent ``io_loop.close()`` from being reached.
+    """
+    loop = asyncio.new_event_loop()
+
+    async def _raises_on_cancel():
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            raise RuntimeError("boom during cancel")
+
+    task = loop.create_task(_raises_on_cancel())
+
+    # Must complete without raising.
+    salt.minion._close_io_loop_with_drain(loop)
+
+    assert loop.is_closed()
+    assert task.done()
+
+
+def test_close_io_loop_with_drain_handles_already_closed_loop():
+    """
+    Bug A: the helper must be idempotent — passing an already-closed loop
+    is a no-op, not an exception.
+    """
+    loop = asyncio.new_event_loop()
+    loop.close()
+    # Second call must not raise.
+    salt.minion._close_io_loop_with_drain(loop)
+    assert loop.is_closed()
+
+
+def test_close_io_loop_with_drain_none_is_noop():
+    """
+    Bug A: guard against ``io_loop=None`` (defensive).
+    """
+    salt.minion._close_io_loop_with_drain(None)
+
+
+def test_close_io_loop_with_drain_drains_multiple_tasks():
+    """
+    Bug A: all pending tasks — not just the first — get cancelled and
+    drained.
+    """
+    import warnings as _warnings
+
+    loop = asyncio.new_event_loop()
+    tasks = [loop.create_task(asyncio.sleep(3600)) for _ in range(5)]
+
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        salt.minion._close_io_loop_with_drain(loop)
+
+    assert loop.is_closed()
+    for t in tasks:
+        assert t.cancelled() or t.done()
+
+    offenders = [
+        str(w.message)
+        for w in caught
+        if "was destroyed but it is pending" in str(w.message)
+        or "was never awaited" in str(w.message)
+    ]
+    assert not offenders, f"unexpected warnings: {offenders}"
+
+
+# --------------------------------------------------------------------------- #
+# Bug B: guard flags reset in the async wrapper's ``finally`` so a raise
+# inside ``*_async_impl`` (or a shutdown-time cancel before ``_impl`` even
+# enters its own try) still frees the periodic callback to fire next tick.
+# --------------------------------------------------------------------------- #
+
+
+async def test_process_state_queue_flag_resets_after_async_completion(
+    minion_opts,
+):
+    """
+    Bug B: after a normal completion of ``_process_state_queue_async``,
+    ``_state_queue_processing_active`` is False so the next 0.3s tick can
+    fire.
+    """
+    minion = salt.minion.Minion(minion_opts)
+    try:
+        minion._state_queue_processing_active = True
+
+        async def _noop_impl():
+            return None
+
+        with patch.object(
+            minion, "_process_state_queue_async_impl", side_effect=_noop_impl
+        ):
+            await minion._process_state_queue_async()
+
+        assert minion._state_queue_processing_active is False
+    finally:
+        minion.destroy()
+
+
+async def test_process_state_queue_flag_resets_after_exception(minion_opts):
+    """
+    Bug B: an exception inside the impl must NOT wedge the guard flag
+    True for the remainder of the minion's lifetime.
+    """
+    minion = salt.minion.Minion(minion_opts)
+    try:
+        minion._state_queue_processing_active = True
+
+        async def _boom():
+            raise RuntimeError("simulated failure inside impl")
+
+        with patch.object(minion, "_process_state_queue_async_impl", side_effect=_boom):
+            with pytest.raises(RuntimeError, match="simulated failure"):
+                await minion._process_state_queue_async()
+
+        assert minion._state_queue_processing_active is False
+    finally:
+        minion.destroy()
+
+
+async def test_process_process_queue_flag_resets_after_async_completion(
+    minion_opts,
+):
+    """
+    Bug B (process-queue variant): normal completion resets the flag.
+    """
+    minion = salt.minion.Minion(minion_opts)
+    try:
+        minion._process_queue_processing_active = True
+
+        async def _noop_impl():
+            return None
+
+        with patch.object(
+            minion, "_process_process_queue_async_impl", side_effect=_noop_impl
+        ):
+            await minion._process_process_queue_async()
+
+        assert minion._process_queue_processing_active is False
+    finally:
+        minion.destroy()
+
+
+async def test_process_process_queue_flag_resets_after_exception(minion_opts):
+    """
+    Bug B (process-queue variant): exception inside impl still resets flag.
+    """
+    minion = salt.minion.Minion(minion_opts)
+    try:
+        minion._process_queue_processing_active = True
+
+        async def _boom():
+            raise RuntimeError("simulated failure inside impl")
+
+        with patch.object(
+            minion, "_process_process_queue_async_impl", side_effect=_boom
+        ):
+            with pytest.raises(RuntimeError, match="simulated failure"):
+                await minion._process_process_queue_async()
+
+        assert minion._process_queue_processing_active is False
+    finally:
+        minion.destroy()
+
+
+def test_process_state_queue_dispatches_and_resets_after_loop_run(minion_opts):
+    """
+    Bug B end-to-end: ``process_state_queue`` (sync entry) schedules the
+    async body on the loop; after the loop drains, the flag is False and a
+    subsequent call is free to dispatch again.
+    """
+    minion = salt.minion.Minion(minion_opts)
+    try:
+        call_count = {"n": 0}
+
+        async def _fake_impl():
+            call_count["n"] += 1
+
+        with patch.object(
+            minion, "_process_state_queue_async_impl", side_effect=_fake_impl
+        ):
+            # First tick: schedules the task, sets flag True immediately.
+            minion.process_state_queue()
+            assert minion._state_queue_processing_active is True
+
+            # Drive the loop until pending tasks finish so the async body
+            # can run its ``finally`` and reset the guard flag.
+            pending = [t for t in asyncio.all_tasks(minion.io_loop) if not t.done()]
+            if pending:
+                minion.io_loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+
+            assert minion._state_queue_processing_active is False
+            assert call_count["n"] == 1
+
+            # Second tick must be free to dispatch again — that's the whole
+            # point of the periodic callback.
+            minion.process_state_queue()
+            assert minion._state_queue_processing_active is True
+
+            pending = [t for t in asyncio.all_tasks(minion.io_loop) if not t.done()]
+            if pending:
+                minion.io_loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+
+            assert minion._state_queue_processing_active is False
+            assert call_count["n"] == 2
+    finally:
+        minion.destroy()
