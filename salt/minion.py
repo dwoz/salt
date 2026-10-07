@@ -2021,7 +2021,20 @@ class Minion(MinionBase):
             if hasattr(self.pub_channel, "close"):
                 self.pub_channel.close()
         if hasattr(self, "req_channel") and self.req_channel:
-            self.req_channel.close()
+            # Wait for the underlying transport's ``_send_recv`` task to
+            # drain its shutdown sentinel and release the socket
+            # reference before we drop our reference to the channel.
+            # Otherwise the Context stays alive on the task's coroutine
+            # locals and is finalized later from a plain ioloop
+            # callback, where pyzmq's ``Context.__del__`` can wedge in
+            # ``zmq_ctx_term()``.  ``close_async`` is available on
+            # ``AsyncReqChannel``; guard so this still works if a
+            # third-party channel subclass only exposes sync ``close``.
+            close_async = getattr(self.req_channel, "close_async", None)
+            if close_async is not None:
+                await close_async()
+            else:
+                self.req_channel.close()
             self.req_channel = None
 
         # Consider refactoring so that eval_master does not have a subtle side-effect on the contents of the opts array
@@ -2069,7 +2082,11 @@ class Minion(MinionBase):
                 pillarenv=self.opts.get("pillarenv"),
             )
             self.opts["pillar"] = await async_pillar.compile_pillar()
-            async_pillar.destroy()
+            # Async aclose awaits the transport's send/recv exit
+            # future before releasing the socket + context, avoiding
+            # the pyzmq Context.__del__ wedge that sync ``destroy``
+            # can leave behind (see PR-70316 trace).
+            await async_pillar.aclose()
             # _setup_core uses _load_modules only — unlike gen_modules it does not
             # run _discover_resources().  tune_in schedules _register_resources_with_master
             # right after connect; without this, the master registry gets {} until an
@@ -4337,7 +4354,9 @@ class Minion(MinionBase):
                 self.opts["resources"] = self._discover_resources()
                 await self._register_resources_with_master()
             finally:
-                async_pillar.destroy()
+                # See ``_post_master_init`` for why aclose is preferred
+                # over sync destroy on ioloop-owning callers.
+                await async_pillar.aclose()
         self.matchers_refresh()
         self.beacons_refresh()
         # Fire the completion event synchronously on the minion event bus.
@@ -4658,7 +4677,18 @@ class Minion(MinionBase):
                     if hasattr(self.pub_channel, "close"):
                         self.pub_channel.close()
                 if hasattr(self, "req_channel") and self.req_channel:
-                    self.req_channel.close()
+                    # See ``connect_master`` for why ``close_async`` is
+                    # preferred here over the sync ``close``:  the
+                    # transport's send/recv task must drain before we
+                    # drop our reference to the channel, or the
+                    # underlying ``zmq.Context`` gets finalized from a
+                    # later ioloop callback and can wedge in
+                    # ``zmq_ctx_term()``.
+                    close_async = getattr(self.req_channel, "close_async", None)
+                    if close_async is not None:
+                        await close_async()
+                    else:
+                        self.req_channel.close()
                     self.req_channel = None
 
                 # if eval_master finds a new master for us, self.connected
