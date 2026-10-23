@@ -95,6 +95,9 @@ def encrypted_requests(tmp_path):
             "optimization_order": [0, 1, 2],
             "master_sign_key_name": "master_sign",
             "id": "master",
+            "cluster_id": None,
+            "eauth_tokens.cache_driver": None,
+            "eauth_tokens.cluster_id": None,
         }
     )
 
@@ -1169,6 +1172,9 @@ def _git_pillar_base_config(tmp_path):
         "git_pillar_env": "",
         "git_pillar_fallback": "",
         "git_pillar_proxy": "",
+        "cluster_id": None,
+        "eauth_tokens.cache_driver": None,
+        "eauth_tokens.cluster_id": None,
     }
 
 
