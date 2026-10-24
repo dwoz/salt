@@ -136,7 +136,28 @@ def get_remote_client(
     auto_reconnect=False,
     listen=False,
 ):
-    """ """
+    """
+    Create a RemoteClient for remote CLI authentication.
+
+    The RemoteClient authenticates with the Salt master using AES encryption,
+    similar to how minions authenticate. Client keys are managed separately
+    from minion keys and must be manually accepted on the master.
+
+    :param str c_path: Path to the master config file
+    :param dict mopts: Master options dictionary (overrides config file)
+    :param bool skip_perm_errors: Skip permission errors when accessing files
+    :param IOLoop io_loop: Tornado IOLoop to use
+    :param bool auto_reconnect: Automatically reconnect on disconnect
+    :param bool listen: Start listening for events immediately
+
+    :return: Configured RemoteClient instance
+    :rtype: RemoteClient
+
+    .. code-block:: python
+
+        client = salt.client.get_remote_client()
+        ret = client.cmd('*', 'test.ping')
+    """
     if mopts:
         opts = mopts
     else:
@@ -1917,7 +1938,6 @@ class LocalClient:
             salt.utils.network.ip_bracket(self.opts["interface"]),
             str(self.opts["ret_port"]),
         )
-        log.error("WTF %s", self.opts.get("_role", "none"))
         with salt.channel.client.ReqChannel.factory(
             self.opts, crypt="clear", master_uri=master_uri
         ) as channel:
@@ -2173,7 +2193,6 @@ class RemoteClient(LocalClient):
             salt.utils.network.ip_bracket(self.opts["interface"]),
             str(self.opts["ret_port"]),
         )
-        log.error("WTF %s", self.opts.get("_role", "none"))
         with salt.channel.client.ReqChannel.factory(
             self.opts, crypt="aes", master_uri=master_uri
         ) as channel:
