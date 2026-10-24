@@ -495,6 +495,17 @@ class ReqServerChannel:
         # remove any trailing whitespace
         load["pub"] = load["pub"].strip()
 
+        # Determine if this is a client or minion authentication
+        # Clients will have role="client" in the auth payload
+        is_client = load.get("role") == "client"
+        if is_client:
+            keys_cache = "client_keys"
+            denied_cache = "client_denied_keys"
+            log.info("Client authentication request from %s", load["id"])
+        else:
+            keys_cache = "keys"
+            denied_cache = "denied_keys"
+
         # 0 is default which should be 'unlimited'
         if self.opts["max_minions"] > 0:
             # use the ConCache if enabled, else use the minion utils
@@ -551,15 +562,15 @@ class ReqServerChannel:
 
         # key will be a dict of str and state
         # state can be one of pending, rejected, accepted
-        key = self.cache.fetch("keys", load["id"])
+        key = self.cache.fetch(keys_cache, load["id"])
 
         # although keys should be always newline stripped in current state of auth.py
         # older salt versions  may have written pub-keys with trailing whitespace
         if key and "pub" in key:
             key["pub"] = key["pub"].strip()
 
-        # any number of keys can be denied for a given minion_id regardless of above
-        denied = self.cache.fetch("denied_keys", load["id"]) or []
+        # any number of keys can be denied for a given minion_id (or client_id) regardless of above
+        denied = self.cache.fetch(denied_cache, load["id"]) or []
 
         if self.opts["open_mode"]:
             # open mode is turned on, nuts to checks and overwrite whatever
@@ -603,7 +614,7 @@ class ReqServerChannel:
                 # put denied minion key into minions_denied
                 if load["pub"] not in denied:
                     denied.append(load["pub"])
-                    self.cache.store("denied_keys", load["id"], denied)
+                    self.cache.store(denied_cache, load["id"], denied)
 
                 if self.opts.get("auth_events") is True:
                     eload = {
@@ -633,13 +644,13 @@ class ReqServerChannel:
                     "New public key for %s rejected via autoreject_file", load["id"]
                 )
                 key = {"pub": load["pub"], "state": "rejected"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(keys_cache, load["id"], key)
                 key_act = "reject"
                 key_result = False
             elif not auto_sign:
                 log.info("New public key for %s placed in pending", load["id"])
                 key = {"pub": load["pub"], "state": "pending"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(keys_cache, load["id"], key)
                 key_act = "pend"
                 key_result = True
             else:
@@ -677,7 +688,7 @@ class ReqServerChannel:
                 # auto-rejected. Move the key file from the pending dir to the
                 # rejected dir.
                 key["state"] = "rejected"
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(keys_cache, load["id"], key)
                 log.info(
                     "Pending public key for %s rejected via autoreject_file",
                     load["id"],
@@ -718,7 +729,7 @@ class ReqServerChannel:
                     # put denied minion key into minions_denied
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
-                        self.cache.store("denied_keys", load["id"], denied)
+                        self.cache.store(denied_cache, load["id"], denied)
                     if self.opts.get("auth_events") is True:
                         eload = {
                             "result": False,
@@ -786,7 +797,7 @@ class ReqServerChannel:
                     # put denied minion key into minions_denied
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
-                        self.cache.store("denied_keys", load["id"], denied)
+                        self.cache.store(denied_cache, load["id"], denied)
                     if self.opts.get("auth_events") is True:
                         eload = {
                             "result": False,
@@ -839,11 +850,11 @@ class ReqServerChannel:
         # which implies we accept any key from a minion.
         if (not key or key["state"] != "accepted") and not self.opts["open_mode"]:
             key = {"pub": load["pub"], "state": "accepted"}
-            self.cache.store("keys", load["id"], key)
+            self.cache.store(keys_cache, load["id"], key)
         elif self.opts["open_mode"]:
             if load["pub"] and (not key or load["pub"] != key["pub"]):
                 key = {"pub": load["pub"], "state": "accepted"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(keys_cache, load["id"], key)
             elif not load["pub"]:
                 log.error("Public key is empty: %s", load["id"])
                 if sign_messages:
