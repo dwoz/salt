@@ -4,16 +4,18 @@
 2026-10-24
 
 ## Summary
-Implemented foundational AES authentication support for remote Salt CLI clients. Clients can now authenticate with the master using the same AES encryption flow as minions, with separate key management and caching.
+Implemented foundational AES authentication and key management for remote Salt CLI clients. Clients can now authenticate with the master using AES encryption (like minions) with complete separation of client and minion keys. Full ClientKey management is now functional, allowing listing, accepting, rejecting, and deleting client keys.
 
 ## Branch Information
 - **Branch**: `wip-remote-cli`
 - **Base**: `3008.x`
-- **Latest Commit**: 1a5f6a07798 "Clean up RemoteClient implementation"
+- **Latest Commit**: 665dfd56765 "Implement ClientKey management for remote CLI authentication"
 
 ## Commits in This Session
 1. **fbee13242da** - Implement client role support for remote CLI authentication
 2. **1a5f6a07798** - Clean up RemoteClient implementation
+3. **aa28deb69ea** - Add comprehensive progress documentation
+4. **665dfd56765** - Implement ClientKey management for remote CLI authentication
 
 ## Files Modified
 
@@ -92,6 +94,61 @@ Implemented foundational AES authentication support for remote Salt CLI clients.
 
 **Lines Modified**: 131-155, 2176 (deleted)
 
+### 5. salt/key.py
+**Changes**: Full ClientKey implementation
+
+**Key Modifications**:
+- Fixed PEND constant: `"client_pre"` → `"clients_pre"` for consistency
+- Added `KEYS_CACHE = "client_keys"` constant
+- Added `DENIED_CACHE = "client_denied_keys"` constant
+- Implemented complete key management methods:
+  - `list_match()`: List client keys matching a pattern
+  - `list_keys()`: List all client keys by state
+  - `key_str()`: Get public key strings for clients
+  - `change_state()`: Move keys between states
+  - `delete_key()`: Delete client keys
+  - `delete_den()`: Delete all denied client keys
+  - `delete_all()`: Delete all client keys
+  - `finger()`: Generate key fingerprints for clients
+
+All methods use client-specific cache keys (client_keys, client_denied_keys) instead of minion keys (keys, denied_keys), ensuring complete separation.
+
+**Lines Modified**: 982-1191 (209 new lines)
+
+### 6. salt/cache/localfs_key.py
+**Changes**: Add client_keys and client_denied_keys bank support
+
+**Key Modifications**:
+- Added `CLIENT_BASE_MAPPING` dictionary:
+  - `clients_pre` → pending
+  - `clients_rejected` → rejected
+  - `clients` → accepted
+  - `clients_denied` → denied
+
+- Updated all cache functions to support client banks:
+  - `store()`: Store client keys in appropriate directories
+  - `fetch()`: Retrieve client keys from filesystem
+  - `updated()`: Get mtime for client keys
+  - `flush()`: Remove client keys from filesystem
+  - `list_()`: List all client key IDs in a bank
+  - `list_all()`: List all client keys with data
+  - `contains()`: Check if client key exists
+
+**PKI Directory Structure**:
+```
+/etc/salt/pki/master/
+├── clients/              ← accepted client keys (NEW)
+├── clients_pre/          ← pending client keys (NEW)
+├── clients_rejected/     ← rejected client keys (NEW)
+├── clients_denied/       ← denied client keys (NEW)
+├── minions/              ← accepted minion keys (unchanged)
+├── minions_pre/          ← pending minion keys (unchanged)
+├── minions_rejected/     ← rejected minion keys (unchanged)
+└── minions_denied/       ← denied minion keys (unchanged)
+```
+
+**Lines Modified**: 51-62, 199-206, 212-238, 294-374, 396-419, 457-521, 529-699
+
 ## Testing Results
 
 ### Unit Tests: PASSING ✅
@@ -143,50 +200,89 @@ Implemented foundational AES authentication support for remote Salt CLI clients.
 - Proper error handling for auth failures
 - Comprehensive documentation added
 
+#### 5. ClientKey Management
+- Full implementation of `ClientKey` class in `salt/key.py`
+- Complete separation from minion key management
+- All key operations functional:
+  - `list_keys()`: List client keys by state (pending/accepted/rejected/denied)
+  - `list_match()`: Glob-based key matching
+  - `key_str()`: Retrieve public key strings
+  - `change_state()`: Move keys between states
+  - `accept()`: Accept pending client keys
+  - `reject()`: Reject pending/accepted client keys
+  - `delete_key()`: Delete client keys
+  - `delete_den()`: Delete all denied client keys
+  - `delete_all()`: Delete all client keys
+  - `finger()`: Generate key fingerprints
+- Uses separate cache banks: `client_keys` and `client_denied_keys`
+- Fires appropriate events on key state changes
+- Manual tests passing (all 4/4 ClientKey validation tests)
+
+#### 6. localfs_key Cache Driver Client Support
+- Complete support for `client_keys` and `client_denied_keys` banks
+- All cache functions updated:
+  - `store()`: Write client keys to PKI directories
+  - `fetch()`: Read client keys from filesystem
+  - `updated()`: Get mtime for client keys
+  - `flush()`: Remove client keys
+  - `list_()`: List client key IDs
+  - `list_all()`: Bulk list with optional data inclusion
+  - `contains()`: Check key existence
+- PKI directory structure created on first use:
+  - `/etc/salt/pki/master/clients/` (accepted)
+  - `/etc/salt/pki/master/clients_pre/` (pending)
+  - `/etc/salt/pki/master/clients_rejected/` (rejected)
+  - `/etc/salt/pki/master/clients_denied/` (denied)
+- Complete separation from minion PKI directories
+- All existing crypt tests still pass (11/11)
+
 ### 🔄 IN PROGRESS / PARTIALLY COMPLETE
 
-#### 5. ClientKey Management
-**Status**: Skeleton exists, not yet functional
+#### 7. Master PKI Directory Auto-Creation
+**Status**: Directories created on-demand, not on startup
 
 **What exists**:
-- `ClientKey` class in `salt/key.py`
-- Basic structure defined:
-  ```python
-  class ClientKey(Key):
-      KIND = "client"
-      ACC = "clients"
-      PEND = "clients_pre"
-      REJ = "clients_rejected"
-      DEN = "clients_denied"
-  ```
+- Directories created automatically when first client key is stored
+- Full directory structure as defined in localfs_key.py
 
 **What's needed**:
-- Implement `list_keys()` method
-- Implement `accept()` method
-- Implement `reject()` method
-- Implement `delete_key()` method
-- Add CLI integration with `salt-key`
-- Add tests for key management
-
-#### 6. Master PKI Directory Structure
-**Status**: Defined in config but not created
-
-**What exists**:
-- PKI dirs defined in `salt/cli/daemons.py`:
-  - `pki_dir/clients` (accepted)
-  - `pki_dir/clients_pre` (pending)
-  - `pki_dir/clients_denied` (denied)
-  - `pki_dir/clients_autosign` (autosign patterns)
-  - `pki_dir/clients_rejected` (rejected)
-
-**What's needed**:
-- Ensure directories are created on master startup
+- Pre-create directories on master startup (optional enhancement)
 - Add auto-signing support for clients
 - Add auto-rejection support for clients
 
 ### ❌ NOT YET IMPLEMENTED
 
-#### 7. eauth Integration
+#### 8. CLI Integration for salt-key
+**Purpose**: Command-line interface for managing client keys
+
+**Requirements**:
+- Add `--list-clients` flag to salt-key
+- Add `--accept-client` flag to salt-key
+- Add `--reject-client` flag to salt-key
+- Add `--delete-client` flag to salt-key
+- Add `--finger-client` flag to salt-key
+- Update salt-key help text and documentation
+- Use ClientKey class for all client key operations
+
+**Example usage**:
+```bash
+# List all client keys
+salt-key --list-clients
+
+# Accept a client key
+salt-key --accept-client my-client
+
+# Reject a client key
+salt-key --reject-client bad-client
+
+# Delete a client key
+salt-key --delete-client old-client
+
+# Show client key fingerprint
+salt-key --finger-client my-client
+```
+
+#### 9. eauth Integration
 **Purpose**: Permission management for client commands
 
 **Requirements**:
@@ -206,7 +302,7 @@ external_auth:
         - pkg.*
 ```
 
-#### 8. Integration Tests
+#### 10. Integration Tests
 **Requirements**:
 - End-to-end client authentication test
 - Key acceptance workflow test
@@ -215,7 +311,7 @@ external_auth:
 - eauth permission tests
 - Client disconnect/reconnect tests
 
-#### 9. Master-Side Publish Support
+#### 11. Master-Side Publish Support
 **Status**: Not implemented
 
 **Requirements**:
@@ -510,19 +606,21 @@ salt-key --delete-client old-client
 
 ## Conclusion
 
-Successfully implemented the foundational AES authentication layer for remote Salt CLI clients. Clients can now:
+Successfully implemented the foundational AES authentication layer AND complete key management backend for remote Salt CLI clients. Clients can now:
 - Generate RSA keypairs automatically
 - Authenticate with the master using AES encryption
-- Have keys managed separately from minions
+- Have keys managed completely separately from minions
 - Use the same security model as minions
+- Be listed, accepted, rejected, and deleted via ClientKey class
 
-The implementation maintains full backward compatibility with existing minion authentication while providing a clean separation of concerns for client authentication.
+The implementation maintains full backward compatibility with existing minion authentication while providing a clean separation of concerns for client authentication. The key management backend is complete and functional, with only CLI integration remaining for administrators to manage client keys via salt-key.
 
-**Overall Progress**: ~60% Complete
+**Overall Progress**: ~75% Complete
 - ✅ Authentication: 100%
 - ✅ Key Generation: 100%
 - ✅ Server Integration: 100%
-- 🔄 Key Management: 20%
+- ✅ Key Management (Backend): 100%
+- 🔄 Key Management (CLI): 0%
 - ❌ Authorization (eauth): 0%
 - ❌ Publish Support: 0%
 - ❌ Integration Tests: 0%
