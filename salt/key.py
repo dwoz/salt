@@ -979,11 +979,234 @@ class Key:
     def __exit__(self, *args):
         self.event.destroy()
 
+
 class ClientKey(Key):
+    """
+    Manage client keys on the master.
+
+    Client keys are separate from minion keys and use different cache banks:
+    - client_keys: for accepted/pending/rejected client public keys
+    - client_denied_keys: for denied client public keys
+
+    This mirrors the minion key management but with separate storage.
+    """
 
     KIND = "client"
 
     ACC = "clients"
-    PEND = "client_pre"
-    REJ = "client_rejected"
-    DEN = "client_denied"
+    PEND = "clients_pre"
+    REJ = "clients_rejected"
+    DEN = "clients_denied"
+
+    # Cache keys for client authentication
+    KEYS_CACHE = "client_keys"
+    DENIED_CACHE = "client_denied_keys"
+
+    def list_match(self, match):
+        """
+        Accept a glob which to match the of a key and return the key's location
+        """
+        ret = {}
+        if isinstance(match, str):
+            match = match.split(",")
+
+        for name in match:
+            key = self.cache.fetch(self.KEYS_CACHE, name)
+            if key:
+                try:
+                    ret.setdefault(self.STATE_MAP[key["state"]], [])
+                    ret[self.STATE_MAP[key["state"]]].append(name)
+                except KeyError:
+                    log.error("unexpected key state returned for %s: %s", name, key)
+
+            denied_keys = self.cache.fetch(self.DENIED_CACHE, name)
+            if denied_keys:
+                ret.setdefault(self.DEN, [])
+                ret[self.DEN].append(name)
+        return ret
+
+    def list_keys(self):
+        """
+        Return a dict of managed client keys and what the key status are
+        """
+        ret = {
+            "clients_pre": [],
+            "clients_rejected": [],
+            "clients": [],
+            "clients_denied": [],
+        }
+        for id_ in salt.utils.data.sorted_ignorecase(self.cache.list(self.KEYS_CACHE)):
+            key = self.cache.fetch(self.KEYS_CACHE, id_)
+
+            if key["state"] == "accepted":
+                ret["clients"].append(id_)
+            elif key["state"] == "pending":
+                ret["clients_pre"].append(id_)
+            elif key["state"] == "rejected":
+                ret["clients_rejected"].append(id_)
+
+        for id_ in salt.utils.data.sorted_ignorecase(
+            self.cache.list(self.DENIED_CACHE)
+        ):
+            ret["clients_denied"].append(id_)
+        return ret
+
+    def key_str(self, match):
+        """
+        Return the specified public key or keys based on a glob
+        """
+        ret = {}
+        for status, keys in self.glob_match(match).items():
+            ret[status] = {}
+            for key in salt.utils.data.sorted_ignorecase(keys):
+                if status == self.DEN:
+                    denied = self.cache.fetch(self.DENIED_CACHE, key)
+                    if len(denied) == 1:
+                        ret[status][key] = denied[0]
+                    else:
+                        ret[status][key] = denied
+                else:
+                    ret[status][key] = self.cache.fetch(self.KEYS_CACHE, key).get("pub")
+        return ret
+
+    def change_state(
+        self,
+        from_state,
+        to_state,
+        match=None,
+        match_dict=None,
+        include_rejected=False,
+        include_denied=False,
+        include_accepted=False,
+    ):
+        """
+        Change client key state from one state to another
+        """
+        if match is not None:
+            matches = self.glob_match(match)
+        elif match_dict is not None and isinstance(match_dict, dict):
+            matches = match_dict
+        else:
+            matches = {}
+        keydirs = [from_state]
+        if include_rejected:
+            keydirs.append(self.REJ)
+        if include_denied:
+            keydirs.append(self.DEN)
+        if include_accepted:
+            keydirs.append(self.ACC)
+
+        invalid_keys = []
+        for keydir in keydirs:
+            for keyname in matches.get(keydir, []):
+                if to_state == self.DEN:
+                    key = self.cache.fetch(self.KEYS_CACHE, keyname)
+                    self.cache.flush(self.KEYS_CACHE, keyname)
+                    self.cache.store(self.DENIED_CACHE, keyname, [key["pub"]])
+                else:
+                    if keydir == self.DEN:
+                        # denied keys can be many per id, but we assume first for legacy
+                        pub = self.cache.fetch(self.DENIED_CACHE, keyname)[0]
+                        self.cache.flush(self.DENIED_CACHE, keyname)
+                        key = {"pub": pub}
+                    else:
+                        key = self.cache.fetch(self.KEYS_CACHE, keyname)
+
+                    try:
+                        salt.crypt.PublicKey.from_str(key["pub"])
+                    except salt.exceptions.InvalidKeyError:
+                        log.error("Invalid RSA public key: %s", keyname)
+                        invalid_keys.append(keyname)
+                        continue
+
+                    key["state"] = self.DIR_MAP[to_state]
+                    self.cache.store(self.KEYS_CACHE, keyname, key)
+
+                eload = {"result": True, "act": self.DIR_MAP[to_state], "id": keyname}
+                self.event.fire_event(eload, salt.utils.event.tagify(prefix="key"))
+
+        for key in invalid_keys:
+            sys.stderr.write(f"Unable to accept invalid key for {key}.\n")
+
+        return self.glob_match(match) if match is not None else self.dict_match(matches)
+
+    def delete_key(
+        self, match=None, match_dict=None, preserve_minions=None, revoke_auth=False
+    ):
+        """
+        Delete client public keys. If "match" is passed, it is evaluated as a glob.
+        Pre-gathered matches can also be passed via "match_dict".
+
+        Note: preserve_minions and revoke_auth are ignored for client keys
+        """
+        if match is not None:
+            matches = self.glob_match(match)
+        elif match_dict is not None and isinstance(match_dict, dict):
+            matches = match_dict
+        else:
+            matches = {}
+
+        for status, keys in matches.items():
+            for key in keys:
+                try:
+                    if status == "clients_denied":
+                        self.cache.flush(self.DENIED_CACHE, key)
+                    else:
+                        self.cache.flush(self.KEYS_CACHE, key)
+                    eload = {"result": True, "act": "delete", "id": key}
+                    self.event.fire_event(eload, salt.utils.event.tagify(prefix="key"))
+                except OSError:
+                    pass
+
+        return self.glob_match(match) if match is not None else self.dict_match(matches)
+
+    def delete_den(self):
+        """
+        Delete all denied client keys
+        """
+        self.cache.flush(self.DENIED_CACHE)
+        return self.list_keys()
+
+    def delete_all(self):
+        """
+        Delete all client keys
+        """
+        for status, keys in self.list_keys().items():
+            for key in keys:
+                try:
+                    self.cache.flush(self.KEYS_CACHE, key)
+                    eload = {"result": True, "act": "delete", "id": key}
+                    self.event.fire_event(eload, salt.utils.event.tagify(prefix="key"))
+                except OSError:
+                    pass
+        return self.list_keys()
+
+    def finger(self, match, hash_type=None):
+        """
+        Return the fingerprint for a specified client key
+        """
+        if hash_type is None:
+            hash_type = self.opts["hash_type"]
+
+        matches = self.glob_match(match, full=True)
+        ret = {}
+        for status, keys in matches.items():
+            ret[status] = {}
+            for key in keys:
+                if status == "clients_denied":
+                    denied = self.cache.fetch(self.DENIED_CACHE, key)
+                    for den in denied:
+                        finger = salt.utils.crypt.pem_finger(
+                            key=den.encode("utf-8"), sum_type=hash_type
+                        )
+                        ret[status].setdefault(key, []).append(finger)
+                    # brush over some dumb backcompat with how denied keys work
+                    # with the legacy system
+                    if len(denied) == 1:
+                        ret[status][key] = ret[status][key][0]
+                else:
+                    pub = self.cache.fetch(self.KEYS_CACHE, key)["pub"].encode("utf-8")
+                    ret[status][key] = salt.utils.crypt.pem_finger(
+                        key=pub, sum_type=hash_type
+                    )
+        return ret
