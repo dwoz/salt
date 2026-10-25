@@ -55,8 +55,10 @@ class KeyCLI:
         # instantiate the key object for masterless mode
         if not opts.get("eauth"):
             self.key = get_key(opts)
+            self.client_key = ClientKey(opts)
         else:
             self.key = Key
+            self.client_key = ClientKey
 
         self.auth = {}
 
@@ -77,6 +79,12 @@ class KeyCLI:
             "delete_all",
             "finger",
             "finger_all",
+            "list_clients",
+            "accept_client",
+            "reject_client",
+            "print_client",
+            "delete_client",
+            "finger_client",
             "list_all",
         ):  # last is default
             if self.opts[cmd]:
@@ -85,6 +93,8 @@ class KeyCLI:
         if not cmd.startswith("gen_"):
             if cmd == "list_all":
                 self.opts["match"] = "all"
+            elif cmd == "list_clients":
+                self.opts["match"] = self.opts[cmd] if self.opts[cmd] else "all"
             elif cmd.endswith("_all"):
                 self.opts["match"] = "*"
             else:
@@ -172,21 +182,39 @@ class KeyCLI:
 
     def _run_cmd(self, cmd, args=None):
         if not self.opts.get("eauth"):
-            cmd = self.CLI_KEY_MAP.get(cmd, cmd)
-            fun = getattr(self.key, cmd)
+            # Detect if this is a client command
+            if cmd.endswith("_client"):
+                # Strip _client suffix and route to ClientKey
+                base_cmd = cmd[:-7]  # Remove "_client"
+                mapped_cmd = self.CLI_KEY_MAP.get(base_cmd, base_cmd)
+                fun = getattr(self.client_key, mapped_cmd)
+            else:
+                # Regular minion command, route to Key
+                mapped_cmd = self.CLI_KEY_MAP.get(cmd, cmd)
+                fun = getattr(self.key, mapped_cmd)
+
             args, kwargs = self._get_args_kwargs(fun, args)
             ret = fun(*args, **kwargs)
             if (
                 isinstance(ret, dict)
                 and "local" in ret
-                and cmd not in ("finger", "finger_all")
+                and mapped_cmd not in ("finger", "finger_all")
             ):
                 ret.pop("local", None)
             return ret
 
-        if cmd in ("accept", "reject", "delete") and args is None:
-            args = self.opts.get("match_dict", {}).get("minions")
-        fstr = f"key.{cmd}"
+        # Remote execution with eauth
+        if cmd.endswith("_client"):
+            # Client command for remote execution
+            if cmd[:-7] in ("accept", "reject", "delete") and args is None:
+                args = self.opts.get("match_dict", {}).get("clients")
+            fstr = f"key.{cmd}"
+        else:
+            # Regular minion command for remote execution
+            if cmd in ("accept", "reject", "delete") and args is None:
+                args = self.opts.get("match_dict", {}).get("minions")
+            fstr = f"key.{cmd}"
+
         fun = self.client.functions[fstr]
         args, kwargs = self._get_args_kwargs(fun, args)
 
@@ -206,7 +234,7 @@ class KeyCLI:
         if (
             isinstance(ret, dict)
             and "local" in ret
-            and cmd not in ("finger", "finger_all")
+            and fstr not in ("key.finger", "key.finger_all", "key.finger_client")
         ):
             ret.pop("local", None)
 
@@ -216,18 +244,22 @@ class KeyCLI:
         if cmd.startswith("delete"):
             return ret
 
+        # Use appropriate key constants based on command type
+        key_obj = self.client_key if cmd.endswith("_client") else self.key
+
         keys = {}
-        if self.key.PEND in ret:
-            keys[self.key.PEND] = ret[self.key.PEND]
-        if self.opts["include_accepted"] and bool(ret.get(self.key.ACC)):
-            keys[self.key.ACC] = ret[self.key.ACC]
-        if self.opts["include_rejected"] and bool(ret.get(self.key.REJ)):
-            keys[self.key.REJ] = ret[self.key.REJ]
-        if self.opts["include_denied"] and bool(ret.get(self.key.DEN)):
-            keys[self.key.DEN] = ret[self.key.DEN]
+        if key_obj.PEND in ret:
+            keys[key_obj.PEND] = ret[key_obj.PEND]
+        if self.opts["include_accepted"] and bool(ret.get(key_obj.ACC)):
+            keys[key_obj.ACC] = ret[key_obj.ACC]
+        if self.opts["include_rejected"] and bool(ret.get(key_obj.REJ)):
+            keys[key_obj.REJ] = ret[key_obj.REJ]
+        if self.opts["include_denied"] and bool(ret.get(key_obj.DEN)):
+            keys[key_obj.DEN] = ret[key_obj.DEN]
         return keys
 
     def _print_no_match(self, cmd, match):
+        key_type = "client" if cmd.endswith("_client") else "minion"
         statuses = ["unaccepted"]
         if self.opts["include_accepted"]:
             statuses.append("accepted")
@@ -239,7 +271,7 @@ class KeyCLI:
             stat_str = statuses[0]
         else:
             stat_str = "{} or {}".format(", ".join(statuses[:-1]), statuses[-1])
-        msg = f"The key glob '{match}' does not match any {stat_str} keys."
+        msg = f"The key glob '{match}' does not match any {stat_str} {key_type} keys."
         print(msg)
 
     def run(self):
@@ -252,8 +284,12 @@ class KeyCLI:
         veri = None
         ret = None
         try:
-            if cmd in ("accept", "reject", "delete"):
-                ret = self._run_cmd("glob_match")
+            # Handle both minion and client commands
+            is_client_cmd = cmd.endswith("_client")
+            base_cmd = cmd[:-7] if is_client_cmd else cmd
+
+            if base_cmd in ("accept", "reject", "delete"):
+                ret = self._run_cmd("glob_match" + ("_client" if is_client_cmd else ""))
                 if not isinstance(ret, dict):
                     salt.output.display_output(ret, "key", opts=self.opts)
                     return ret
@@ -262,13 +298,15 @@ class KeyCLI:
                     self._print_no_match(cmd, self.opts["match"])
                     return
                 print(
-                    "The following keys are going to be {}ed:".format(cmd.rstrip("e"))
+                    "The following keys are going to be {}ed:".format(
+                        base_cmd.rstrip("e")
+                    )
                 )
                 salt.output.display_output(ret, "key", opts=self.opts)
 
                 if not self.opts.get("yes", False):
                     try:
-                        if cmd.startswith("delete"):
+                        if base_cmd.startswith("delete"):
                             veri = input("Proceed? [N/y] ")
                             if not veri:
                                 veri = "n"
@@ -285,14 +323,15 @@ class KeyCLI:
 
             if veri is None or veri.lower().startswith("y"):
                 ret = self._run_cmd(cmd)
-                if cmd in ("accept", "reject", "delete"):
-                    if cmd == "delete":
+                if base_cmd in ("accept", "reject", "delete"):
+                    if base_cmd == "delete":
                         ret = list_ret
-                    for minions in ret.values():
-                        for minion in minions:
+                    key_type = "client" if is_client_cmd else "minion"
+                    for keys_group in ret.values():
+                        for key_id in keys_group:
                             print(
-                                "Key for minion {} {}ed.".format(
-                                    minion, cmd.rstrip("e")
+                                "Key for {} {} {}ed.".format(
+                                    key_type, key_id, base_cmd.rstrip("e")
                                 )
                             )
                 elif isinstance(ret, dict):
@@ -1180,6 +1219,44 @@ class ClientKey(Key):
                 except OSError:
                     pass
         return self.list_keys()
+
+    def local_keys(self):
+        """
+        Return a dict of local keys (empty for clients as they don't have local keys)
+        """
+        return {}
+
+    def list_status(self, match):
+        """
+        Return a dict of managed client keys under a named status
+        """
+        ret = self.all_keys()
+        if match.startswith("acc"):
+            return {
+                "clients": salt.utils.data.sorted_ignorecase(ret.get("clients", []))
+            }
+        elif match.startswith("pre") or match.startswith("un"):
+            return {
+                "clients_pre": salt.utils.data.sorted_ignorecase(
+                    ret.get("clients_pre", [])
+                )
+            }
+        elif match.startswith("rej"):
+            return {
+                "clients_rejected": salt.utils.data.sorted_ignorecase(
+                    ret.get("clients_rejected", [])
+                )
+            }
+        elif match.startswith("den"):
+            return {
+                "clients_denied": salt.utils.data.sorted_ignorecase(
+                    ret.get("clients_denied", [])
+                )
+            }
+        elif match.startswith("all"):
+            return ret
+        # this should never be reached
+        return {}
 
     def finger(self, match, hash_type=None):
         """
