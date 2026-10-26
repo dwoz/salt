@@ -1037,6 +1037,27 @@ class ClientKey(Key):
     REJ = "clients_rejected"
     DEN = "clients_denied"
 
+    # Override state maps for client-specific directories
+    STATE_MAP = {
+        "accepted": "clients",
+        "rejected": "clients_rejected",
+        "pending": "clients_pre",
+        "denied": "clients_denied",
+    }
+    DIR_MAP = {
+        "clients": "accepted",
+        "clients_rejected": "rejected",
+        "clients_pre": "pending",
+        "clients_denied": "denied",
+    }
+
+    ACT_MAP = {
+        "clients": "accept",
+        "clients_rejected": "reject",
+        "clients_pre": "pend",
+        "clients_denied": "denied",
+    }
+
     # Cache keys for client authentication
     KEYS_CACHE = "client_keys"
     DENIED_CACHE = "client_denied_keys"
@@ -1197,7 +1218,8 @@ class ClientKey(Key):
                 except OSError:
                     pass
 
-        return self.glob_match(match) if match is not None else self.dict_match(matches)
+        # Return the original matches (keys that were deleted), not current state
+        return matches
 
     def delete_den(self):
         """
