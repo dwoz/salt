@@ -23,7 +23,6 @@ class TestAdministratorOnboarding:
     4. Client authenticates and executes first command
     """
 
-    @pytest.mark.skip(reason="Requires full master setup - comprehensive scenario")
     def test_admin_onboarding_workflow(self, salt_master):
         """Test complete administrator onboarding workflow."""
         # Step 1: Generate client keys (would be done on admin workstation)
@@ -44,11 +43,17 @@ class TestAdministratorOnboarding:
             result = ckey.accept(admin_id)
             assert admin_id in result["clients"]
 
+            # Verify key is now in accepted state
+            all_keys = ckey.list_keys()
+            assert admin_id in all_keys["clients"]
+            assert admin_id not in all_keys["clients_pre"]
+
             # Step 4: Client would authenticate and execute commands
-            # (Future: test with RemoteClient)
+            # (Future enhancement: test actual command execution with RemoteClient)
 
             # Cleanup
-            ckey.delete_key(admin_id)
+            result = ckey.delete_key(admin_id)
+            assert admin_id in result["clients"]
 
 
 class TestMultipleClientsManagement:
@@ -274,14 +279,12 @@ class TestWheelModuleIntegration:
     4. Delete client via wheel
     """
 
-    @pytest.mark.skip(reason="Requires wheel authentication setup - out of scope")
-    def test_wheel_client_key_management(self, salt_master):
+    @pytest.mark.skip_if_not_root
+    @pytest.mark.slow_test
+    def test_wheel_client_key_management(
+        self, salt_master, wheel_client, auth_creds, salt_auto_account
+    ):
         """Test wheel module client key functions."""
-        import salt.wheel
-
-        # Use mutable copy of config to avoid ImmutableDict error
-        wheel = salt.wheel.WheelClient(dict(salt_master.config))
-
         # Setup: Create pending client
         client_id = "wheel-test-client"
         _, pub = salt.crypt.gen_keys(4096)
@@ -290,29 +293,57 @@ class TestWheelModuleIntegration:
             ckey.cache.store("client_keys", client_id, {"pub": pub, "state": "pending"})
 
         # Step 1: List via wheel
-        result = wheel.cmd_sync({"fun": "key.list_all_client"})
+        result = wheel_client.cmd_sync(
+            {"fun": "key.list_all_client", "print_event": False, **auth_creds}
+        )
+        assert result
+        assert "data" in result
+        assert result["data"]["success"] is True
+        assert result["data"]["user"] == salt_auto_account.username
         assert client_id in result["data"]["return"]["clients_pre"]
 
         # Step 2: Accept via wheel
-        result = wheel.cmd_sync({"fun": "key.accept_client", "arg": [client_id]})
+        result = wheel_client.cmd_sync(
+            {
+                "fun": "key.accept_client",
+                "arg": [client_id],
+                "print_event": False,
+                **auth_creds,
+            }
+        )
+        assert result["data"]["success"] is True
         assert client_id in result["data"]["return"]["clients"]
 
         # Step 3: Reject via wheel
-        result = wheel.cmd_sync(
+        result = wheel_client.cmd_sync(
             {
                 "fun": "key.reject_client",
                 "arg": [client_id],
                 "kwarg": {"include_accepted": True},
+                "print_event": False,
+                **auth_creds,
             }
         )
+        assert result["data"]["success"] is True
         assert client_id in result["data"]["return"]["clients_rejected"]
 
         # Step 4: Delete via wheel
-        result = wheel.cmd_sync({"fun": "key.delete_client", "arg": [client_id]})
+        result = wheel_client.cmd_sync(
+            {
+                "fun": "key.delete_client",
+                "arg": [client_id],
+                "print_event": False,
+                **auth_creds,
+            }
+        )
+        assert result["data"]["success"] is True
         assert client_id in result["data"]["return"]["clients_rejected"]
 
         # Verify deleted
-        result = wheel.cmd_sync({"fun": "key.list_all_client"})
+        result = wheel_client.cmd_sync(
+            {"fun": "key.list_all_client", "print_event": False, **auth_creds}
+        )
+        assert result["data"]["success"] is True
         assert client_id not in result["data"]["return"]["clients"]
         assert client_id not in result["data"]["return"]["clients_rejected"]
 
