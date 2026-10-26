@@ -1480,17 +1480,75 @@ class AESFuncs(TransportMethods):
         )
         return False
 
-    def verify_minion(self, id_, token):
+    def __verify_client(self, id_, token):
         """
-        Take a minion id and a string signed with the minion private key
-        The string needs to verify as 'salt' with the minion public key
+        Verify a remote CLI client using client authentication keys.
+        Similar to __verify_minion but uses client_keys cache bank.
 
-        :param str id_: A minion ID
-        :param str token: A string signed with the minion private key
+        :param str id_: A client ID
+        :param str token: A string signed with the client private key
 
         :rtype: bool
         :return: Boolean indicating whether or not the token can be verified.
         """
+        if not salt.utils.verify.valid_id(self.opts, id_):
+            return False
+
+        key = self.key_cache.fetch("client_keys", id_)
+
+        if not key:
+            log.error("Unexpectedly got no pub key for client %s", id_)
+            return False
+
+        try:
+            pub = salt.crypt.PublicKey.from_str(key["pub"])
+        except (OSError, KeyError):
+            log.warning(
+                "Salt client claiming to be %s attempted to communicate with "
+                "master, but key could not be read and verification was denied.",
+                id_,
+                exc_info=True,
+            )
+            return False
+        except (ValueError, IndexError, TypeError) as err:
+            log.error('Unable to load public key for client "%s": %s', id_, err)
+        try:
+            if pub.decrypt(token) == b"salt":
+                return True
+        except ValueError as err:
+            log.error("Unable to decrypt client token: %s", err)
+
+        log.error(
+            "Salt client claiming to be %s has attempted to communicate with "
+            "the master and could not be verified",
+            id_,
+        )
+        return False
+
+    def verify_minion(self, id_, token):
+        """
+        Take a minion/client id and a string signed with the private key.
+        The string needs to verify as 'salt' with the public key.
+
+        This method handles both minions and clients by checking which
+        cache bank contains the ID.
+
+        :param str id_: A minion or client ID
+        :param str token: A string signed with the minion/client private key
+
+        :rtype: bool
+        :return: Boolean indicating whether or not the token can be verified.
+        """
+        # Check if this is a client first (client authentication)
+        try:
+            client_key = self.key_cache.fetch("client_keys", id_)
+            if client_key:
+                return self.__verify_client(id_, token)
+        except Exception:  # pylint: disable=broad-except
+            # Not a client or client_keys cache not available, fall through to minion
+            pass
+
+        # Default to minion verification
         return self.__verify_minion(id_, token)
 
     def __verify_minion_publish(self, clear_load):
