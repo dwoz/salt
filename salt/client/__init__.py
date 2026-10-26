@@ -2128,11 +2128,16 @@ class RemoteClient(LocalClient):
         auto_reconnect=False,
         listen=False,
     ):
+        # If mopts not provided, load from config file
+        if mopts is None:
+            mopts = salt.config.client_config(c_path)
+
+        # Update with client-specific settings
         mopts.update(
-            id="client",
+            id=mopts.get("id", "client"),  # Use configured ID or default to "client"
             __role="client",
-            acceptance_wait_time=30,
-            acceptance_wait_time_max=30,
+            acceptance_wait_time=mopts.get("acceptance_wait_time", 30),
+            acceptance_wait_time_max=mopts.get("acceptance_wait_time_max", 30),
             verify_master_pubkey_sign=False,
             always_verify_signature=False,
         )
@@ -2244,29 +2249,13 @@ class RemoteClient(LocalClient):
     def __read_master_key(self):
         """
         Read in the rotating master authentication key
+
+        This method is not expected to be called for RemoteClient as it
+        uses client authentication keys instead of the master key.
         """
-        raise RuntimeError("Un-expected method call")
-        key_user = self.salt_user
-        if key_user == "root":
-            if self.opts.get("user", "root") != "root":
-                key_user = self.opts.get("user", "root")
-        if key_user.startswith("sudo_"):
-            key_user = self.opts.get("user", "root")
-        if salt.utils.platform.is_windows():
-            # The username may contain '\' if it is in Windows
-            # 'DOMAIN\username' format. Fix this for the keyfile path.
-            key_user = key_user.replace("\\", "_")
-        keyfile = os.path.join(self.opts["cachedir"], f".{key_user}_key")
-        try:
-            # Make sure all key parent directories are accessible
-            salt.utils.verify.check_path_traversal(
-                self.opts["cachedir"], key_user, self.skip_perm_errors
-            )
-            with salt.utils.files.fopen(keyfile, "r") as key:
-                return salt.utils.stringutils.to_unicode(key.read())
-        except (OSError, SaltClientError):
-            # Fall back to eauth
-            return ""
+        raise RuntimeError(
+            "Unexpected method call: RemoteClient should not read master key"
+        )
 
 
 class FunctionWrapper(dict):
