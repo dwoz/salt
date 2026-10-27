@@ -279,11 +279,7 @@ class TestWheelModuleIntegration:
     4. Delete client via wheel
     """
 
-    @pytest.mark.skip_if_not_root
-    @pytest.mark.slow_test
-    def test_wheel_client_key_management(
-        self, salt_master, wheel_client, auth_creds, salt_auto_account
-    ):
+    def test_wheel_client_key_management(self, salt_master, wheel_client):
         """Test wheel module client key functions."""
         # Setup: Create pending client
         client_id = "wheel-test-client"
@@ -292,6 +288,14 @@ class TestWheelModuleIntegration:
         with salt.key.ClientKey(salt_master.config) as ckey:
             ckey.cache.store("client_keys", client_id, {"pub": pub, "state": "pending"})
 
+        # Use wildcard auth (works with auto eauth wildcard config)
+        # This approach doesn't require actual user account creation
+        auth_creds = {
+            "username": "wheel-test-user",
+            "password": "test-password",
+            "eauth": "auto",
+        }
+
         # Step 1: List via wheel
         result = wheel_client.cmd_sync(
             {"fun": "key.list_all_client", "print_event": False, **auth_creds}
@@ -299,14 +303,14 @@ class TestWheelModuleIntegration:
         assert result
         assert "data" in result
         assert result["data"]["success"] is True
-        assert result["data"]["user"] == salt_auto_account.username
+        assert result["data"]["user"] == auth_creds["username"]
         assert client_id in result["data"]["return"]["clients_pre"]
 
         # Step 2: Accept via wheel
         result = wheel_client.cmd_sync(
             {
                 "fun": "key.accept_client",
-                "arg": [client_id],
+                "match": client_id,
                 "print_event": False,
                 **auth_creds,
             }
@@ -318,8 +322,8 @@ class TestWheelModuleIntegration:
         result = wheel_client.cmd_sync(
             {
                 "fun": "key.reject_client",
-                "arg": [client_id],
-                "kwarg": {"include_accepted": True},
+                "match": client_id,
+                "include_accepted": True,
                 "print_event": False,
                 **auth_creds,
             }
@@ -331,7 +335,7 @@ class TestWheelModuleIntegration:
         result = wheel_client.cmd_sync(
             {
                 "fun": "key.delete_client",
-                "arg": [client_id],
+                "match": client_id,
                 "print_event": False,
                 **auth_creds,
             }

@@ -175,23 +175,68 @@ class TestClientKeyManagement:
 class TestClientAuthentication:
     """Test client authentication flow."""
 
-    @pytest.mark.skip(reason="Requires full master/auth setup - placeholder for future")
-    def test_client_auth_handshake(self, salt_master, client_keys):
-        """Test client authentication handshake with role=client.
+    def test_client_auth_payload_structure(self, salt_master, client_keys):
+        """Test that client authentication payload contains role=client."""
+        import salt.config
+        import salt.crypt
 
-        This test would require full AsyncAuth setup.
-        Placeholder for comprehensive auth testing.
-        """
+        # Create client config with __role="client"
+        client_config = salt.config.client_config(
+            salt_master.config["conf_file"],
+            defaults=salt_master.config.copy(),
+        )
+        client_config["__role"] = "client"
+        client_config["id"] = client_keys["id"]
 
-    @pytest.mark.skip(
-        reason="Requires full master/client setup - placeholder for future"
-    )
-    def test_remote_client_execution(self, salt_master, client_keys):
-        """Test RemoteClient command execution after authentication.
+        # Create AsyncAuth instance
+        auth = salt.crypt.AsyncAuth(client_config)
 
-        This test would require full RemoteClient setup.
-        Placeholder for comprehensive execution testing.
-        """
+        # Generate authentication payload
+        payload = auth.minion_sign_in_payload()
+
+        # Verify payload structure
+        assert "cmd" in payload
+        assert payload["cmd"] == "_auth"
+        assert "id" in payload
+        assert payload["id"] == client_keys["id"]
+        assert "role" in payload
+        assert (
+            payload["role"] == "client"
+        ), "Client auth payload must have role='client'"
+        assert "nonce" in payload
+        assert "enc_algo" in payload
+        assert "sig_algo" in payload
+
+    def test_client_key_storage_separation(self, salt_master, client_keys):
+        """Test that client keys are stored separately from minion keys."""
+        import salt.cache
+
+        client_id = client_keys["id"]
+        client_pub = client_keys["pub"]
+
+        # Store client key
+        with salt.key.ClientKey(salt_master.config) as ckey:
+            ckey.cache.store(
+                "client_keys", client_id, {"pub": client_pub, "state": "accepted"}
+            )
+
+            # Verify client key is in client_keys bank
+            client_key = ckey.cache.fetch("client_keys", client_id)
+            assert client_key is not None
+            assert client_key["state"] == "accepted"
+
+            # Verify client key is NOT in keys bank (minion bank)
+            cache = salt.cache.Cache(salt_master.config, driver="localfs_key")
+            try:
+                minion_key = cache.fetch("keys", client_id)
+                # If we get here, the key shouldn't exist or should be None
+                assert minion_key is None or minion_key == {}
+            except (KeyError, OSError):
+                # Expected - client keys shouldn't be in minion keys bank
+                pass
+
+            # Cleanup
+            ckey.delete_key(client_id)
 
 
 class TestClientKeyManagementDict:

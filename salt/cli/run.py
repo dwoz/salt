@@ -28,7 +28,8 @@ class SaltRun(salt.utils.parsers.SaltRunOptionParser):
         # Run this here so SystemExit isn't raised anywhere else when
         # someone tries to use the runners via the python API
         try:
-            if check_user(self.config["user"]):
+            # Skip user check when using client auth (remote execution)
+            if self.config.get("client_auth") or check_user(self.config["user"]):
                 pr = salt.utils.profile.activate_profile(profiling_enabled)
                 try:
                     ret = runner.run(full_return=True)

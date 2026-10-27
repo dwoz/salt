@@ -48,12 +48,28 @@ class KeyCLI:
     }
 
     def __init__(self, opts):
+        # If client auth is enabled, load client config and set role
+        if opts.get("client_auth"):
+            import salt.config
+            import salt.syspaths as syspaths
+
+            # Load client config if not already loaded
+            if "__role" not in opts:
+                client_opts = salt.config.client_config(
+                    opts.get("conf_file", os.path.join(syspaths.CONFIG_DIR, "master"))
+                )
+                # Merge client config with provided opts
+                client_opts.update(opts)
+                opts = client_opts
+            # Set client role for PKI authentication
+            opts["__role"] = "client"
+
         self.opts = opts
         import salt.wheel
 
         self.client = salt.wheel.WheelClient(opts)
         # instantiate the key object for masterless mode
-        if not opts.get("eauth"):
+        if not opts.get("eauth") and not opts.get("client_auth"):
             self.key = get_key(opts)
             self.client_key = ClientKey(opts)
         else:
@@ -122,7 +138,11 @@ class KeyCLI:
         low = {}
         skip_perm_errors = self.opts["eauth"] != ""
 
-        if self.opts["eauth"]:
+        # Skip eauth credential collection for client auth
+        if self.opts.get("client_auth"):
+            # Client auth uses PKI keys, no credentials needed in low dict
+            pass
+        elif self.opts["eauth"]:
             if "token" in self.opts:
                 try:
                     with salt.utils.files.fopen(
@@ -181,7 +201,7 @@ class KeyCLI:
         return args, kwargs
 
     def _run_cmd(self, cmd, args=None):
-        if not self.opts.get("eauth"):
+        if not self.opts.get("eauth") and not self.opts.get("client_auth"):
             # Detect if this is a client command
             if cmd.endswith("_client"):
                 # Strip _client suffix and route to ClientKey
@@ -203,7 +223,7 @@ class KeyCLI:
                 ret.pop("local", None)
             return ret
 
-        # Remote execution with eauth
+        # Remote execution with eauth or client_auth
         if cmd.endswith("_client"):
             # Client command for remote execution
             if cmd[:-7] in ("accept", "reject", "delete") and args is None:

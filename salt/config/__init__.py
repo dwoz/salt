@@ -679,6 +679,11 @@ VALID_OPTS = immutabletypes.freeze(
         "client_acl_verify": bool,
         "publisher_acl": dict,
         "publisher_acl_blacklist": dict,
+        # Remote CLI client access control lists. Maps client IDs to allowed resources.
+        # Empty dict (default) means no restrictions. Each client can specify allowed
+        # runners, wheel functions, minions, and execution modules.
+        "client_acl": dict,
+        "client_acl_blacklist": dict,
         "sudo_acl": bool,
         "external_auth": dict,
         "token_expire": int,
@@ -1532,6 +1537,23 @@ DEFAULT_MASTER_OPTS = immutabletypes.freeze(
         "client_acl_verify": True,
         "publisher_acl": {},
         "publisher_acl_blacklist": {},
+        # Remote CLI client access control lists
+        # Maps client IDs (from public key filenames) to their allowed resources
+        # Empty dict means no restrictions (all clients have full access)
+        # Example:
+        #   client_acl:
+        #     admin-workstation:
+        #       runners: ['*']
+        #       wheel: ['*']
+        #       minions: ['*']
+        #       modules: ['*']
+        #     read-only-client:
+        #       runners: ['test.*']
+        #       wheel: []
+        #       minions: ['web-*']
+        #       modules: ['test.ping', 'grains.items']
+        "client_acl": {},
+        "client_acl_blacklist": {},
         "sudo_acl": False,
         "external_auth": {},
         "token_expire": 43200,

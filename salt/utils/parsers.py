@@ -2703,6 +2703,17 @@ class SaltKeyOptionParser(
             ),
         )
 
+        self.add_option(
+            "--client-auth",
+            default=False,
+            action="store_true",
+            help=(
+                "Use client key authentication for remote execution. Requires client "
+                "keys to be accepted by the Salt Master. This enables remote "
+                "key management using PKI-based authentication."
+            ),
+        )
+
         key_options_group = optparse.OptionGroup(self, "Key Generation Options")
         self.add_option_group(key_options_group)
         key_options_group.add_option(
@@ -3119,6 +3130,16 @@ class SaltRunOptionParser(
             default=False,
             action="store_true",
             help="Do not load grains.",
+        )
+        self.add_option(
+            "--client-auth",
+            default=False,
+            action="store_true",
+            help=(
+                "Use client key authentication instead of eauth. Requires client "
+                "keys to be accepted by the Salt Master. This enables remote "
+                "execution using PKI-based authentication."
+            ),
         )
         group = self.output_options_group = optparse.OptionGroup(
             self, "Output Options", "Configure your preferred output format."
