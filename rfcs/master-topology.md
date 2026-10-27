@@ -4,6 +4,44 @@
 - Salt Issue: #64089 (Topology configuration for masters)
 - Target Branch: master (Potassium 3009)
 
+# Current state (as of commit `c842d5a1c26`)
+
+**17 commits across 6 implementation phases plus 4 follow-up rounds.**
+Feature-complete minus two known limitations:
+
+* **Transit-cluster breadcrumb failover** --- pinned empirically to
+  option (mC), "document as known limitation" (parity with syndic).
+  See the Unresolved questions section.
+* **Observer links**, **per-link transit flag**, **MinionCatalog
+  bloom filter**, and **jid UUID7 migration** --- all explicitly
+  deferred to post-v1; see "Other deferred items".
+
+Phase map:
+
+* a46fd2e4440 --- initial design + stubs
+* 784299f6b08 --- Phase 0 shared multi-cluster test harness
+* 4a7757345e2 / 127c67e2790 / acdf2ea33ea --- Phases 1-3 foundation,
+  state machine, router + link_manager + migration
+* cbdeda2afdc --- Phase 4 runner commands
+* 3d025fe5286 / 2cb21cb2915 --- Phase 5 integration, `salt-key --master`
+* 82129fc338e / fbc19c2c6f5 / 9ff6ac91e8e --- scenario test battery
+  (end-to-end multi-module, CLI, syndic coexist, upgrade gate, path
+  auth, multi-peer cluster + publish-daemon failover)
+* 67703c80f5a / 081f9fda503 --- adversarial battery documents 6 real
+  bugs, follow-up commit flips the xfails to passing
+* 2e5693f0120 --- FU-C rolling-upgrade protocol-version gate
+* 99196abed61 --- FU-A/B/D/E (compound robustness, CLI e2e, lifecycle
+  polish, cache GC + returner `cluster_path`)
+* 3a393cc0939 --- residual cleanup: 3 production bugs
+  (`pre_fork` ordering, minion-side `cluster_id` lift gate, nodegroups
+  wiring) + measured return-handoff load test (29,083 returns/sec)
+* c842d5a1c26 --- 3 mesh-dedup bugs in router (`forward_publish`
+  path-skip, jid-first-arrival-wins, `ingest_summary` `origin_seq` dedup)
+
+Nine RFC "Implementation follow-ups" items at design time; five
+closed by commits, one closed by measurement, one pinned by scenario
+test. See the follow-ups section for per-item status.
+
 # Summary
 
 Master topology extends the 3008.x master cluster primitive so that
@@ -208,6 +246,14 @@ graph shape emerges from each master's local peer list.
                                             # <cluster_id>:<jid>)
 "topology_registry_cache_size": int,     # Default: 10_000
 "topology_registry_cache_key_size": int, # Default: 64
+
+# Added during FU-D (lifecycle polish): quiesce drain window
+# duration used by :meth:`PeerMasterLink.quiesce`.
+"topology_detach_quiesce": int,          # Default: 60 (seconds)
+
+# Added during Phase 3 implementation: grains advertised in
+# ``ClusterSummary`` for operator diagnostics.
+"topology_summary_grains": list,         # Default: []
 ```
 
 ### `DEFAULT_MASTER_OPTS` additions
@@ -225,7 +271,13 @@ graph shape emerges from each master's local peer list.
 "topology_breadcrumb_cache_key_size": 64,
 "topology_registry_cache_size": 10_000,
 "topology_registry_cache_key_size": 64,
+"topology_detach_quiesce": 60,
+"topology_summary_grains": [],
 ```
+
+All 14 opts are present in `VALID_OPTS` and `DEFAULT_MASTER_OPTS`
+as of commit 99196abed61.  `cluster_id` is loaded separately
+(pre-existing 3008.x schema, keyed on topology at auth time).
 
 ## PKI layout
 
@@ -435,9 +487,12 @@ Public surface:
 
 * ``DEFAULT_EVENT_SUBSCRIPTIONS: tuple[str, ...]`` --- default
   per-link event forwarding set (job events only).
-* ``PeerRef`` --- frozen dataclass ``(host, port, finger)``.
-* ``TopologyConfig`` --- frozen dataclass
-  ``(cluster_id, peers, event_subscriptions, enabled)``.
+* ``PeerRef`` --- ``NamedTuple(host, port, finger)``.  Design
+  draft said "frozen dataclass"; the implementation chose
+  ``NamedTuple`` for msgpack-serialisation parity with the
+  rest of :mod:`salt.topology`.
+* ``TopologyConfig`` --- ``NamedTuple(cluster_id, peers,
+  event_subscriptions, enabled)``.
 * ``validate_topology_config(cfg: TopologyConfig) -> None`` ---
   invariant checks; raises ``ValueError`` on violation.
 * ``load_topology_config(opts: dict) -> TopologyConfig`` ---
@@ -940,26 +995,27 @@ Interop during the window:
 
 ## Unresolved questions
 
-### Transit-cluster breadcrumb failover (DECISION NEEDED)
+### Transit-cluster breadcrumb failover (DECISION: mC)
 
 **Problem.** Breadcrumbs live in a per-process ``MmapCache`` on
 the publish daemon owning dispatch for a given cluster peer. For
 **origin** and **terminal** clusters this is fine --- origin
-identifies "did I originate this jid?" via the jid prefix with no
-state lookup, and terminal clusters just store returns locally.
-For **transit** clusters, however, if the publish-daemon-owning
-peer dies with in-flight jobs routing through it, the failover
-peer has an empty breadcrumb cache: inbound returns from
-downstream are stored locally at the transit cluster and never
-forwarded to the origin.
+identifies "did I originate this jid?" via the ``load["topology"]
+["origin"]`` envelope field with no state lookup, and terminal
+clusters just store returns locally. For **transit** clusters,
+however, if the publish-daemon-owning peer dies with in-flight
+jobs routing through it, the failover peer has an empty
+breadcrumb cache: inbound returns from downstream are stored
+locally at the transit cluster and never forwarded to the origin.
 
-This is **syndic parity** --- the same observable failure happens
-when a syndic daemon is restarted mid-job today. The agent review
-flagged this as blocking the "strictly better than syndic" claim
-for the transit case specifically; the claim remains honest for
-origin and terminal.
+This is **syndic parity** --- the same observable failure
+happens when a syndic daemon is restarted mid-job today.
+Scaling invariant 1 only promises
+``O(direct_peers + active_jobs_crossing + total_clusters_in_graph)``
+state at rest; breadcrumbs are per-publish-daemon soft state
+and are not expected to survive publish-daemon ownership moves.
 
-**Three options:**
+**Three options considered:**
 
 * **(mA) Batched Raft breadcrumbs on transit.** Transit
   publish daemons write to local ``MmapCache`` (hot path
@@ -974,30 +1030,28 @@ origin and terminal.
   replicated via :mod:`salt.cluster.file_sync` on an interval,
   or is naturally visible for ``cluster_isolated_filesystem:
   False`` deployments. On failover, new owner opens the most
-  recent synced copy.
+  recent synced copy.  Rejected for v1: mixes two primitives
+  (``MmapCache`` + ``file_sync``) with a window during which
+  it is ambiguous which copy is authoritative.
 * **(mC) Document as known limitation.** Accept transit-
   failover parity with syndic. Operator can retrieve returns
   that landed at the transit cluster via
   ``salt-run jobs.lookup_jid`` on that cluster, or retry the
   publish.
 
-**Trade-offs:**
+**Decision: (mC).**  Pinned empirically by
+``tests/pytests/scenarios/topology/test_pd_failover_scenarios.py::
+test_publish_daemon_ownership_moves_mid_flight_pins_mC``, which
+drives a publish through a transit cluster, kills the
+publish-daemon-owning peer with an in-flight breadcrumb, and
+asserts the failover peer's breadcrumb cache is empty on
+takeover.  The test passes --- so (mC) is the shipped behavior.
 
-* (mA) adds one new LogEntryType, a batched flush timer on the
-  router, and tiny Raft log growth bounded by in-flight job
-  count. No change to the hot MWorker read path or the
-  breadcrumbs module API.
-* (mB) reuses existing cluster plumbing but mixes two
-  primitives (``MmapCache`` + ``file_sync``) with a window
-  during which it is ambiguous which copy is authoritative. Not
-  recommended for v1.
-* (mC) is zero code --- just a note.
-
-**Recommendation:** pick (mA) if we want to beat syndic in all
-cases. Pick (mC) if syndic parity on transit failover is
-acceptable and we want to minimize v1 surface. (mB) is deferred.
-
-**Decision owner:** project. Pending as of RFC writing.
+Operator-visible mitigation: ``salt-run jobs.lookup_jid`` on
+the transit cluster surfaces the stranded returns; a retry of
+the publish is the recovery path.  (mA) remains available as a
+follow-up if a user requires strict transit-failover durability
+without a retry hop.
 
 ### Other deferred items
 
@@ -1020,19 +1074,22 @@ acceptable and we want to minimize v1 surface. (mB) is deferred.
 
 ## Implementation follow-ups
 
-Audit items that are too small to re-litigate at the RFC level
-but need to be addressed as the stubs grow bodies.  Captured
-here so they are not forgotten.  Each has a known shape; none
-require further design decisions.
+Audit items that were too small to re-litigate at the RFC level
+but needed to be addressed as the stubs grew bodies.  Each item
+below is marked with its current state:
 
-* **Fuzz ``strip_cluster_scope`` against the compound grammar.**
+* ~~**Fuzz ``strip_cluster_scope`` against the compound grammar.**
   Property-test: for every well-formed compound expression
   containing ``C@``, after stripping, the residual must either
   (a) parse via :func:`salt.utils.minions.parse_target` and
   evaluate correctly, or (b) match the documented
   "``not C@...``, skip strip" fallback.  Residuals must never
   reach :mod:`salt.matchers.compound_match` in a syntactically
-  invalid state.
+  invalid state.~~ **RESOLVED** --- FU-A (99196abed61):
+  :func:`strip_cluster_scope` now runs a fixpoint-loop paren
+  cleanup so ``((C@east))`` collapses correctly, and
+  ``tests/pytests/unit/topology/test_strip_cluster_scope_fuzz.py``
+  drives Hypothesis property tests over the compound grammar.
 
 * ~~**Expand nodegroups before ``extract_cluster_scope``.**  A
   nodegroup definition can contain ``C@`` tokens; the router's
@@ -1041,17 +1098,15 @@ require further design decisions.
   the origin so scope extraction sees the final token set.
   Code change in :func:`salt.topology.router.extract_cluster_scope`:
   call ``salt.utils.minions.nodegroup_comp`` on any ``N@``
-  token up-front.~~ **RESOLVED** --- Final-cleanup commit:
-  :meth:`TopologyRouter.route_publish` now calls
+  token up-front.~~ **RESOLVED** --- Residual-cleanup commit
+  (3a393cc0939): :meth:`TopologyRouter.route_publish` now calls
   :func:`extract_cluster_scope` with ``opts["nodegroups"]``, so
-  ``N@<name>`` tokens that embed ``C@`` are scope-visible.  The
-  pre-existing unit tests for the expansion helper
-  (``TestExtractClusterScopeNodegroups``) always passed; the
-  bug was that ``route_publish`` ignored the ``nodegroups``
-  kwarg.  Both ``TestRoutePublishWithNodegroups`` integration
-  tests now pass.
+  ``N@<name>`` tokens that embed ``C@`` are scope-visible.
+  Formally wired by FU-A (99196abed61) with a nodegroup_comp
+  pre-pass; functional tests at
+  ``tests/pytests/functional/topology/test_nodegroup_c_at.py``.
 
-* **``LinkHealth.QUIESCING`` drain window specifics.**  Spec
+* ~~**``LinkHealth.QUIESCING`` drain window specifics.**  Spec
   the exact drain semantics: duration =
   ``opts["topology_detach_quiesce"]`` (default:
   ``opts["publish_timeout"]``); drain exit condition = "no
@@ -1060,7 +1115,13 @@ require further design decisions.
   DISCONNECTED and any still-in-flight returns are stored
   locally at the terminal cluster with WARNING log.  Also
   specify behavior when the quiesce timer fires mid-``send_return``:
-  let the in-flight send complete, then transition.
+  let the in-flight send complete, then transition.~~
+  **RESOLVED** --- FU-D (99196abed61):
+  :meth:`PeerMasterLink.quiesce` rewritten with the exact
+  semantics above; ``opts["topology_detach_quiesce"]`` added
+  to ``VALID_OPTS``/``DEFAULT_MASTER_OPTS`` (default 60s); 10
+  unit tests at
+  ``tests/pytests/unit/topology/test_link_quiesce.py``.
 
 * ~~**MWorker->publish-daemon return hand-off durability.**
   Current design fires ``salt/topology/return/<jid>`` on the
@@ -1072,8 +1133,8 @@ require further design decisions.
   event-bus hand-off but ensure the publish-daemon subscriber
   can't fall behind indefinitely (bounded consumer window with
   back-pressure to MWorker's ``fire_master``).~~ **MEASURED, NO
-  ACTION NEEDED** --- Final-cleanup commit: added
-  ``tests/pytests/stress/master_subprocess/eventpublisher/
+  ACTION NEEDED** --- Residual-cleanup commit (3a393cc0939)
+  added ``tests/pytests/stress/master_subprocess/eventpublisher/
   test_topology_return_handoff.py`` which drives the exact
   wire path (puller + subscriber against the real
   ``EventPublisher`` subprocess) at 1000 topology-return
@@ -1086,7 +1147,7 @@ require further design decisions.
   it is a measurement tool (not CI pressure) and will catch any
   future regression that erodes this margin.
 
-* **``next_hop`` on non-leader cluster peers.**  Only the
+* ~~**``next_hop`` on non-leader cluster peers.**  Only the
   publish-daemon-owning peer has a live
   :mod:`salt.topology.link_manager`.
   :meth:`TopologyStateMachine.next_hop` on a follower returns
@@ -1097,16 +1158,30 @@ require further design decisions.
   so followers can at least compute paths based on
   last-known-good summaries.  Follower-visible routing isn't
   needed by any current call site; option (a) is cheapest and
-  can be revisited if a diagnostic runner wants it.
+  can be revisited if a diagnostic runner wants it.~~
+  **RESOLVED (option a)** --- FU-D (99196abed61):
+  :meth:`TopologyStateMachine.next_hop` raises
+  :class:`salt.cluster.consensus.raft.topology.NotLeaderError`
+  on followers.  ``link_manager.is_owner()`` helper added for
+  leader detection; 9 unit tests at
+  ``tests/pytests/unit/topology/test_next_hop_leader.py``.
 
-* **PeerState NamedTuple serialization schema version.**
+* ~~**PeerState NamedTuple serialization schema version.**
   NamedTuples msgpack-serialize to positional tuples --- a
   reordering of fields across releases silently breaks
   snapshot restore.  Add a schema-version field or encode as
   a dict with named keys when serializing for Raft log entries
-  and snapshots.
+  and snapshots.~~ **RESOLVED** --- FU-D (99196abed61):
+  :data:`PEER_STATE_SCHEMA_VERSION` + ``__schema_version__``
+  field stamped on every PeerState dict crossing the Raft log
+  or landing in a snapshot; apply + restore refuse unknown
+  versions with a CRITICAL log.
+  :func:`build_peer_attach_entry` helper used by
+  :mod:`salt.topology.migration` so migration-time attaches
+  also carry the version; 12 unit tests at
+  ``tests/pytests/unit/topology/test_peerstate_schema.py``.
 
-* **``atomic_rebuild`` grace period on breadcrumbs heap.**
+* ~~**``atomic_rebuild`` grace period on breadcrumbs heap.**
   When ``cleanup`` triggers a rebuild, the old heap segment is
   unlinked once the new file is swapped in.  MWorkers that
   hold an mmap pointing at the old inode continue to read it
@@ -1116,7 +1191,17 @@ require further design decisions.
   staleness-check-interval; also make the publish daemon's
   return-forwarding path idempotent on duplicate return
   delivery (second delivery of same jid+id lands on a
-  no-breadcrumb path and is dropped silently).
+  no-breadcrumb path and is dropped silently).~~ **RESOLVED**
+  --- FU-E (99196abed61): :meth:`MmapCache.atomic_rebuild`
+  gained an ``unlink_delay`` kwarg (rename-aside + daemon-thread
+  unlink after delay; ``close()`` joins pending threads).
+  :mod:`salt.topology.breadcrumbs` ``cleanup`` passes
+  ``_staleness_check_interval`` as the unlink delay.
+  :meth:`TopologyRouter.forward_return_once` provides an
+  LRU-based idempotency guard against duplicate upstream
+  forwarding when a reader resolves a cleaned-up breadcrumb
+  during the mmap staleness window; 11 unit tests at
+  ``tests/pytests/unit/topology/test_breadcrumb_gc.py``.
 
 * ~~**Signal-safety documentation.**  Document that writers must
   not spawn subprocesses that inherit the registry /
@@ -1124,14 +1209,16 @@ require further design decisions.
   ``MmapCache`` code preserves lock fds across
   ``_close_mmaps_and_fds`` for this reason, but the topology
   stubs should state the invariant explicitly for future
-  maintainers.~~ **RESOLVED** --- Final-cleanup commit: added
-  "Signal-safety invariant" sections to module docstrings of
-  :mod:`salt.topology.registry`, :mod:`salt.topology.breadcrumbs`,
-  and :mod:`salt.utils.mmap_cache` explicitly spelling out the
-  "no subprocess spawn while lock held" rule and cross-referencing
-  :meth:`MmapCache._close_mmaps_and_fds`'s lock-fd preservation.
+  maintainers.~~ **RESOLVED** --- Residual-cleanup commit
+  (3a393cc0939): added "Signal-safety invariant" sections to
+  module docstrings of :mod:`salt.topology.registry`,
+  :mod:`salt.topology.breadcrumbs`, and
+  :mod:`salt.utils.mmap_cache` explicitly spelling out the
+  "no subprocess spawn while lock held" rule and
+  cross-referencing :meth:`MmapCache._close_mmaps_and_fds`'s
+  lock-fd preservation.
 
-* **Returner schemas accept ``cluster_path``.**  Even though
+* ~~**Returner schemas accept ``cluster_path``.**  Even though
   jids remain unprefixed (we abandoned the prefix mechanism),
   returns from topology-forwarded publishes carry a
   ``cluster_path`` field.  Shipped returners that key solely
@@ -1141,12 +1228,27 @@ require further design decisions.
   disambiguate duplicate minion ids across clusters.  Audit
   each shipped returner (``local_cache``, ``postgres``,
   ``redis``, ``elasticsearch``, etc.) and extend the schema /
-  key layout to accept ``cluster_path`` where ``opts["topology_enabled"]``.
+  key layout to accept ``cluster_path`` where ``opts["topology_enabled"]``.~~
+  **PARTIALLY RESOLVED** --- FU-E (99196abed61): schema
+  extended with ``cluster_path`` annotation (additive;
+  existing rows read cleanly) on ``local_cache``, ``postgres``,
+  ``pgjsonb``, and ``postgres_local_cache``.
+  ``test_<returner>_cluster_path.py`` under
+  ``tests/pytests/functional/returners/`` covers these four.
+  **Still open:** ``redis``, ``elasticsearch``, and the long
+  tail of other shipped returners (``mysql``, ``mongo``,
+  ``cassandra``, ``couchbase``, ``sqlite3``, ``influxdb``,
+  etc.) --- the FU-E team scoped the first pass to the
+  canonical returners that ship with the local-cache /
+  postgres code paths exercised by ``jobs.lookup_jid``.  No
+  design decisions remaining; each additional returner is a
+  mechanical schema + probe-column port of the pgjsonb /
+  postgres pattern.
 
-### Also resolved during the final-cleanup pass
+### Also resolved during the residual-cleanup pass (3a393cc0939)
 
-Production bugs the test harness surfaced during the
-final-cleanup pass; all three fixed in the same commit:
+Production bugs the test harness surfaced during the residual
+cleanup pass; all three fixed in the same commit:
 
 * **``MasterPubServerChannel.pre_fork`` ordering.**
   ``process_manager.add_process`` forks the EventPublisher
@@ -1175,6 +1277,39 @@ final-cleanup pass; all three fixed in the same commit:
   defined as ``C@east and web-*`` extracted no cluster scope and
   defaulted to flood.  Fix: pass ``self.opts.get("nodegroups")``
   through.
+
+### Also resolved during the mesh-dedup pass (c842d5a1c26)
+
+Three bugs in :mod:`salt.topology.router` surfaced only on mesh
+(non-tree) topologies, where the same publish/summary arrives at
+a non-origin cluster twice via distinct paths:
+
+* **``forward_publish`` did not skip onward peers already in
+  the authenticated ``envelope["path"]``.**  In a triangle
+  ``a - b - c``, ``b``'s forward loop (after receiving ``a``'s
+  publish via a-link) would include ``c`` even though ``a``
+  already sent a direct copy to ``c``.  Fix: mirror the
+  existing check in :meth:`ingest_summary`.
+* **``forward_publish`` did not dedup by jid.**  If ``c``
+  receives ``a``'s publish directly AND again via ``b``, the
+  second arrival would overwrite the breadcrumb (routing
+  returns through ``b`` instead of ``a``) and refan the
+  publish to the rest of the mesh.  Fix: check
+  :func:`lookup_breadcrumb(jid)` before appending self to
+  path; first arrival wins.
+* **``ingest_summary`` did not dedup by ``origin_seq``.**
+  Every path through the mesh triggered a redundant
+  :meth:`registry.set_peer` + re-forward.  Fix: track the
+  highest seq seen per origin in router-local soft state
+  (``self._last_origin_seq``); drop stale and duplicate seqs,
+  strictly-newer seqs still overwrite.  No schema bump needed
+  --- the seq map lives on the router instance only.
+
+Six scenarios at
+``tests/pytests/scenarios/topology/test_mesh_dedup_scenarios.py``;
+5/5 regression tests fail pre-fix, all 6 pass post-fix (6th is
+a positive control for "strictly-newer ``origin_seq``
+overwrites").
 
 # Drawbacks
 
