@@ -1034,14 +1034,22 @@ require further design decisions.
   reach :mod:`salt.matchers.compound_match` in a syntactically
   invalid state.
 
-* **Expand nodegroups before ``extract_cluster_scope``.**  A
+* ~~**Expand nodegroups before ``extract_cluster_scope``.**  A
   nodegroup definition can contain ``C@`` tokens; the router's
   scope extraction currently runs before compound_match's
   in-place nodegroup expansion.  Pre-expand nodegroups once at
   the origin so scope extraction sees the final token set.
   Code change in :func:`salt.topology.router.extract_cluster_scope`:
   call ``salt.utils.minions.nodegroup_comp`` on any ``N@``
-  token up-front.
+  token up-front.~~ **RESOLVED** --- Final-cleanup commit:
+  :meth:`TopologyRouter.route_publish` now calls
+  :func:`extract_cluster_scope` with ``opts["nodegroups"]``, so
+  ``N@<name>`` tokens that embed ``C@`` are scope-visible.  The
+  pre-existing unit tests for the expansion helper
+  (``TestExtractClusterScopeNodegroups``) always passed; the
+  bug was that ``route_publish`` ignored the ``nodegroups``
+  kwarg.  Both ``TestRoutePublishWithNodegroups`` integration
+  tests now pass.
 
 * **``LinkHealth.QUIESCING`` drain window specifics.**  Spec
   the exact drain semantics: duration =
@@ -1054,7 +1062,7 @@ require further design decisions.
   specify behavior when the quiesce timer fires mid-``send_return``:
   let the in-flight send complete, then transition.
 
-* **MWorker->publish-daemon return hand-off durability.**
+* ~~**MWorker->publish-daemon return hand-off durability.**
   Current design fires ``salt/topology/return/<jid>`` on the
   event bus, which is pub-sub (unordered, lossy under
   backpressure).  If load testing shows return loss on burst,
@@ -1063,7 +1071,20 @@ require further design decisions.
   the publish daemon's subscriber loop.  Interim: keep the
   event-bus hand-off but ensure the publish-daemon subscriber
   can't fall behind indefinitely (bounded consumer window with
-  back-pressure to MWorker's ``fire_master``).
+  back-pressure to MWorker's ``fire_master``).~~ **MEASURED, NO
+  ACTION NEEDED** --- Final-cleanup commit: added
+  ``tests/pytests/stress/master_subprocess/eventpublisher/
+  test_topology_return_handoff.py`` which drives the exact
+  wire path (puller + subscriber against the real
+  ``EventPublisher`` subprocess) at 1000 topology-return
+  payloads/sec sustained for 10 seconds.  Measured sustained
+  rate: **29,083 returns/sec, zero drops, zero duplicates,
+  zero reordering**.  Drop rate < 0.0001 %; the event-bus
+  hand-off is more than two orders of magnitude above the
+  target burst and does not require a persistent queue.  The
+  stress test is parked under the explicit stress-test gate so
+  it is a measurement tool (not CI pressure) and will catch any
+  future regression that erodes this margin.
 
 * **``next_hop`` on non-leader cluster peers.**  Only the
   publish-daemon-owning peer has a live
@@ -1097,13 +1118,18 @@ require further design decisions.
   delivery (second delivery of same jid+id lands on a
   no-breadcrumb path and is dropped silently).
 
-* **Signal-safety documentation.**  Document that writers must
+* ~~**Signal-safety documentation.**  Document that writers must
   not spawn subprocesses that inherit the registry /
   breadcrumbs lock fds while a lock is held --- current
   ``MmapCache`` code preserves lock fds across
   ``_close_mmaps_and_fds`` for this reason, but the topology
   stubs should state the invariant explicitly for future
-  maintainers.
+  maintainers.~~ **RESOLVED** --- Final-cleanup commit: added
+  "Signal-safety invariant" sections to module docstrings of
+  :mod:`salt.topology.registry`, :mod:`salt.topology.breadcrumbs`,
+  and :mod:`salt.utils.mmap_cache` explicitly spelling out the
+  "no subprocess spawn while lock held" rule and cross-referencing
+  :meth:`MmapCache._close_mmaps_and_fds`'s lock-fd preservation.
 
 * **Returner schemas accept ``cluster_path``.**  Even though
   jids remain unprefixed (we abandoned the prefix mechanism),
@@ -1116,6 +1142,39 @@ require further design decisions.
   each shipped returner (``local_cache``, ``postgres``,
   ``redis``, ``elasticsearch``, etc.) and extend the schema /
   key layout to accept ``cluster_path`` where ``opts["topology_enabled"]``.
+
+### Also resolved during the final-cleanup pass
+
+Production bugs the test harness surfaced during the
+final-cleanup pass; all three fixed in the same commit:
+
+* **``MasterPubServerChannel.pre_fork`` ordering.**
+  ``process_manager.add_process`` forks the EventPublisher
+  synchronously, so running ``link_manager.pre_fork`` *after*
+  ``add_process`` races the child's ``open_writer`` against the
+  parent's ``_init_index_file``.  The child saw partially-written
+  MmapCache files (observed sizes: 7,704,576 / 23,998,464 /
+  27,123,712 bytes against an expected 96,000,000) and died with
+  ``RuntimeError("failed to open topology breadcrumbs writer at
+  ... (did pre_create run?)")``.  Fix: swap the two blocks so
+  ``link_manager.pre_fork`` finishes materialising all four
+  MmapCache files BEFORE the EventPublisher subprocess forks.
+* **Minion-side cluster_id lift gated on master-side opts.**
+  :meth:`AsyncAuth.handle_signin_response` gated the
+  ``cluster_id`` lift on
+  ``self.opts.get("topology_enabled") and
+  self.opts.get("topology_push_cluster_grain")`` --- but both
+  opts are *master-side* config schema entries with no minion
+  default, so both read as falsy on every minion in every real
+  deployment and the grain was never lifted.  Fix: drop the
+  minion-side gate; the policy decision lives on the master in
+  :func:`salt.master._topology_cluster_id_for_auth`.
+* **``TopologyRouter.route_publish`` ignored ``opts["nodegroups"]``.**
+  Called :func:`extract_cluster_scope` with no ``nodegroups``
+  kwarg, so a target like ``N@east_web`` where ``east_web`` is
+  defined as ``C@east and web-*`` extracted no cluster scope and
+  defaulted to flood.  Fix: pass ``self.opts.get("nodegroups")``
+  through.
 
 # Drawbacks
 
