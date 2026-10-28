@@ -39,4 +39,5 @@ runner modules
     state
     survey
     test
+    topology
     winrepo
