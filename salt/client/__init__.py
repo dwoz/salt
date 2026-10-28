@@ -224,6 +224,7 @@ def get_local_client(
     io_loop=None,
     auto_reconnect=False,
     listen=False,
+    profile=None,
 ):
     """
     .. versionadded:: 2014.7.0
@@ -270,7 +271,7 @@ def get_local_client(
         # Late import to prevent circular import
         import salt.config
 
-        opts = salt.config.client_config(c_path)
+        opts = salt.config.client_config(c_path, profile=profile)
 
     # TODO: AIO core is separate from transport
     return LocalClient(
@@ -289,6 +290,7 @@ def get_remote_client(
     io_loop=None,
     auto_reconnect=False,
     listen=False,
+    profile=None,
 ):
     """
     Create a RemoteClient for remote CLI authentication.
@@ -303,6 +305,7 @@ def get_remote_client(
     :param IOLoop io_loop: Tornado IOLoop to use
     :param bool auto_reconnect: Automatically reconnect on disconnect
     :param bool listen: Start listening for events immediately
+    :param str profile: Connection profile to use from /etc/salt/client
 
     :return: Configured RemoteClient instance
     :rtype: RemoteClient
@@ -311,6 +314,10 @@ def get_remote_client(
 
         client = salt.client.get_remote_client()
         ret = client.cmd('*', 'test.ping')
+
+        # With profile
+        client = salt.client.get_remote_client(profile='prod')
+        ret = client.cmd('*', 'test.ping')
     """
     if mopts:
         opts = mopts
@@ -318,7 +325,7 @@ def get_remote_client(
         # Late import to prevent circular import
         import salt.config
 
-        opts = salt.config.client_config(c_path)
+        opts = salt.config.client_config(c_path, profile=profile)
 
     # TODO: AIO core is separate from transport
     return RemoteClient(
