@@ -1,0 +1,205 @@
+services:
+
+  # --- EAST cluster -------------------------------------------------------
+
+  topo-east:
+    build:
+      context: ../../..
+      dockerfile: agents/scratch/topology-sandbox/Dockerfile.salt
+    image: topo-sandbox-salt
+    container_name: topo-east
+    hostname: topo-east
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-east.conf:/etc/salt/master:ro
+      - ./conf/topology-east.conf:/etc/salt/topology.conf:ro
+      - ./pki/east:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [east]
+
+  topo-east-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-east-minion-1
+    hostname: east-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-east.conf:/etc/salt/minion:ro
+      - ./pki/east-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-east]
+    networks: [topo-net]
+
+  topo-east-minion-2:
+    image: topo-sandbox-salt
+    container_name: topo-east-minion-2
+    hostname: east-minion-2
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-east.conf:/etc/salt/minion:ro
+      - ./pki/east-minion-2:/etc/salt/pki/minion
+    depends_on: [topo-east]
+    networks: [topo-net]
+
+  # --- EAST-SUB sub-cluster (peered with east only) -----------------------
+
+  topo-east-sub:
+    image: topo-sandbox-salt
+    container_name: topo-east-sub
+    hostname: topo-east-sub
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-east.conf:/etc/salt/master:ro
+      - ./conf/topology-east-sub.conf:/etc/salt/topology.conf:ro
+      - ./pki/east-sub:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [east-sub]
+    depends_on: [topo-east]
+
+  topo-east-sub-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-east-sub-minion-1
+    hostname: east-sub-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-east-sub.conf:/etc/salt/minion:ro
+      - ./pki/east-sub-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-east-sub]
+    networks: [topo-net]
+
+  # --- WEST cluster -------------------------------------------------------
+
+  topo-west:
+    image: topo-sandbox-salt
+    container_name: topo-west
+    hostname: topo-west
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-west.conf:/etc/salt/master:ro
+      - ./conf/topology-west.conf:/etc/salt/topology.conf:ro
+      - ./pki/west:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [west]
+    depends_on: [topo-east]
+
+  topo-west-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-west-minion-1
+    hostname: west-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-west.conf:/etc/salt/minion:ro
+      - ./pki/west-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-west]
+    networks: [topo-net]
+
+  topo-west-minion-2:
+    image: topo-sandbox-salt
+    container_name: topo-west-minion-2
+    hostname: west-minion-2
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-west.conf:/etc/salt/minion:ro
+      - ./pki/west-minion-2:/etc/salt/pki/minion
+    depends_on: [topo-west]
+    networks: [topo-net]
+
+  # --- WEST-SUB sub-cluster (peered with west only) -----------------------
+
+  topo-west-sub:
+    image: topo-sandbox-salt
+    container_name: topo-west-sub
+    hostname: topo-west-sub
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-west.conf:/etc/salt/master:ro
+      - ./conf/topology-west-sub.conf:/etc/salt/topology.conf:ro
+      - ./pki/west-sub:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [west-sub]
+    depends_on: [topo-west]
+
+  topo-west-sub-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-west-sub-minion-1
+    hostname: west-sub-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-west-sub.conf:/etc/salt/minion:ro
+      - ./pki/west-sub-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-west-sub]
+    networks: [topo-net]
+
+  # --- EAST-SUB-SUB (3rd level, peered with east-sub only) ---------------
+
+  topo-east-sub-sub:
+    image: topo-sandbox-salt
+    container_name: topo-east-sub-sub
+    hostname: topo-east-sub-sub
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-east.conf:/etc/salt/master:ro
+      - ./conf/topology-east-sub-sub.conf:/etc/salt/topology.conf:ro
+      - ./pki/east-sub-sub:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [east-sub-sub]
+    depends_on: [topo-east-sub]
+
+  topo-east-sub-sub-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-east-sub-sub-minion-1
+    hostname: east-sub-sub-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-east-sub-sub.conf:/etc/salt/minion:ro
+      - ./pki/east-sub-sub-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-east-sub-sub]
+    networks: [topo-net]
+
+  # --- WEST-SUB-SUB (3rd level, peered with west-sub only) ---------------
+
+  topo-west-sub-sub:
+    image: topo-sandbox-salt
+    container_name: topo-west-sub-sub
+    hostname: topo-west-sub-sub
+    command: ["salt-master", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/master-west.conf:/etc/salt/master:ro
+      - ./conf/topology-west-sub-sub.conf:/etc/salt/topology.conf:ro
+      - ./pki/west-sub-sub:/etc/salt/pki/master
+    networks:
+      topo-net:
+        aliases: [west-sub-sub]
+    depends_on: [topo-west-sub]
+
+  topo-west-sub-sub-minion-1:
+    image: topo-sandbox-salt
+    container_name: topo-west-sub-sub-minion-1
+    hostname: west-sub-sub-minion-1
+    command: ["salt-minion", "-l", "info"]
+    volumes:
+      - ../../../salt:/app/salt
+      - ./conf/minion-west-sub-sub.conf:/etc/salt/minion:ro
+      - ./pki/west-sub-sub-minion-1:/etc/salt/pki/minion
+    depends_on: [topo-west-sub-sub]
+    networks: [topo-net]
+
+networks:
+  topo-net:
+    driver: bridge

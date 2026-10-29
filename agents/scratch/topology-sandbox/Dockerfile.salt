@@ -1,0 +1,37 @@
+FROM python:3.10-slim
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    python3-dev \
+    procps \
+    curl \
+    wget \
+    libzmq3-dev \
+    tini \
+    gdb \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only what pip install -e . needs; the actual salt/ tree is
+# bind-mounted at run time so code edits in the worktree take effect
+# on container restart.
+COPY requirements/ /app/requirements/
+COPY setup.py /app/
+COPY pyproject.toml /app/
+COPY MANIFEST.in /app/
+COPY README.rst /app/
+COPY AUTHORS /app/
+COPY LICENSE /app/
+COPY NOTICE /app/
+COPY salt/ /app/salt/
+COPY tools/ /app/tools/
+COPY scripts/ /app/scripts/
+
+RUN pip install --no-cache-dir -r requirements/base.txt -r requirements/zeromq.txt
+RUN pip install --no-cache-dir -e .
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
