@@ -24,4 +24,5 @@ your deployment as needed for redundancy, geographical distribution, and scale.
     ../tutorials/master-cluster
     ../tutorials/multimaster
     ../tutorials/multimaster_pki
+    ../master-topology/overview
     ../master-topology/index
