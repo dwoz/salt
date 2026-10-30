@@ -8,21 +8,27 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-HOSTS=(east west east-sub west-sub east-sub-sub west-sub-sub)
+HOSTS=(
+  east west
+  east-sub west-sub
+  east-sub-sub-1 east-sub-sub-2
+  west-sub-sub-1 west-sub-sub-2
+)
 
 # minion count per cluster (indexed to match HOSTS)
 declare -A MINIONS_PER_CLUSTER=(
   [east]=2
   [west]=2
-  [east-sub]=1
-  [west-sub]=1
-  [east-sub-sub]=1
-  [west-sub-sub]=1
+  [east-sub]=2
+  [west-sub]=2
+  [east-sub-sub-1]=2
+  [east-sub-sub-2]=2
+  [west-sub-sub-1]=2
+  [west-sub-sub-2]=2
 )
 
 # Peering adjacency: each entry is "<local>:<peer>".  Mirrors
-# topology.conf -- east<->west, east<->east-sub, west<->west-sub,
-# east-sub<->east-sub-sub, west-sub<->west-sub-sub.
+# topology.conf -- each parent has TWO 3rd-level children.
 PEERINGS=(
   "east:west"
   "west:east"
@@ -30,10 +36,14 @@ PEERINGS=(
   "east-sub:east"
   "west:west-sub"
   "west-sub:west"
-  "east-sub:east-sub-sub"
-  "east-sub-sub:east-sub"
-  "west-sub:west-sub-sub"
-  "west-sub-sub:west-sub"
+  "east-sub:east-sub-sub-1"
+  "east-sub-sub-1:east-sub"
+  "east-sub:east-sub-sub-2"
+  "east-sub-sub-2:east-sub"
+  "west-sub:west-sub-sub-1"
+  "west-sub-sub-1:west-sub"
+  "west-sub:west-sub-sub-2"
+  "west-sub-sub-2:west-sub"
 )
 
 echo ">>> ensuring PKI structure"
