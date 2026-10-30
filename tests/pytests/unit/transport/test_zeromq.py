@@ -2469,7 +2469,7 @@ async def test_request_server_continue_on_errors_log_info(io_loop, caplog):
     with caplog.at_level(logging.INFO):
         await server.request_handler()
         assert server._socket.calls > 1
-        assert "Exception in request handler" in caplog.text
+        assert "Exception during recv" in caplog.text
         assert "Traceback" not in caplog.text
 
 
@@ -2505,7 +2505,7 @@ async def test_request_server_continue_on_errors_log_debug(io_loop, caplog):
     with caplog.at_level(logging.DEBUG):
         await server.request_handler()
         assert server._socket.calls > 1
-        assert "Exception in request handler" in caplog.text
+        assert "Exception during recv" in caplog.text
         assert "Traceback" in caplog.text
 
 
