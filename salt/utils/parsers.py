@@ -2275,16 +2275,6 @@ class SaltCMDOptionParser(
             ),
         )
         self.add_option(
-            "--client-auth",
-            default=False,
-            action="store_true",
-            help=(
-                "Use client key authentication for remote execution. Requires client "
-                "keys to be accepted by the Salt Master. This enables remote "
-                "execution using PKI-based authentication."
-            ),
-        )
-        self.add_option(
             "--profile",
             default=None,
             metavar="PROFILE",
@@ -2738,16 +2728,6 @@ class SaltKeyOptionParser(
             ),
         )
 
-        self.add_option(
-            "--client-auth",
-            default=False,
-            action="store_true",
-            help=(
-                "Use client key authentication for remote execution. Requires client "
-                "keys to be accepted by the Salt Master. This enables remote "
-                "key management using PKI-based authentication."
-            ),
-        )
         self.add_option(
             "--profile",
             default=None,
@@ -3216,16 +3196,6 @@ class SaltRunOptionParser(
             default=False,
             action="store_true",
             help="Do not load grains.",
-        )
-        self.add_option(
-            "--client-auth",
-            default=False,
-            action="store_true",
-            help=(
-                "Use client key authentication instead of eauth. Requires client "
-                "keys to be accepted by the Salt Master. This enables remote "
-                "execution using PKI-based authentication."
-            ),
         )
         self.add_option(
             "--profile",

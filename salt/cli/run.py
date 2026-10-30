@@ -1,5 +1,3 @@
-import os
-
 import salt.defaults.exitcodes
 import salt.utils.parsers
 import salt.utils.profile
@@ -30,29 +28,11 @@ class SaltRun(salt.utils.parsers.SaltRunOptionParser):
         # Run this here so SystemExit isn't raised anywhere else when
         # someone tries to use the runners via the python API
         try:
-            # Intelligent auth detection:
-            # 1. If client_auth explicitly set, use that
-            # 2. If user check passes, allow (traditional local execution)
-            # 3. If user check fails but client keys exist, enable client auth automatically
-            client_auth_mode = self.config.get("client_auth")
-
-            if client_auth_mode is None:
-                # Auto-detect: check if user has permissions first
-                if not check_user(self.config["user"]):
-                    # User check failed, see if we have client keys
-                    import salt.syspaths
-
-                    pki_dir = self.config.get(
-                        "pki_dir",
-                        os.path.join(salt.syspaths.CONFIG_DIR, "pki", "master"),
-                    )
-                    client_key = os.path.join(pki_dir, "client.pem")
-                    if os.path.exists(client_key):
-                        client_auth_mode = True
-                else:
-                    client_auth_mode = False
-
-            if client_auth_mode or check_user(self.config["user"]):
+            # ``client_config()`` sets ``client_auth=True`` when the CLI is
+            # pointed at ``/etc/salt/client`` (remote operator), False when it
+            # falls back to the master config (local use on the master host).
+            # No separate CLI flag; config file is the single source of truth.
+            if self.config.get("client_auth") or check_user(self.config["user"]):
                 pr = salt.utils.profile.activate_profile(profiling_enabled)
                 try:
                     ret = runner.run(full_return=True)
