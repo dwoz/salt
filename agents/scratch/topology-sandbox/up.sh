@@ -27,8 +27,9 @@ declare -A MINIONS_PER_CLUSTER=(
   [west-sub-sub-2]=2
 )
 
-# Peering adjacency: each entry is "<local>:<peer>".  Mirrors
-# topology.conf -- each parent has TWO 3rd-level children.
+# Peering adjacency: each entry is "<local>:<peer>".  Mirrors the
+# ``topology_peers:`` list in each master's /etc/salt/master --
+# each parent has TWO 3rd-level children.
 PEERINGS=(
   "east:west"
   "west:east"

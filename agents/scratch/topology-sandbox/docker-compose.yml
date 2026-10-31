@@ -13,7 +13,6 @@ services:
     volumes:
       - ../../../salt:/app/salt
       - ./conf/master-east.conf:/etc/salt/master:ro
-      - ./conf/topology-east.conf:/etc/salt/topology.conf:ro
       - ./pki/east:/etc/salt/pki/master
     networks:
       topo-net:
@@ -52,8 +51,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-east.conf:/etc/salt/master:ro
-      - ./conf/topology-east-sub.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-east-sub.conf:/etc/salt/master:ro
       - ./pki/east-sub:/etc/salt/pki/master
     networks:
       topo-net:
@@ -94,7 +92,6 @@ services:
     volumes:
       - ../../../salt:/app/salt
       - ./conf/master-west.conf:/etc/salt/master:ro
-      - ./conf/topology-west.conf:/etc/salt/topology.conf:ro
       - ./pki/west:/etc/salt/pki/master
     networks:
       topo-net:
@@ -134,8 +131,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-west.conf:/etc/salt/master:ro
-      - ./conf/topology-west-sub.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-west-sub.conf:/etc/salt/master:ro
       - ./pki/west-sub:/etc/salt/pki/master
     networks:
       topo-net:
@@ -175,8 +171,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-east.conf:/etc/salt/master:ro
-      - ./conf/topology-east-sub-sub-1.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-east-sub-sub-1.conf:/etc/salt/master:ro
       - ./pki/east-sub-sub-1:/etc/salt/pki/master
     networks:
       topo-net:
@@ -216,8 +211,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-east.conf:/etc/salt/master:ro
-      - ./conf/topology-east-sub-sub-2.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-east-sub-sub-2.conf:/etc/salt/master:ro
       - ./pki/east-sub-sub-2:/etc/salt/pki/master
     networks:
       topo-net:
@@ -257,8 +251,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-west.conf:/etc/salt/master:ro
-      - ./conf/topology-west-sub-sub-1.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-west-sub-sub-1.conf:/etc/salt/master:ro
       - ./pki/west-sub-sub-1:/etc/salt/pki/master
     networks:
       topo-net:
@@ -298,8 +291,7 @@ services:
     command: ["salt-master", "-l", "info"]
     volumes:
       - ../../../salt:/app/salt
-      - ./conf/master-west.conf:/etc/salt/master:ro
-      - ./conf/topology-west-sub-sub-2.conf:/etc/salt/topology.conf:ro
+      - ./conf/master-west-sub-sub-2.conf:/etc/salt/master:ro
       - ./pki/west-sub-sub-2:/etc/salt/pki/master
     networks:
       topo-net:
