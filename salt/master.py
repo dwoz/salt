@@ -2612,7 +2612,12 @@ class AESFuncs(TransportMethods):
         if not salt.utils.verify.valid_id(self.opts, id_):
             return False
 
+        # Try the minion keys bank first, then fall back to client_keys
+        # -- remote CLI clients share the AES channel but their public
+        # keys live under ``pki_dir/clients``.
         key = self.key_cache.fetch("keys", id_)
+        if not key:
+            key = self.key_cache.fetch("client_keys", id_)
 
         if not key:
             log.error("Unexpectedly got no pub key for %s", id_)
@@ -4138,6 +4143,16 @@ class AuthFuncs(TransportMethods):
         enc_algo = load.get("enc_algo", salt.crypt.OAEP_SHA1)
         sig_algo = load.get("sig_algo", salt.crypt.PKCS1v15_SHA1)
 
+        # Remote clients (``__role=client``) sign in with the same PKI
+        # handshake as minions but their public keys live in a parallel
+        # pki subtree (``pki_dir/clients*``) so they never show up as
+        # phantom minions in ``*`` globs or ``salt-key -L``.  The cache
+        # banks ``client_keys`` / ``client_denied_keys`` are mapped to
+        # those dirs by :mod:`salt.cache.localfs_key`.
+        is_client = load.get("role") == "client"
+        key_bank = "client_keys" if is_client else "keys"
+        denied_bank = "client_denied_keys" if is_client else "denied_keys"
+
         if not salt.utils.verify.valid_id(self.opts, load["id"]):
             log.info("Authentication request from invalid id %s", load["id"])
             if sign_messages:
@@ -4150,8 +4165,9 @@ class AuthFuncs(TransportMethods):
         # remove any trailing whitespace
         load["pub"] = load["pub"].strip()
 
-        # 0 is default which should be 'unlimited'
-        if self.opts["max_minions"] > 0:
+        # 0 is default which should be 'unlimited' -- not applicable to
+        # client role; clients don't count against minion caps.
+        if not is_client and self.opts["max_minions"] > 0:
             # use the ConCache if enabled, else use the minion utils
             if self.cache_cli:
                 minions = self.cache_cli.get_cached()
@@ -4204,20 +4220,26 @@ class AuthFuncs(TransportMethods):
         # Check if key is configured to be auto-rejected/signed. These
         # helpers read/write the autoreject/autosign files on disk; offload
         # to the executor so the auth loop stays responsive under load.
-        auto_reject = await loop.run_in_executor(
-            None, self.auto_key.check_autoreject, load["id"]
-        )
-        auto_sign = await loop.run_in_executor(
-            None,
-            self.auto_key.check_autosign,
-            load["id"],
-            load.get("autosign_grains", None),
-        )
+        # Autosign/autoreject files are minion-centric; clients must be
+        # accepted explicitly by an operator via the ``client_keys`` wheel.
+        if is_client:
+            auto_reject = False
+            auto_sign = False
+        else:
+            auto_reject = await loop.run_in_executor(
+                None, self.auto_key.check_autoreject, load["id"]
+            )
+            auto_sign = await loop.run_in_executor(
+                None,
+                self.auto_key.check_autosign,
+                load["id"],
+                load.get("autosign_grains", None),
+            )
 
         # key will be a dict of str and state
         # state can be one of pending, rejected, accepted. The key-cache
         # fetch traverses disk-backed key state; offload to the executor.
-        key = await loop.run_in_executor(None, self.cache.fetch, "keys", load["id"])
+        key = await loop.run_in_executor(None, self.cache.fetch, key_bank, load["id"])
 
         # although keys should be always newline stripped in current state of auth.py
         # older salt versions  may have written pub-keys with trailing whitespace
@@ -4226,9 +4248,7 @@ class AuthFuncs(TransportMethods):
 
         # any number of keys can be denied for a given minion_id regardless of above
         denied = (
-            await loop.run_in_executor(
-                None, self.cache.fetch, "denied_keys", load["id"]
-            )
+            await loop.run_in_executor(None, self.cache.fetch, denied_bank, load["id"])
             or []
         )
 
@@ -4277,7 +4297,7 @@ class AuthFuncs(TransportMethods):
                 if load["pub"] not in denied:
                     denied.append(load["pub"])
                     await loop.run_in_executor(
-                        None, self.cache.store, "denied_keys", load["id"], denied
+                        None, self.cache.store, denied_bank, load["id"], denied
                     )
 
                 if self.opts.get("auth_events") is True:
@@ -4312,7 +4332,7 @@ class AuthFuncs(TransportMethods):
                 )
                 key = {"pub": load["pub"], "state": "rejected"}
                 await loop.run_in_executor(
-                    None, self.cache.store, "keys", load["id"], key
+                    None, self.cache.store, key_bank, load["id"], key
                 )
                 key_act = "reject"
                 key_result = False
@@ -4320,7 +4340,7 @@ class AuthFuncs(TransportMethods):
                 log.info("New public key for %s placed in pending", load["id"])
                 key = {"pub": load["pub"], "state": "pending"}
                 await loop.run_in_executor(
-                    None, self.cache.store, "keys", load["id"], key
+                    None, self.cache.store, key_bank, load["id"], key
                 )
                 key_act = "pend"
                 key_result = True
@@ -4362,7 +4382,7 @@ class AuthFuncs(TransportMethods):
                 # rejected dir.
                 key["state"] = "rejected"
                 await loop.run_in_executor(
-                    None, self.cache.store, "keys", load["id"], key
+                    None, self.cache.store, key_bank, load["id"], key
                 )
                 log.info(
                     "Pending public key for %s rejected via autoreject_file",
@@ -4407,7 +4427,7 @@ class AuthFuncs(TransportMethods):
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
                         await loop.run_in_executor(
-                            None, self.cache.store, "denied_keys", load["id"], denied
+                            None, self.cache.store, denied_bank, load["id"], denied
                         )
                     if self.opts.get("auth_events") is True:
                         eload = {
@@ -4477,7 +4497,7 @@ class AuthFuncs(TransportMethods):
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
                         await loop.run_in_executor(
-                            None, self.cache.store, "denied_keys", load["id"], denied
+                            None, self.cache.store, denied_bank, load["id"], denied
                         )
                     if self.opts.get("auth_events") is True:
                         eload = {
@@ -4534,13 +4554,15 @@ class AuthFuncs(TransportMethods):
         key_persisted = False
         if (not key or key["state"] != "accepted") and not self.opts["open_mode"]:
             key = {"pub": load["pub"], "state": "accepted"}
-            await loop.run_in_executor(None, self.cache.store, "keys", load["id"], key)
+            await loop.run_in_executor(
+                None, self.cache.store, key_bank, load["id"], key
+            )
             key_persisted = True
         elif self.opts["open_mode"]:
             if load["pub"] and (not key or load["pub"] != key["pub"]):
                 key = {"pub": load["pub"], "state": "accepted"}
                 await loop.run_in_executor(
-                    None, self.cache.store, "keys", load["id"], key
+                    None, self.cache.store, key_bank, load["id"], key
                 )
                 key_persisted = True
             elif not load["pub"]:
@@ -4743,6 +4765,12 @@ class AuthFuncs(TransportMethods):
         enc_algo = load.get("enc_algo", salt.crypt.OAEP_SHA1)
         sig_algo = load.get("sig_algo", salt.crypt.PKCS1v15_SHA1)
 
+        # See the matching comment in :meth:`_auth_impl` -- role=client
+        # routes to the ``client_keys`` cache banks (pki_dir/clients*).
+        is_client = load.get("role") == "client"
+        key_bank = "client_keys" if is_client else "keys"
+        denied_bank = "client_denied_keys" if is_client else "denied_keys"
+
         if not salt.utils.verify.valid_id(self.opts, load["id"]):
             log.info("Authentication request from invalid id %s", load["id"])
             if sign_messages:
@@ -4754,7 +4782,8 @@ class AuthFuncs(TransportMethods):
         log.info("Authentication request from %s", load["id"])
         load["pub"] = load["pub"].strip()
 
-        if self.opts["max_minions"] > 0:
+        # Clients don't count against ``max_minions``.
+        if not is_client and self.opts["max_minions"] > 0:
             if self.cache_cli:
                 minions = self.cache_cli.get_cached()
             else:
@@ -4798,17 +4827,23 @@ class AuthFuncs(TransportMethods):
                     else:
                         return {"enc": "clear", "load": {"ret": "full"}}
 
-        auto_reject = self.auto_key.check_autoreject(load["id"])
-        auto_sign = self.auto_key.check_autosign(
-            load["id"], load.get("autosign_grains", None)
-        )
+        # Clients must be accepted explicitly; the autosign/autoreject
+        # files are minion-centric and shouldn't gate client access.
+        if is_client:
+            auto_reject = False
+            auto_sign = False
+        else:
+            auto_reject = self.auto_key.check_autoreject(load["id"])
+            auto_sign = self.auto_key.check_autosign(
+                load["id"], load.get("autosign_grains", None)
+            )
 
-        key = self.cache.fetch("keys", load["id"])
+        key = self.cache.fetch(key_bank, load["id"])
 
         if key and "pub" in key:
             key["pub"] = key["pub"].strip()
 
-        denied = self.cache.fetch("denied_keys", load["id"]) or []
+        denied = self.cache.fetch(denied_bank, load["id"]) or []
 
         if self.opts["open_mode"]:
             pass
@@ -4847,7 +4882,7 @@ class AuthFuncs(TransportMethods):
                 )
                 if load["pub"] not in denied:
                     denied.append(load["pub"])
-                    self.cache.store("denied_keys", load["id"], denied)
+                    self.cache.store(denied_bank, load["id"], denied)
 
                 if self.opts.get("auth_events") is True:
                     eload = {
@@ -4877,13 +4912,13 @@ class AuthFuncs(TransportMethods):
                     "New public key for %s rejected via autoreject_file", load["id"]
                 )
                 key = {"pub": load["pub"], "state": "rejected"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(key_bank, load["id"], key)
                 key_act = "reject"
                 key_result = False
             elif not auto_sign:
                 log.info("New public key for %s placed in pending", load["id"])
                 key = {"pub": load["pub"], "state": "pending"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(key_bank, load["id"], key)
                 key_act = "pend"
                 key_result = True
             else:
@@ -4915,7 +4950,7 @@ class AuthFuncs(TransportMethods):
         elif key and key["state"] == "pending":
             if auto_reject:
                 key["state"] = "rejected"
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(key_bank, load["id"], key)
                 log.info(
                     "Pending public key for %s rejected via autoreject_file",
                     load["id"],
@@ -4951,7 +4986,7 @@ class AuthFuncs(TransportMethods):
                     )
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
-                        self.cache.store("denied_keys", load["id"], denied)
+                        self.cache.store(denied_bank, load["id"], denied)
                     if self.opts.get("auth_events") is True:
                         eload = {
                             "result": False,
@@ -5014,7 +5049,7 @@ class AuthFuncs(TransportMethods):
                     )
                     if load["pub"] not in denied:
                         denied.append(load["pub"])
-                        self.cache.store("denied_keys", load["id"], denied)
+                        self.cache.store(denied_bank, load["id"], denied)
                     if self.opts.get("auth_events") is True:
                         eload = {
                             "result": False,
@@ -5065,12 +5100,12 @@ class AuthFuncs(TransportMethods):
         key_persisted = False
         if (not key or key["state"] != "accepted") and not self.opts["open_mode"]:
             key = {"pub": load["pub"], "state": "accepted"}
-            self.cache.store("keys", load["id"], key)
+            self.cache.store(key_bank, load["id"], key)
             key_persisted = True
         elif self.opts["open_mode"]:
             if load["pub"] and (not key or load["pub"] != key["pub"]):
                 key = {"pub": load["pub"], "state": "accepted"}
-                self.cache.store("keys", load["id"], key)
+                self.cache.store(key_bank, load["id"], key)
                 key_persisted = True
             elif not load["pub"]:
                 log.error("Public key is empty: %s", load["id"])
