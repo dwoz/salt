@@ -54,10 +54,6 @@ asn1crypto==1.5.1
     #   oscrypto
 astroid==3.1.0
     # via pylint
-async-timeout==5.0.1
-    # via
-    #   -c requirements/static/ci/py3.11/linux.lock
-    #   redis
 attrs==26.1.0
     # via
     #   -c requirements/static/ci/py3.11/linux.lock
@@ -658,10 +654,6 @@ pyzmq==27.1.0
     #   -c requirements/static/ci/py3.11/linux.lock
     #   -c requirements/static/pkg/py3.11/linux.lock
     #   -r requirements/zeromq.txt
-redis==7.4.0
-    # via
-    #   -c requirements/static/ci/py3.11/linux.lock
-    #   -r requirements/static/ci/linux.txt
 requests==2.34.2
     # via
     #   -c requirements/static/ci/py3.11/linux.lock

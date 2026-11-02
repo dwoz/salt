@@ -59,7 +59,6 @@ async-timeout==4.0.3
     #   -c requirements/static/ci/py3.10/linux.lock
     #   -c requirements/static/pkg/py3.10/linux.lock
     #   aiohttp
-    #   redis
 attrs==26.1.0
     # via
     #   -c requirements/static/ci/py3.10/linux.lock
@@ -661,10 +660,6 @@ pyzmq==27.1.0
     #   -c requirements/static/ci/py3.10/linux.lock
     #   -c requirements/static/pkg/py3.10/linux.lock
     #   -r requirements/zeromq.txt
-redis==7.4.0
-    # via
-    #   -c requirements/static/ci/py3.10/linux.lock
-    #   -r requirements/static/ci/linux.txt
 requests==2.31.0
     # via
     #   -c requirements/static/ci/py3.10/linux.lock
