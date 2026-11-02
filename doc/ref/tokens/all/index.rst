@@ -11,4 +11,3 @@ token modules
     :template: autosummary.rst.tmpl
 
     localfs
-    rediscluster
