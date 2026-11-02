@@ -55,7 +55,7 @@ Configuration
 .. code-block:: yaml
 
     master_job_cache: salt_cache
-    cache: mmap_cache         # or localfs, redis_cache, ...
+    cache: mmap_cache         # or localfs, mysql_cache, ...
 
 When ``mmap_cache`` is used, ``mmap_cache_max_segment_bytes`` /
 ``mmap_cache_dirs`` apply as usual.

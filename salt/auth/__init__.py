@@ -275,236 +275,120 @@ class LoadAuth:
         if groups:
             tdata["groups"] = groups
 
-        if self.opts["eauth_tokens.cache_driver"] == "rediscluster":
-            salt.utils.versions.warn_until(
-                3010,
-                "The 'rediscluster' token backend has been deprecated, and will be removed "
-                "in the Calcium release. Please use the 'redis_cache' cache backend instead.",
+        hash_type = getattr(hashlib, self.opts.get("hash_type", "md5"))
+        new_token = str(hash_type(os.urandom(512)).hexdigest())
+        tdata["token"] = new_token
+        try:
+            # ``Cache.store``'s ``expires`` is a *relative* duration in
+            # seconds, not an absolute epoch. Passing ``tdata["expire"]``
+            # here -- which is ``time.time() + token_expire`` -- caused
+            # the envelope ``_expires`` to be set to ``now + (now +
+            # token_expire)`` (~ year 4090), and combined with the
+            # broken ``Cache.clean_expired`` fallback resulted in tokens
+            # being deleted within a single master loop interval.
+            # Issue #69307.
+            self.cache.store("tokens", new_token, tdata, expires=token_expire)
+        except salt.exceptions.SaltCacheError as err:
+            log.error(
+                "Cannot mk_token from tokens cache using %s: %s",
+                self.opts["eauth_tokens.cache_driver"],
+                err,
             )
-            return self.tokens["{}.mk_token".format(self.opts["eauth_tokens"])](
-                self.opts, tdata
-            )
-        else:
-            hash_type = getattr(hashlib, self.opts.get("hash_type", "md5"))
-            new_token = str(hash_type(os.urandom(512)).hexdigest())
-            tdata["token"] = new_token
-            try:
-                # ``Cache.store``'s ``expires`` is a *relative* duration in
-                # seconds, not an absolute epoch. Passing ``tdata["expire"]``
-                # here -- which is ``time.time() + token_expire`` -- caused
-                # the envelope ``_expires`` to be set to ``now + (now +
-                # token_expire)`` (~ year 4090), and combined with the
-                # broken ``Cache.clean_expired`` fallback resulted in tokens
-                # being deleted within a single master loop interval.
-                # Issue #69307.
-                self.cache.store("tokens", new_token, tdata, expires=token_expire)
-            except salt.exceptions.SaltCacheError as err:
-                log.error(
-                    "Cannot mk_token from tokens cache using %s: %s",
-                    self.opts["eauth_tokens.cache_driver"],
-                    err,
-                )
-                return {}
+            return {}
 
-            return tdata
+        return tdata
 
     def get_tok(self, tok):
         """
         Return the name associated with the token, or False if the token is
         not valid
         """
-        if self.opts["eauth_tokens.cache_driver"] == "rediscluster":
-            salt.utils.versions.warn_until(
-                3010,
-                "The 'rediscluster' token backend has been deprecated, and will be removed "
-                "in the Calcium release. Please use the 'redis_cache' cache backend instead.",
-            )
-
-            tdata = {}
-            try:
-                tdata = self.tokens["{}.get_token".format(self.opts["eauth_tokens"])](
-                    self.opts, tok
-                )
-            except salt.exceptions.SaltDeserializationError as exc:
-                # The on-disk / in-store token blob is corrupt and cannot
-                # be parsed. Removing it is the right call -- a corrupt
-                # token can never authenticate anyway, and leaving it
-                # around makes every subsequent ``get_tok`` for the same
-                # id keep failing. ``%r`` on the exception gives the
-                # operator the class and message inline (e.g. msgpack
-                # format error, truncated file) without spamming a full
-                # traceback into a hot-path WARNING; the full traceback is
-                # available via the companion ``log.debug`` for deeper
-                # investigation.
-                log.warning(
-                    "Token %r could not be deserialized (%r); removing it from the store.",
-                    tok,
-                    exc,
-                )
-                log.debug("Token deserialization traceback:", exc_info=True)
-                rm_tok = True
-            except OSError as exc:
-                # Transient backend error (Redis connection blip, NFS hang,
-                # hung disk). The token itself is fine; do NOT delete it --
-                # that would log every authenticated user out on every
-                # backend hiccup. Return an empty dict so the caller treats
-                # this request as not-authenticated; the next request will
-                # retry against the backend and succeed once it recovers.
-                # Same logging pattern as above -- exception class + message
-                # at WARNING, full traceback at DEBUG so a flapping deploy
-                # stays diagnoseable without GB/hour of stack frames.
-                log.warning(
-                    "Token store transient error reading %r (%r); treating as "
-                    "not-authenticated for this request without removing the "
-                    "token from the store.",
-                    tok,
-                    exc,
-                )
-                log.debug("Token store transient-error traceback:", exc_info=True)
-                return {}
-            else:
-                if not tdata:
-                    return {}
-                rm_tok = False
+        try:
+            tdata = self.cache.fetch("tokens", tok)
 
             if tdata.get("expire", 0) < time.time():
-                # If expire isn't present in the token it's invalid and needs
-                # to be removed. Also, if it's present and has expired - in
-                # other words, the expiration is before right now, it should
-                # be removed.
-                rm_tok = True
-
-            if rm_tok:
-                self.rm_token(tok)
-                return {}
+                raise salt.exceptions.TokenExpiredError
 
             return tdata
-        else:
-            try:
-                tdata = self.cache.fetch("tokens", tok)
-
-                if tdata.get("expire", 0) < time.time():
-                    raise salt.exceptions.TokenExpiredError
-
-                return tdata
-            except (
-                salt.exceptions.SaltDeserializationError,
-                salt.exceptions.TokenExpiredError,
-            ) as exc:
-                # The on-disk / in-store token blob is corrupt (or expired)
-                # and cannot be used. Removing it is the right call -- a
-                # corrupt token can never authenticate anyway, and leaving
-                # it around makes every subsequent ``get_tok`` for the same
-                # id keep failing. ``%r`` on the exception gives the
-                # operator the class and message inline without spamming a
-                # full traceback into a hot-path WARNING; the full
-                # traceback is available via the companion ``log.debug``
-                # for deeper investigation.
-                log.warning(
-                    "Token %r could not be loaded (%r); removing it from the store.",
-                    tok,
-                    exc,
-                )
-                log.debug("Token load traceback:", exc_info=True)
-                self.rm_token(tok)
-            except OSError as exc:
-                # Transient backend error (Redis connection blip, NFS hang,
-                # hung disk). The token itself is fine; do NOT delete it --
-                # that would log every authenticated user out on every
-                # backend hiccup. Return an empty dict so the caller treats
-                # this request as not-authenticated; the next request will
-                # retry against the backend and succeed once it recovers.
-                log.warning(
-                    "Token store transient error reading %r (%r); treating as "
-                    "not-authenticated for this request without removing the "
-                    "token from the store.",
-                    tok,
-                    exc,
-                )
-                log.debug("Token store transient-error traceback:", exc_info=True)
-                return {}
-            except salt.exceptions.SaltCacheError as err:
-                log.error(
-                    "Cannot get token %s from tokens cache using %s: %s",
-                    tok,
-                    self.opts["eauth_tokens.cache_driver"],
-                    err,
-                )
+        except (
+            salt.exceptions.SaltDeserializationError,
+            salt.exceptions.TokenExpiredError,
+        ) as exc:
+            # The on-disk / in-store token blob is corrupt (or expired)
+            # and cannot be used. Removing it is the right call -- a
+            # corrupt token can never authenticate anyway, and leaving
+            # it around makes every subsequent ``get_tok`` for the same
+            # id keep failing. ``%r`` on the exception gives the
+            # operator the class and message inline without spamming a
+            # full traceback into a hot-path WARNING; the full
+            # traceback is available via the companion ``log.debug``
+            # for deeper investigation.
+            log.warning(
+                "Token %r could not be loaded (%r); removing it from the store.",
+                tok,
+                exc,
+            )
+            log.debug("Token load traceback:", exc_info=True)
+            self.rm_token(tok)
+        except OSError as exc:
+            # Transient backend error (Redis connection blip, NFS hang,
+            # hung disk). The token itself is fine; do NOT delete it --
+            # that would log every authenticated user out on every
+            # backend hiccup. Return an empty dict so the caller treats
+            # this request as not-authenticated; the next request will
+            # retry against the backend and succeed once it recovers.
+            log.warning(
+                "Token store transient error reading %r (%r); treating as "
+                "not-authenticated for this request without removing the "
+                "token from the store.",
+                tok,
+                exc,
+            )
+            log.debug("Token store transient-error traceback:", exc_info=True)
             return {}
+        except salt.exceptions.SaltCacheError as err:
+            log.error(
+                "Cannot get token %s from tokens cache using %s: %s",
+                tok,
+                self.opts["eauth_tokens.cache_driver"],
+                err,
+            )
+        return {}
 
     def list_tokens(self):
         """
         List all tokens in eauth_tokens storage.
         """
-        if self.opts["eauth_tokens.cache_driver"] == "rediscluster":
-            salt.utils.versions.warn_until(
-                3010,
-                "The 'rediscluster' token backend has been deprecated, and will be removed "
-                "in the Calcium release. Please use the 'redis_cache' cache backend instead.",
+        try:
+            return self.cache.list("tokens")
+        except salt.exceptions.SaltCacheError as err:
+            log.error(
+                "Cannot list tokens from tokens cache using %s: %s",
+                self.opts["eauth_tokens.cache_driver"],
+                err,
             )
-
-            return self.tokens["{}.list_tokens".format(self.opts["eauth_tokens"])](
-                self.opts
-            )
-        else:
-            try:
-                return self.cache.list("tokens")
-            except salt.exceptions.SaltCacheError as err:
-                log.error(
-                    "Cannot list tokens from tokens cache using %s: %s",
-                    self.opts["eauth_tokens.cache_driver"],
-                    err,
-                )
-                return []
+            return []
 
     def rm_token(self, tok):
         """
         Remove the given token from token storage.
         """
-        if self.opts["eauth_tokens.cache_driver"] == "rediscluster":
-            salt.utils.versions.warn_until(
-                3010,
-                "The 'rediscluster' token backend has been deprecated, and will be removed "
-                "in the Calcium release. Please use the 'redis_cache' cache backend instead.",
+        try:
+            return self.cache.flush("tokens", tok)
+        except salt.exceptions.SaltCacheError as err:
+            log.error(
+                "Cannot rm token %s from tokens cache using %s: %s",
+                tok,
+                self.opts["eauth_tokens.cache_driver"],
+                err,
             )
-
-            self.tokens["{}.rm_token".format(self.opts["eauth_tokens"])](self.opts, tok)
-        else:
-            try:
-                return self.cache.flush("tokens", tok)
-            except salt.exceptions.SaltCacheError as err:
-                log.error(
-                    "Cannot rm token %s from tokens cache using %s: %s",
-                    tok,
-                    self.opts["eauth_tokens.cache_driver"],
-                    err,
-                )
-            return {}
+        return {}
 
     def clean_expired_tokens(self):
         """
         Clean expired tokens
         """
-        if self.opts["eauth_tokens.cache_driver"] == "rediscluster":
-            salt.utils.versions.warn_until(
-                3010,
-                "The 'rediscluster' token backend has been deprecated, and will be removed "
-                "in the Calcium release. Please use the 'redis_cache' cache backend instead.",
-            )
-            log.debug(
-                "cleaning expired tokens using token driver: {}".format(
-                    self.opts["eauth_tokens"]
-                )
-            )
-            for token in self.list_tokens():
-                token_data = self.get_tok(token)
-                if (
-                    "expire" not in token_data
-                    or token_data.get("expire", 0) < time.time()
-                ):
-                    self.rm_token(token)
-        else:
-            self.cache.clean_expired("tokens")
+        self.cache.clean_expired("tokens")
 
     def authenticate_token(self, load):
         """
