@@ -291,7 +291,11 @@ class AsyncRemotePillar(RemotePillarMixin):
             log.exception("Exception getting pillar:")
             raise SaltClientError("Exception getting pillar.")
         self.validate_return(ret_pillar)
-        ret_pillar = salt.utils.secret.hide(ret_pillar)
+        # pr-70413-alt (boundary-redaction prototype): return a plain dict.
+        # Masking now happens at logging/output boundary via
+        # salt._logging.filters.pillar.PillarRedactingFilter, driven by
+        # opts["pillar_mask_output"] / opts["pillar_mask_log_*"].  See
+        # doc/topics/pillar/boundary_redaction_design.md.
         return ret_pillar
 
     async def aclose(self):
@@ -441,7 +445,9 @@ class RemotePillar(RemotePillarMixin):
             log.exception("Exception getting pillar:")
             raise SaltClientError("Exception getting pillar.")
         self.validate_return(ret_pillar)
-        return salt.utils.secret.hide(ret_pillar)
+        # pr-70413-alt (boundary-redaction prototype): return a plain dict.
+        # See AsyncRemotePillar.compile_pillar above.
+        return ret_pillar
 
     def destroy(self):
         if hasattr(self, "_closing") and self._closing:
