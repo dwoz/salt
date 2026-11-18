@@ -34,9 +34,8 @@ def _warn_unmask_deprecated(func_name, unmask):
     """Emit a one-shot DeprecationWarning for ``unmask=`` on a pillar func.
 
     On this prototype branch pillar values are always real; masking is
-    handled at the output boundary via ``pillar_mask_output`` and the
-    ``pillar_mask_log_*`` opts.  The ``unmask`` kwarg is retained for API
-    compatibility but has no effect.
+    handled at the output boundary via ``pillar_mask_output``.  The
+    ``unmask`` kwarg is retained for API compatibility but has no effect.
     """
     if unmask is None:
         return
@@ -48,9 +47,7 @@ def _warn_unmask_deprecated(func_name, unmask):
             "pillar.{fn}: the 'unmask' keyword argument is deprecated and now "
             "has no effect.  Pillar values are always returned unmasked; "
             "masking is applied at the logging/output boundary via the "
-            "'pillar_mask_output', 'pillar_mask_log_keys', "
-            "'pillar_mask_log_paths' and 'pillar_mask_log_sources' minion "
-            "config options.  See "
+            "'pillar_mask_output' minion config option.  See "
             "doc/topics/pillar/boundary_redaction_design.md."
         ).format(fn=func_name),
         DeprecationWarning,

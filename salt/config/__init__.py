@@ -827,22 +827,12 @@ VALID_OPTS = immutabletypes.freeze(
         # Recursively merge lists by aggregating them instead of replacing them.
         "pillar_merge_lists": bool,
         # pr-70413-alt (boundary-redaction prototype): master switch for
-        # masking at the logging/output boundary.  When False (the
-        # prototype default), pillar values are never scrubbed and the
-        # PillarRedactingFilter is a passthrough.  When True, the filter
-        # consults ``pillar_mask_log_keys`` / ``pillar_mask_log_paths`` /
-        # ``pillar_mask_log_sources`` to decide what to redact.
+        # masking pillar values in log records.  When False (the
+        # prototype default), the PillarRedactingFilter is a
+        # zero-cost passthrough.  When True, every pillar leaf value
+        # (>= 4 characters) is redacted wherever it appears in any
+        # log record emitted by any logger.
         "pillar_mask_output": bool,
-        # pr-70413-alt: substring-match (case-insensitive) list of dict
-        # keys whose values should be redacted in log records.  Default
-        # is empty -- operator opts in.
-        "pillar_mask_log_keys": (tuple, list),
-        # pr-70413-alt: list of pillar paths (``"a:b:c"``) whose concrete
-        # values are regex-replaced in log records.  Default is empty.
-        "pillar_mask_log_paths": (tuple, list),
-        # pr-70413-alt: tuple of logger-name prefixes that the filter
-        # scopes to.  Default is ``("",)`` meaning "all loggers".
-        "pillar_mask_log_sources": (tuple, list),
         # If True, values from included pillar SLS targets will override
         "pillar_includes_override_sls": bool,
         # How to merge multiple top files from multiple salt environments
@@ -1358,9 +1348,6 @@ DEFAULT_MINION_OPTS = immutabletypes.freeze(
         # (3007.x behavior).  Operator opts in by flipping to True and
         # declaring the sensitive keys/paths below.
         "pillar_mask_output": False,
-        "pillar_mask_log_keys": (),
-        "pillar_mask_log_paths": [],
-        "pillar_mask_log_sources": ("",),
         "pillar_includes_override_sls": False,
         # ``pillar_cache``, ``pillar_cache_ttl``, ``pillar_cache_backend``,
         # ``gpg_cache``, ``gpg_cache_ttl`` and ``gpg_cache_backend``
@@ -1854,9 +1841,6 @@ DEFAULT_MASTER_OPTS = immutabletypes.freeze(
         "pillar_merge_lists": False,
         # pr-70413-alt boundary-redaction prototype defaults.
         "pillar_mask_output": False,
-        "pillar_mask_log_keys": (),
-        "pillar_mask_log_paths": [],
-        "pillar_mask_log_sources": ("",),
         "pillar_includes_override_sls": False,
         "pillar_cache": False,
         "pillar_cache_ttl": 3600,

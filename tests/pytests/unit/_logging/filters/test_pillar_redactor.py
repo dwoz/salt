@@ -1,7 +1,8 @@
 """
 Unit tests for :mod:`salt._logging.filters.pillar`.
 
-Covers the three redaction strategies, the disabled fast-path, and
+Covers the content-match redaction behaviour, the min-length floor,
+the disabled fast path, snapshot refresh on pillar reassignment, and
 the handler-level install helper.
 """
 
@@ -10,6 +11,7 @@ import logging
 import pytest
 
 from salt._logging.filters.pillar import (
+    MIN_VALUE_LENGTH,
     REDACT_PLACEHOLDER,
     PillarRedactingFilter,
     install_on_handler,
@@ -17,10 +19,9 @@ from salt._logging.filters.pillar import (
 
 
 def _make_record(msg, args=None, name="salt.states.pkg"):
-    # LogRecord unwraps a single-dict tuple to a plain dict (so that
-    # ``log.info("%(x)s", {"x": 1})`` works); bypass that by assigning
-    # ``args`` after construction so our tests can pass either a tuple
-    # or a mapping and get back exactly what they passed.
+    # LogRecord unwraps a single-dict tuple to a plain dict; bypass
+    # that by assigning args after construction so tests can round-trip
+    # any shape.
     record = logging.LogRecord(
         name=name,
         level=logging.INFO,
@@ -36,206 +37,203 @@ def _make_record(msg, args=None, name="salt.states.pkg"):
 
 class TestDisabledFastPath:
     def test_passthrough_when_disabled(self):
-        flt = PillarRedactingFilter({"pillar_mask_output": False})
-        record = _make_record("db password is %s", args=({"root_password": "hunter2"},))
+        flt = PillarRedactingFilter(
+            {
+                "pillar_mask_output": False,
+                "pillar": {"db": {"root_password": "hunter2secret"}},
+            }
+        )
+        record = _make_record("pillar value is hunter2secret", args=("hunter2secret",))
         assert flt.filter(record) is True
-        # args untouched
-        assert record.args == ({"root_password": "hunter2"},)
-        assert record.msg == "db password is %s"
+        assert record.msg == "pillar value is hunter2secret"
+        assert record.args == ("hunter2secret",)
 
-    def test_passthrough_when_no_opts(self):
-        flt = PillarRedactingFilter({})
-        record = _make_record("x %s", args=({"password": "s3cret"},))
+    def test_passthrough_when_opts_missing(self):
+        flt = PillarRedactingFilter()
+        record = _make_record("anything goes")
+        assert flt.filter(record) is True
+        assert record.msg == "anything goes"
+
+
+class TestContentMatch:
+    def _filter(self, pillar):
+        return PillarRedactingFilter({"pillar_mask_output": True, "pillar": pillar})
+
+    def test_redacts_string_leaf_in_msg(self):
+        flt = self._filter({"db": {"root_password": "hunter2secret"}})
+        record = _make_record("the password is hunter2secret here")
         flt.filter(record)
-        assert record.args == ({"password": "s3cret"},)
+        assert record.msg == f"the password is {REDACT_PLACEHOLDER} here"
 
+    def test_redacts_string_leaf_in_args(self):
+        flt = self._filter({"api": {"token": "s3cr3tt0k3n"}})
+        record = _make_record("token %s", args=("s3cr3tt0k3n",))
+        flt.filter(record)
+        assert record.args == (REDACT_PLACEHOLDER,)
 
-class TestKeyHeuristic:
-    def test_dict_in_tuple_args(self):
-        flt = PillarRedactingFilter(
-            {
-                "pillar_mask_output": True,
-                "pillar_mask_log_keys": ["password", "token"],
-            }
+    def test_redacts_nested_dict_leaves(self):
+        flt = self._filter(
+            {"app": {"db": {"password": "topsecret"}, "token": "beartoken"}}
         )
         record = _make_record(
-            "state ran %s", args=({"user": "alice", "password": "hunter2"},)
+            "topsecret and beartoken appear", args=({"nested": "beartoken"},)
         )
         flt.filter(record)
-        scrubbed = record.args[0]
-        assert scrubbed["password"] == REDACT_PLACEHOLDER
-        # Non-sensitive key untouched
-        assert scrubbed["user"] == "alice"
+        assert "topsecret" not in record.msg
+        assert "beartoken" not in record.msg
+        assert record.args[0]["nested"] == REDACT_PLACEHOLDER
 
-    def test_nested_dict(self):
+    def test_redacts_list_leaves(self):
+        flt = self._filter({"certs": ["cert_aaaaaa", "cert_bbbbbb"]})
+        record = _make_record("certs: cert_aaaaaa and cert_bbbbbb")
+        flt.filter(record)
+        assert record.msg == f"certs: {REDACT_PLACEHOLDER} and {REDACT_PLACEHOLDER}"
+
+    def test_redacts_bytes_leaf(self):
+        flt = self._filter({"k": b"deadbeefbytes"})
+        record = _make_record("value deadbeefbytes seen")
+        flt.filter(record)
+        assert record.msg == f"value {REDACT_PLACEHOLDER} seen"
+
+    def test_redacts_int_leaf(self):
+        flt = self._filter({"port": 48506})
+        record = _make_record("listening on 48506")
+        flt.filter(record)
+        assert record.msg == f"listening on {REDACT_PLACEHOLDER}"
+
+    def test_longest_first_handles_overlap(self):
+        # If both "hunter2" and "hunter2extralong" are leaves, the
+        # longer one must win so we don't leave "extralong" behind.
+        flt = self._filter({"a": "hunter2", "b": "hunter2extralong"})
+        record = _make_record("value hunter2extralong")
+        flt.filter(record)
+        assert record.msg == f"value {REDACT_PLACEHOLDER}"
+
+
+class TestMinimumLengthFloor:
+    def test_short_values_are_not_redacted(self):
+        # Under MIN_VALUE_LENGTH chars: must NOT be redacted (would
+        # collide too often with ordinary log text).
+        pillar = {"env": "qa", "x": "ab"}
+        flt = PillarRedactingFilter({"pillar_mask_output": True, "pillar": pillar})
+        record = _make_record("env is qa and ab")
+        flt.filter(record)
+        assert record.msg == "env is qa and ab"
+
+    def test_values_at_floor_are_redacted(self):
+        assert MIN_VALUE_LENGTH == 4
+        flt = PillarRedactingFilter(
+            {"pillar_mask_output": True, "pillar": {"k": "abcd"}}
+        )
+        record = _make_record("value abcd here")
+        flt.filter(record)
+        assert record.msg == f"value {REDACT_PLACEHOLDER} here"
+
+    def test_booleans_are_not_redacted(self):
+        # "True"/"False" collisions would be absurd.
         flt = PillarRedactingFilter(
             {
                 "pillar_mask_output": True,
-                "pillar_mask_log_keys": ["password"],
+                "pillar": {"enabled": True, "disabled": False},
             }
         )
-        record = _make_record("ran %s", args=({"db": {"root_password": "hunter2"}},))
+        record = _make_record("enabled=True disabled=False")
         flt.filter(record)
-        assert record.args[0]["db"]["root_password"] == REDACT_PLACEHOLDER
-
-    def test_case_insensitive_substring(self):
-        flt = PillarRedactingFilter(
-            {"pillar_mask_output": True, "pillar_mask_log_keys": ["secret"]}
-        )
-        record = _make_record("%s", args=({"MySecretKey": "boo"},))
-        flt.filter(record)
-        assert record.args[0]["MySecretKey"] == REDACT_PLACEHOLDER
-
-    def test_dict_as_args(self):
-        """record.args may be a mapping when msg uses named formatting."""
-        flt = PillarRedactingFilter(
-            {"pillar_mask_output": True, "pillar_mask_log_keys": ["password"]}
-        )
-        record = _make_record("%(user)s", args={"user": "a", "password": "p"})
-        flt.filter(record)
-        assert record.args["password"] == REDACT_PLACEHOLDER
-        assert record.args["user"] == "a"
+        assert record.msg == "enabled=True disabled=False"
 
 
-class TestPathDenylist:
-    def test_regex_sub_in_msg(self):
+class TestRefreshOnPillarSwap:
+    def test_rebinding_pillar_refreshes_snapshot(self):
         opts = {
             "pillar_mask_output": True,
-            "pillar_mask_log_paths": ["database:root_password"],
-            "pillar": {"database": {"root_password": "hunter2"}},
+            "pillar": {"k": "oldsecretvalue"},
         }
         flt = PillarRedactingFilter(opts)
-        record = _make_record("the password is hunter2 today")
-        flt.filter(record)
-        assert "hunter2" not in record.msg
-        assert REDACT_PLACEHOLDER in record.msg
 
-    def test_regex_sub_in_args_values(self):
+        record = _make_record("oldsecretvalue appears")
+        flt.filter(record)
+        assert record.msg == f"{REDACT_PLACEHOLDER} appears"
+
+        # Swap pillar (new dict identity) and verify the new value is
+        # redacted while the old one is no longer in the regex.
+        opts["pillar"] = {"k": "newsecretvalue"}
+        record = _make_record("newsecretvalue appears")
+        flt.filter(record)
+        assert record.msg == f"{REDACT_PLACEHOLDER} appears"
+
+        record = _make_record("oldsecretvalue appears")
+        flt.filter(record)
+        assert record.msg == "oldsecretvalue appears"
+
+    def test_explicit_refresh_rebuilds_snapshot(self):
         opts = {
             "pillar_mask_output": True,
-            "pillar_mask_log_paths": ["api_key"],
-            "pillar": {"api_key": "sk-abcdef12345"},
+            "pillar": {"k": "originalval"},
         }
         flt = PillarRedactingFilter(opts)
-        record = _make_record(
-            "sent %s", args=({"headers": {"X-Auth": "Bearer sk-abcdef12345"}},)
-        )
+
+        # Mutate the SAME dict in-place; id() won't change, so lazy
+        # refresh won't fire -- but explicit refresh() should.
+        opts["pillar"]["k"] = "mutatedvalue"
+        flt.refresh()
+
+        record = _make_record("mutatedvalue here")
         flt.filter(record)
-        assert "sk-abcdef12345" not in str(record.args)
-
-    def test_missing_path_is_noop(self):
-        opts = {
-            "pillar_mask_output": True,
-            "pillar_mask_log_paths": ["does:not:exist"],
-            "pillar": {},
-        }
-        flt = PillarRedactingFilter(opts)
-        record = _make_record("plain message with hunter2")
-        flt.filter(record)
-        assert record.msg == "plain message with hunter2"
+        assert record.msg == f"{REDACT_PLACEHOLDER} here"
 
 
-class TestSourceScoping:
-    def test_logger_prefix_scope(self):
+class TestBehaviorAlwaysReturnsTrue:
+    def test_filter_bug_does_not_block_record(self, monkeypatch):
+        """A bug inside the filter must never silence logging."""
         flt = PillarRedactingFilter(
-            {
-                "pillar_mask_output": True,
-                "pillar_mask_log_keys": ["password"],
-                "pillar_mask_log_sources": ["salt.states"],
-            }
+            {"pillar_mask_output": True, "pillar": {"k": "normalval"}}
         )
-        # Matching scope
-        record_in = _make_record(
-            "%s", args=({"password": "p"},), name="salt.states.pkg"
-        )
-        flt.filter(record_in)
-        assert record_in.args[0]["password"] == REDACT_PLACEHOLDER
 
-        # Out of scope -> untouched
-        record_out = _make_record(
-            "%s", args=({"password": "p"},), name="urllib3.connectionpool"
-        )
-        flt.filter(record_out)
-        assert record_out.args[0]["password"] == "p"
+        def boom(*args, **kwargs):
+            raise RuntimeError("synthetic filter bug")
 
-    def test_empty_prefix_matches_all(self):
-        flt = PillarRedactingFilter(
-            {
-                "pillar_mask_output": True,
-                "pillar_mask_log_keys": ["password"],
-                "pillar_mask_log_sources": [""],
-            }
-        )
-        record = _make_record(
-            "%s", args=({"password": "p"},), name="urllib3.connectionpool"
-        )
-        flt.filter(record)
-        assert record.args[0]["password"] == REDACT_PLACEHOLDER
+        monkeypatch.setattr(flt, "_scrub", boom)
+        record = _make_record("normalval", args=({"a": "normalval"},))
+        # Must not raise; must return True; record may be partially
+        # scrubbed or unchanged.
+        assert flt.filter(record) is True
 
 
 class TestInstallOnHandler:
-    def test_attaches_filter(self):
-        handler = logging.StreamHandler()
-        opts = {
-            "pillar_mask_output": True,
-            "pillar_mask_log_keys": ["password"],
-        }
-        flt = install_on_handler(handler, opts)
-        assert isinstance(flt, PillarRedactingFilter)
-        assert flt in handler.filters
+    def test_attaches_once(self):
+        handler = logging.Handler()
+        opts = {"pillar_mask_output": True, "pillar": {"k": "unique_val"}}
 
-    def test_idempotent(self):
-        handler = logging.StreamHandler()
-        opts = {"pillar_mask_output": True}
-        flt1 = install_on_handler(handler, opts)
-        flt2 = install_on_handler(handler, opts)
-        assert flt1 is flt2
+        f1 = install_on_handler(handler, opts)
+        f2 = install_on_handler(handler, opts)
+
+        assert f1 is f2
         assert sum(isinstance(f, PillarRedactingFilter) for f in handler.filters) == 1
 
-    def test_handler_pipeline_scrubs(self, caplog):
-        """
-        Install on root's propagation point (caplog's handler) and
-        verify the record seen by caplog has scrubbed args.
-        """
-        opts = {
-            "pillar_mask_output": True,
-            "pillar_mask_log_keys": ["password"],
-        }
-        # caplog.handler is attached to root and picks up propagated records
-        install_on_handler(caplog.handler, opts)
-        try:
-            log = logging.getLogger("salt.states.test_boundary")
-            log.setLevel(logging.DEBUG)
-            with caplog.at_level(logging.DEBUG, logger="salt.states.test_boundary"):
-                log.info("payload %s", {"password": "hunter2"})
-            # The record's args were mutated before caplog formatted it
-            assert all("hunter2" not in str(r.args) for r in caplog.records)
-        finally:
-            caplog.handler.filters = [
-                f
-                for f in caplog.handler.filters
-                if not isinstance(f, PillarRedactingFilter)
-            ]
+    def test_second_install_refreshes_opts(self):
+        handler = logging.Handler()
+        opts_a = {"pillar_mask_output": True, "pillar": {"k": "aaaaaaaa"}}
+        opts_b = {"pillar_mask_output": True, "pillar": {"k": "bbbbbbbb"}}
+
+        f1 = install_on_handler(handler, opts_a)
+        f2 = install_on_handler(handler, opts_b)
+        assert f1 is f2
+
+        record = _make_record("bbbbbbbb and aaaaaaaa")
+        f1.filter(record)
+        assert "bbbbbbbb" not in record.msg
+        # Snapshot was rebound to opts_b, so aaaaaaaa is no longer in
+        # the regex and must be left alone.
+        assert "aaaaaaaa" in record.msg
+
+    def test_none_handler_is_a_noop(self):
+        assert install_on_handler(None, {"pillar_mask_output": True}) is None
 
 
-class TestFilterSafety:
-    def test_filter_never_raises(self):
-        """A bug in the scrubber must not silence logging."""
-        flt = PillarRedactingFilter(
-            {
-                "pillar_mask_output": True,
-                "pillar_mask_log_keys": ["password"],
-            }
-        )
-
-        class _Weird:
-            def __iter__(self):
-                raise RuntimeError("explode")
-
-        record = _make_record("x", args=(_Weird(),))
-        # No assertion on scrubbing -- just that filter() returned True
-        assert flt.filter(record) is True
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-xvs"])
+@pytest.mark.parametrize("value", ["", None])
+def test_empty_or_none_pillar(value):
+    opts = {"pillar_mask_output": True, "pillar": value}
+    flt = PillarRedactingFilter(opts)
+    record = _make_record("nothing to redact here")
+    assert flt.filter(record) is True
+    assert record.msg == "nothing to redact here"

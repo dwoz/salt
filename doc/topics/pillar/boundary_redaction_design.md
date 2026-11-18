@@ -40,7 +40,7 @@ becomes an _output-boundary_ concern, not a type-system concern.
 | Third-party pillar consumers             | Silently masked if they `str()` / `repr()` the dict     | Unchanged (plain dict in, plain dict out)                    |
 | Kwarg churn                              | Nine pillar funcs grew `unmask=`                        | Nine pillar funcs' `unmask=` is deprecated / no-op           |
 | Audit surface                            | Every stringification site is a potential leak point    | One logging filter at every handler is the surface           |
-| Operator tunability                      | On/off; contextvar toggles                              | Three knobs: key-heuristic, path denylist, logger scope      |
+| Operator tunability                      | On/off; contextvar toggles                              | One knob: `pillar_mask_output` (bool)                        |
 | Upgrade path from 3007.x                 | Transparent only if code never stringifies pillar       | Transparent; operators flip one opt when they're ready       |
 | Non-logging leak paths (e.g. return data)| Covered (dict-level masking)                            | **Not** covered -- see "Known limits" below                  |
 
@@ -49,18 +49,16 @@ becomes an _output-boundary_ concern, not a type-system concern.
 Eight commits on `pr-70413-alt-boundary-redaction`, one per phase:
 
 1. **`salt/_logging/filters/pillar.py`** -- `PillarRedactingFilter`,
-   a `logging.Filter` with three additive redaction strategies:
-   - _Key-name heuristic_: dict values whose keys match
-     `opts["pillar_mask_log_keys"]` (substring, case-insensitive) are
-     replaced with `**********` in `record.args`.
-   - _Path denylist_: `opts["pillar_mask_log_paths"]` lists pillar
-     paths like `"database:root_password"`. The filter resolves them
-     via `opts["pillar"]`, compiles a regex of the concrete values,
-     and `re.sub`s both `record.msg` (if str) and string leaves of
-     `record.args`.
-   - _Logger scope_: `opts["pillar_mask_log_sources"]` is a tuple of
-     logger-name prefixes the filter applies to. Default `("",)` means
-     all loggers; set to e.g. `("salt.states.",)` to scope more tightly.
+   a `logging.Filter` that redacts every pillar leaf value from
+   outbound log records. At install time (and lazily whenever
+   `id(opts["pillar"])` changes) it walks the pillar, collects every
+   string / bytes / int / float leaf that is at least
+   `MIN_VALUE_LENGTH` (4) characters long, and compiles a
+   longest-match-first regex. On each `filter(record)` call it
+   `re.sub`s `**********` in `record.msg` (if str) and in string
+   leaves of `record.args`. Booleans are deliberately skipped
+   (`True`/`False` collisions would be absurd); scalars shorter than
+   4 characters are skipped (collisions with ordinary log text).
    Fast path: `pillar_mask_output=False` returns `True` immediately.
    `filter()` is wrapped in `try/except` so a bug in the scrubber can
    never silence logging.
@@ -94,11 +92,11 @@ Eight commits on `pr-70413-alt-boundary-redaction`, one per phase:
    preserved -- this just widens the scrub to debug logging _inside_
    the state body.
 
-6. **`salt/config/__init__.py`** -- adds `pillar_mask_log_keys`,
-   `pillar_mask_log_paths`, `pillar_mask_log_sources` opts to
-   `VALID_OPTS`, `DEFAULT_MINION_OPTS`, and `DEFAULT_MASTER_OPTS`.
-   Flips the default of `pillar_mask_output` from `True` to `False`
-   (restoring 3007.x semantics for operators who do not opt in).
+6. **`salt/config/__init__.py`** -- flips the default of
+   `pillar_mask_output` from `True` to `False` (restoring 3007.x
+   semantics for operators who do not opt in). No other config
+   options are added; `pillar_mask_output` is the entire operator
+   surface.
 
 7. **Tests** -- 40 pytest cases across four files; see commit
    `ce28cd75609`.
@@ -119,21 +117,23 @@ This prototype is deliberately narrower than the `MaskedDict` design:
   and salt-ssh roster stdout are _not_ covered. The 3008.x design
   caught these because the dict itself lied in `__repr__`; this one
   doesn't.
-- **Key-heuristic false positives.** `"authorized_keys"` matches
-  `"auth"` and gets scrubbed. Operators who need `authorized_keys` in
-  logs must either narrow the heuristic or add negative patterns (not
-  implemented in this prototype).
-- **Operator must declare paths.** The path denylist is fully explicit.
-  An operator who forgets to add `web:api_key` to
-  `pillar_mask_log_paths` gets no protection for that value. The
-  key-name heuristic is the belt; the path denylist is the
-  suspenders; neither alone covers a careless pillar schema.
+- **Coincidental-collision redaction.** The filter redacts every
+  textual occurrence of a pillar leaf value. If pillar has
+  `datacenter: "us-east-1"` and a log line says
+  `"deployed to us-east-1"`, that log line becomes
+  `"deployed to **********"`. For sensitive values this is the
+  intended behavior; for operational values it is noise. Unavoidable
+  given plain-dict-in-memory semantics.
+- **Short values leak.** Pillar leaves shorter than 4 characters are
+  not redacted. A 2-character PIN in pillar would otherwise redact
+  every occurrence of those two characters in every log line, which
+  is unusable. The floor is a hard internal constant, not a knob.
 - **Pillar refresh race.** The filter caches the regex per
-  `id(opts["pillar"])`. If opts["pillar"] is mutated in-place rather
+  `id(opts["pillar"])`. If `opts["pillar"]` is mutated in-place rather
   than rebound, the filter won't re-compile until the next log
-  record -- which is fine, but means for exactly one window between
-  rebind and next-record, concrete values from the _new_ pillar are
-  not yet in the regex.
+  record -- and if the dict identity never changes, it won't re-compile
+  at all. The `refresh()` method is exposed for callers that mutate
+  in-place and need to force a rebuild.
 
 ## Migration
 
@@ -164,17 +164,18 @@ This prototype is deliberately narrower than the `MaskedDict` design:
 2. **State-body scope widening.** `_no_log_scope` catches records from
    `salt.states.*` and `salt.loaded.int.states.*`. Should it also
    scope to `salt.modules.*` logs emitted during a state body (e.g.
-   `cmd.run` debug output)? The decision has perf implications --
-   wider scope means more records go through the scrubber.
-3. **Key-heuristic defaults.** The default list
-   (`password`, `secret`, `token`, `credential`, `auth`, ...) is
-   deliberately conservative. Should it be empty (operator must
-   declare) to match the strictness of `pillar_mask_log_paths`?
-4. **`MaskedDict` retirement timeline.** Is this prototype positioned
+   `cmd.run` debug output)? Wider scope means more records go
+   through the scrubber.
+3. **`MaskedDict` retirement timeline.** Is this prototype positioned
    as a replacement (delete `MaskedDict` after shipping) or as a
    parallel option (keep both, let the operator pick via opts)? The
    parallel-option route avoids the breakage in known limits above
    but doubles the surface to maintain.
+4. **Minimum-value-length floor.** Hardcoded at 4 characters. Short
+   secrets (PINs, 2-char country codes used as pillar values) leak;
+   lowering the floor causes unusable collision rates. Is 4 the right
+   number, and is a fixed internal constant the right form (vs a
+   config knob)?
 5. **salt-ssh thin.** salt-ssh ships a trimmed tree; does the thin
    include `salt._logging.filters.pillar`? If not, salt-ssh runs don't
    get boundary redaction. Is that acceptable given salt-ssh output is
