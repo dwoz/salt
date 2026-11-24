@@ -5267,7 +5267,10 @@ class Minion(MinionBase):
                     except Exception as exc:  # pylint: disable=broad-except
                         log.error("Error firing master request return event: %s", exc)
             else:
-                log.error(
+                # Benign skip: this req was issued against a different master
+                # in a multi-master / failover topology.  Normal routing
+                # behaviour, not an error condition.  See #70891.
+                log.debug(
                     "Skipping req for other master: cmd=%s master=%s id=%s",
                     data["cmd"],
                     job_master,
@@ -5350,7 +5353,9 @@ class Minion(MinionBase):
                 self.connected = False
                 log.info("Connection to master %s lost", self.opts["master"])
                 if self.opts["transport"] != "tcp":
-                    self.schedule.delete_job(name=master_event(type="alive"))
+                    self.schedule.delete_job(
+                        name=master_event(type="alive", master=self.opts["master"])
+                    )
 
                 log.info("Trying to tune in to next master from master-list")
 
